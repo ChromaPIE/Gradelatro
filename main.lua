@@ -26,4 +26,7 @@ Bootstrap.attach(Gradelatro, "Economy", Economy)
 local Stakes = load_src("stakes.lua")
 Bootstrap.attach(Gradelatro, "Stakes", Stakes)
 
+local Condition = load_src("condition.lua")
+Bootstrap.attach(Gradelatro, "Condition", Condition)
+
 return Gradelatro

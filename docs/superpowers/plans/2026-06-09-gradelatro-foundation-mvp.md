@@ -724,9 +724,18 @@ local damaged_surface = {
     surface = 7.0
 }
 
+local short_corner = {
+    centering = 10.0,
+    print_quality = 10.0,
+    corners = 9.0,
+    edges = 10.0,
+    surface = 10.0
+}
+
 H.assert_equal(Condition.grade(perfect), 10, "perfect grade")
 H.assert_equal(Condition.grade(near_mint), 9, "near mint grade")
 H.assert_equal(Condition.grade(damaged_surface), 7, "surface cap")
+H.assert_equal(Condition.grade(short_corner), 9, "short corner blocks gem mint")
 
 local worn = Condition.apply_wear(perfect, "polychrome", 0.50)
 H.assert_true(worn.surface < perfect.surface, "wear lowers surface")
