@@ -1,0 +1,23 @@
+local current_mod = SMODS and SMODS.current_mod or {
+    path = ".",
+    version = "0.1.0",
+    config = {}
+}
+
+local function load_src(path)
+    if SMODS and SMODS.load_file then
+        return assert(SMODS.load_file("src/" .. path))()
+    end
+    return dofile("src/" .. path)
+end
+
+local Bootstrap = load_src("bootstrap.lua")
+local Gradelatro = Bootstrap.init(current_mod)
+
+local Config = load_src("config.lua")
+Bootstrap.attach(Gradelatro, "Config", Config)
+
+Gradelatro.config = Config.normalize(current_mod.config or {})
+current_mod.config = Gradelatro.config
+
+return Gradelatro

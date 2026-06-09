@@ -1,0 +1,13 @@
+# Editor and OS noise
+.DS_Store
+Thumbs.db
+*.swp
+*.tmp
+
+# Lua build artifacts and logs
+*.luac
+*.log
+
+# Local dump artifacts
+lovely/dump/
+lovely/game-dump/

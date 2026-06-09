@@ -1,0 +1,18 @@
+{
+  "id": "Gradelatro",
+  "name": "Gradelatro",
+  "display_name": "Gradelatro",
+  "author": ["ChromaPIE"],
+  "description": "Joker card collecting, authentication, grading, and light market systems for Balatro.",
+  "prefix": "grdl",
+  "main_file": "main.lua",
+  "priority": 0,
+  "badge_colour": "C8A45D",
+  "badge_text_colour": "1E1A16",
+  "version": "0.1.0",
+  "dependencies": [
+    "Steamodded (>=1.0.0~BETA-0323b)",
+    "Lovely (>=0.6)"
+  ],
+  "allow_redistribution": true
+}
