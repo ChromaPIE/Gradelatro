@@ -1,0 +1,28 @@
+[manifest]
+version = "1.0.0"
+dump_lua = true
+priority = 0
+
+[[patches]]
+[patches.pattern]
+target = "game.lua"
+pattern = '''won = false,'''
+position = "after"
+payload = '''grdl_run_started_at = os.time(),'''
+match_indent = true
+overwrite = false
+
+[[patches]]
+[patches.pattern]
+target = "functions/state_events.lua"
+pattern = '''G.FUNCS.overlay_menu{'''
+position = "before"
+payload = '''
+            if Gradelatro and Gradelatro.RunEnd then
+                pcall(function()
+                    Gradelatro.RunEnd.capture_win_buyout_offer()
+                end)
+            end
+'''
+match_indent = false
+overwrite = false
