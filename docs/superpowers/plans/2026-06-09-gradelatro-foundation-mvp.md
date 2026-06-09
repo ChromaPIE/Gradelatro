@@ -451,7 +451,7 @@ H.assert_equal(Economy.buyout_price(config, { rav = 100, owned_count = 1 }), 100
 H.assert_equal(Economy.buyout_price(config, { rav = 100, owned_count = 3 }), 115, "hoard multiplier")
 H.assert_equal(Economy.grading_fee(config, 100, "standard"), 16, "standard fee")
 H.assert_equal(Economy.grading_fee(config, 50, "prescreen"), 15, "minimum fee")
-H.assert_equal(Economy.settlement_g(config, { gate = "blue", won = true, dollars = 100 }), 75, "blue win settlement")
+H.assert_equal(Economy.settlement_g(config, { gate = "blue", won = true, dollars = 200 }), 75, "blue win settlement")
 H.assert_equal(Economy.settlement_g(config, { gate = "blue", won = false, dollars = 100 }), 10, "loss settlement")
 
 print("economy tests ok")

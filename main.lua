@@ -20,4 +20,7 @@ Bootstrap.attach(Gradelatro, "Config", Config)
 Gradelatro.config = Config.normalize(current_mod.config or {})
 current_mod.config = Gradelatro.config
 
+local Economy = load_src("economy.lua")
+Bootstrap.attach(Gradelatro, "Economy", Economy)
+
 return Gradelatro
