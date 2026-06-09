@@ -55,12 +55,16 @@ function Storage.add_raw_card(state, args)
         id = id,
         status = "raw",
         center_key = args.center_key,
+        local_key = args.local_key,
         series_key = args.series_key or args.set_key,
         mod_id = args.mod_id,
         rarity = args.rarity,
         edition = args.edition,
         condition = copy_condition(args.condition),
         acquired_at = args.acquired_at,
+        acquired_year = args.acquired_year,
+        source_run_id = args.source_run_id,
+        source_run_started_at = args.source_run_started_at,
         source = args.source
     }
     state.cards[#state.cards + 1] = card

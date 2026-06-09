@@ -17,6 +17,7 @@ H.assert_equal(state.currency_g, 60, "currency unchanged after failed spend")
 
 local card = Storage.add_raw_card(state, {
     center_key = "j_joker",
+    local_key = "joker",
     series_key = "BALATRO Series",
     mod_id = "Balatro",
     rarity = "common",
@@ -29,12 +30,19 @@ local card = Storage.add_raw_card(state, {
         surface = 9.0
     },
     acquired_at = 1000,
+    acquired_year = 2026,
+    source_run_id = "run_abc",
+    source_run_started_at = 900,
     source = "win_buyout"
 })
 
 H.assert_equal(card.id, "grdl_1", "first card id")
 H.assert_equal(card.status, "raw", "raw status")
+H.assert_equal(card.local_key, "joker", "local key stored")
 H.assert_equal(card.series_key, "BALATRO Series", "series key stored")
+H.assert_equal(card.acquired_year, 2026, "acquired year stored")
+H.assert_equal(card.source_run_id, "run_abc", "source run id stored")
+H.assert_equal(card.source_run_started_at, 900, "source run start stored")
 H.assert_equal(state.next_card_id, 2, "next id")
 H.assert_equal(Storage.count_owned_center(state, "j_joker"), 1, "owned count")
 

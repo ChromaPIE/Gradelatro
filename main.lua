@@ -41,4 +41,7 @@ Bootstrap.attach(Gradelatro, "Catalog", Catalog)
 local Label = load_src("label.lua")
 Bootstrap.attach(Gradelatro, "Label", Label)
 
+local Buyout = load_src("buyout.lua")
+Bootstrap.attach(Gradelatro, "Buyout", Buyout)
+
 return Gradelatro
