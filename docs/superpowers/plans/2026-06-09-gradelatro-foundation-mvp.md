@@ -45,7 +45,7 @@ This plan covers the foundation MVP only. It creates a loadable SMODS mod shell 
 - Create: `src/condition.lua`  
   Hidden condition generation, wear application, grade calculation, and grade multipliers.
 - Create: `src/storage.lua`  
-  Schema initialization, migration, collection instance creation, currency mutation, and safe missing-card records.
+  Schema initialization, migration, collection instance creation, currency mutation, transient indexes, and safe missing-card records.
 - Create: `src/catalog.lua`  
   Joker center discovery, series assignment, authenticated edition normalization, and rarity mapping.
 - Create: `tests/test_helper.lua`  
@@ -919,6 +919,10 @@ H.assert_equal(#state.cards, 0, "initial cards")
 Storage.add_currency(state, 120)
 Storage.add_currency(state, -20)
 H.assert_equal(state.currency_g, 100, "currency mutation")
+H.assert_equal(Storage.spend_currency(state, 40), true, "spend available currency")
+H.assert_equal(state.currency_g, 60, "currency after spend")
+H.assert_equal(Storage.spend_currency(state, 100), false, "reject overspend")
+H.assert_equal(state.currency_g, 60, "currency unchanged after failed spend")
 
 local card = Storage.add_raw_card(state, {
     center_key = "j_joker",
@@ -942,9 +946,17 @@ H.assert_equal(card.status, "raw", "raw status")
 H.assert_equal(state.next_card_id, 2, "next id")
 H.assert_equal(Storage.count_owned_center(state, "j_joker"), 1, "owned count")
 
+local index = Storage.build_index(state)
+H.assert_equal(index.by_id[card.id], card, "index by id")
+H.assert_equal(index.center_counts.j_joker, 1, "index center count")
+
 Storage.mark_lost(state, card.id, "destroyed_in_run")
 H.assert_equal(state.cards[1].status, "lost", "lost status")
 H.assert_equal(state.cards[1].lost_reason, "destroyed_in_run", "lost reason")
+H.assert_equal(Storage.count_owned_center(state, "j_joker"), 0, "lost cards not counted")
+
+local post_loss_index = Storage.build_index(state)
+H.assert_equal(post_loss_index.center_counts.j_joker or 0, 0, "lost cards not counted in index")
 
 print("storage tests ok")
 ```
@@ -969,6 +981,7 @@ local Storage = {}
 local CURRENT_SCHEMA = 1
 
 local function copy_condition(condition)
+    condition = condition or {}
     return {
         centering = condition.centering,
         print_quality = condition.print_quality,
@@ -976,6 +989,10 @@ local function copy_condition(condition)
         edges = condition.edges,
         surface = condition.surface
     }
+end
+
+local function is_owned_status(status)
+    return status ~= "lost" and status ~= "sold"
 end
 
 function Storage.normalize(input)
@@ -1021,8 +1038,23 @@ function Storage.add_raw_card(state, args)
     return card
 end
 
-function Storage.find_card(state, card_id)
-    for _, card in ipairs(state.cards) do
+function Storage.build_index(state)
+    local index = {
+        by_id = {},
+        center_counts = {}
+    }
+    for _, card in ipairs(state.cards or {}) do
+        index.by_id[card.id] = card
+        if card.center_key and is_owned_status(card.status) then
+            index.center_counts[card.center_key] = (index.center_counts[card.center_key] or 0) + 1
+        end
+    end
+    return index
+end
+
+function Storage.find_card(state, card_id, index)
+    if index and index.by_id then return index.by_id[card_id] end
+    for _, card in ipairs(state.cards or {}) do
         if card.id == card_id then return card end
     end
     return nil
@@ -1036,10 +1068,14 @@ function Storage.mark_lost(state, card_id, reason)
     return true
 end
 
-function Storage.count_owned_center(state, center_key)
+function Storage.count_owned_center(state, center_key, index)
+    if index and index.center_counts then
+        return index.center_counts[center_key] or 0
+    end
+
     local count = 0
-    for _, card in ipairs(state.cards) do
-        if card.center_key == center_key and card.status ~= "lost" and card.status ~= "sold" then
+    for _, card in ipairs(state.cards or {}) do
+        if card.center_key == center_key and is_owned_status(card.status) then
             count = count + 1
         end
     end

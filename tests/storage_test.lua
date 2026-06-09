@@ -1,0 +1,51 @@
+local H = dofile("tests/test_helper.lua")
+local Storage = dofile("src/storage.lua")
+
+local state = Storage.normalize(nil)
+H.assert_equal(state.schema_version, 1, "schema version")
+H.assert_equal(state.currency_g, 0, "initial currency")
+H.assert_equal(#state.cards, 0, "initial cards")
+
+Storage.add_currency(state, 120)
+Storage.add_currency(state, -20)
+H.assert_equal(state.currency_g, 100, "currency mutation")
+H.assert_equal(Storage.spend_currency(state, 40), true, "spend available currency")
+H.assert_equal(state.currency_g, 60, "currency after spend")
+H.assert_equal(Storage.spend_currency(state, 100), false, "reject overspend")
+H.assert_equal(state.currency_g, 60, "currency unchanged after failed spend")
+
+local card = Storage.add_raw_card(state, {
+    center_key = "j_joker",
+    set_key = "BALATRO Standard",
+    mod_id = "Balatro",
+    rarity = "common",
+    edition = "base",
+    condition = {
+        centering = 9.1,
+        print_quality = 9.0,
+        corners = 8.9,
+        edges = 9.2,
+        surface = 9.0
+    },
+    acquired_at = 1000,
+    source = "win_buyout"
+})
+
+H.assert_equal(card.id, "grdl_1", "first card id")
+H.assert_equal(card.status, "raw", "raw status")
+H.assert_equal(state.next_card_id, 2, "next id")
+H.assert_equal(Storage.count_owned_center(state, "j_joker"), 1, "owned count")
+
+local index = Storage.build_index(state)
+H.assert_equal(index.by_id[card.id], card, "index by id")
+H.assert_equal(index.center_counts.j_joker, 1, "index center count")
+
+Storage.mark_lost(state, card.id, "destroyed_in_run")
+H.assert_equal(state.cards[1].status, "lost", "lost status")
+H.assert_equal(state.cards[1].lost_reason, "destroyed_in_run", "lost reason")
+H.assert_equal(Storage.count_owned_center(state, "j_joker"), 0, "lost cards not counted")
+
+local post_loss_index = Storage.build_index(state)
+H.assert_equal(post_loss_index.center_counts.j_joker or 0, 0, "lost cards not counted in index")
+
+print("storage tests ok")

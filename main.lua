@@ -29,4 +29,10 @@ Bootstrap.attach(Gradelatro, "Stakes", Stakes)
 local Condition = load_src("condition.lua")
 Bootstrap.attach(Gradelatro, "Condition", Condition)
 
+local Storage = load_src("storage.lua")
+Bootstrap.attach(Gradelatro, "Storage", Storage)
+
+current_mod.config.collection = Storage.normalize(current_mod.config.collection)
+Gradelatro.collection = current_mod.config.collection
+
 return Gradelatro
