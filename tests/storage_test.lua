@@ -5,6 +5,7 @@ local state = Storage.normalize(nil)
 H.assert_equal(state.schema_version, 1, "schema version")
 H.assert_equal(state.currency_g, 0, "initial currency")
 H.assert_equal(#state.cards, 0, "initial cards")
+H.assert_equal(state.next_cert_id, 1, "initial cert id")
 
 Storage.add_currency(state, 120)
 Storage.add_currency(state, -20)
@@ -16,7 +17,7 @@ H.assert_equal(state.currency_g, 60, "currency unchanged after failed spend")
 
 local card = Storage.add_raw_card(state, {
     center_key = "j_joker",
-    set_key = "BALATRO Standard",
+    series_key = "BALATRO Series",
     mod_id = "Balatro",
     rarity = "common",
     edition = "base",
@@ -33,6 +34,7 @@ local card = Storage.add_raw_card(state, {
 
 H.assert_equal(card.id, "grdl_1", "first card id")
 H.assert_equal(card.status, "raw", "raw status")
+H.assert_equal(card.series_key, "BALATRO Series", "series key stored")
 H.assert_equal(state.next_card_id, 2, "next id")
 H.assert_equal(Storage.count_owned_center(state, "j_joker"), 1, "owned count")
 
@@ -47,5 +49,9 @@ H.assert_equal(Storage.count_owned_center(state, "j_joker"), 0, "lost cards not 
 
 local post_loss_index = Storage.build_index(state)
 H.assert_equal(post_loss_index.center_counts.j_joker or 0, 0, "lost cards not counted in index")
+
+H.assert_equal(Storage.allocate_cert_number(state), "000001", "first cert number")
+H.assert_equal(Storage.allocate_cert_number(state), "000002", "second cert number")
+H.assert_equal(state.next_cert_id, 3, "next cert id")
 
 print("storage tests ok")

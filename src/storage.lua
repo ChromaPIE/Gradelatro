@@ -22,11 +22,18 @@ function Storage.normalize(input)
     state.schema_version = CURRENT_SCHEMA
     state.currency_g = math.max(0, math.floor(state.currency_g or 0))
     state.next_card_id = math.max(1, math.floor(state.next_card_id or 1))
+    state.next_cert_id = math.max(1, math.floor(state.next_cert_id or 1))
     state.cards = type(state.cards) == "table" and state.cards or {}
     state.grading_queue = type(state.grading_queue) == "table" and state.grading_queue or {}
     state.market = type(state.market) == "table" and state.market or { series_heat = {} }
     state.market.series_heat = type(state.market.series_heat) == "table" and state.market.series_heat or {}
     return state
+end
+
+function Storage.allocate_cert_number(state)
+    local cert_number = string.format("%06d", state.next_cert_id or 1)
+    state.next_cert_id = (state.next_cert_id or 1) + 1
+    return cert_number
 end
 
 function Storage.add_currency(state, amount)
@@ -48,7 +55,7 @@ function Storage.add_raw_card(state, args)
         id = id,
         status = "raw",
         center_key = args.center_key,
-        set_key = args.set_key,
+        series_key = args.series_key or args.set_key,
         mod_id = args.mod_id,
         rarity = args.rarity,
         edition = args.edition,

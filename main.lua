@@ -35,4 +35,10 @@ Bootstrap.attach(Gradelatro, "Storage", Storage)
 current_mod.config.collection = Storage.normalize(current_mod.config.collection)
 Gradelatro.collection = current_mod.config.collection
 
+local Catalog = load_src("catalog.lua")
+Bootstrap.attach(Gradelatro, "Catalog", Catalog)
+
+local Label = load_src("label.lua")
+Bootstrap.attach(Gradelatro, "Label", Label)
+
 return Gradelatro

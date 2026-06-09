@@ -55,6 +55,9 @@ Config.DEFAULTS = {
         special_order_min = 1.35,
         special_order_max = 1.75
     },
+    catalog = {
+        series_format = "#1# Series"
+    },
     authenticated_editions = {
         base = true,
         foil = true,

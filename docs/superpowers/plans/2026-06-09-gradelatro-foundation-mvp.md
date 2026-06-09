@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Build the testable foundation for Gradelatro: mod skeleton, configuration, persistent collection state, economic rules, Stake gates, authenticated editions, condition generation, PSA-style grading, and Joker catalog discovery.
+**Goal:** Build the testable foundation for Gradelatro: mod skeleton, configuration, persistent collection state, economic rules, Stake gates, authenticated editions, condition generation, PSA-style grading, Joker catalog discovery, and PSA-style slab label data formatting.
 
 **Architecture:** Keep Balatro/SMODS integration thin and place deterministic rules in small Lua modules under `src/`. Pure modules are tested with LuaJIT outside the game; in-game modules only load the namespace, register config, and prepare integration points for later UI and run hooks.
 
@@ -19,6 +19,11 @@ This plan covers the foundation MVP only. It creates a loadable SMODS mod shell 
 - Data persistence must stay centralized. Foundation work writes collection data only through `src/storage.lua`, and later integration work should continue to avoid scattered direct mutation of SMODS or profile state.
 - Lovely patches are expected for out-of-the-box integration in later phases. This foundation should keep hook-facing APIs small and stable so Lovely patch payloads can call into Gradelatro modules instead of embedding business rules.
 - Other Balatro mods may be used as references for SMODS conventions and UI patterns, but every borrowed pattern needs local judgment. Do not mirror a mod's structure just because it works there.
+- Display copy must be localizable. Pure modules may keep English fallback text for tests, but UI rendering should pass localized text from SMODS localization data rather than hardcoding copy in widgets.
+- Joker series are discovered dynamically from the current Joker centers and loaded SMODS mod metadata. Use the target mod metadata `name` field as the `#1#` value in `#1# Series`; do not hardcode known mod names or read mod JSON manually.
+- Only mods with discovered Joker centers should appear in the Gradelatro series list. Mod add/remove/update is handled by regenerating the catalog view from current runtime data.
+- Catalog entries use `series_id = mod_id` for grouping and indexes. `series_key` is display text and may collide if two mods share the same metadata name.
+- The decorative info queue slab label UI is a later UI phase. It should use code-drawn red-frame PSA-like layout where practical and should not depend on external assets unless a later visual requirement makes that necessary.
 
 ## Roadmap
 
@@ -48,6 +53,8 @@ This plan covers the foundation MVP only. It creates a loadable SMODS mod shell 
   Schema initialization, migration, collection instance creation, currency mutation, transient indexes, and safe missing-card records.
 - Create: `src/catalog.lua`  
   Joker center discovery, series assignment, authenticated edition normalization, and rarity mapping.
+- Create: `src/label.lua`  
+  PSA-style slab label line formatting for decorative info queue data.
 - Create: `tests/test_helper.lua`  
   Tiny LuaJIT assertion helpers.
 - Create: `tests/config_test.lua`  
@@ -62,6 +69,8 @@ This plan covers the foundation MVP only. It creates a loadable SMODS mod shell 
   Storage and migration tests.
 - Create: `tests/catalog_test.lua`  
   Catalog discovery and compatibility tests.
+- Create: `tests/label_test.lua`  
+  Slab label data and localization override tests.
 - Create: `tests/run_all.lua`  
   Single test runner for local verification.
 - Create: `.gitignore`  
@@ -926,7 +935,7 @@ H.assert_equal(state.currency_g, 60, "currency unchanged after failed spend")
 
 local card = Storage.add_raw_card(state, {
     center_key = "j_joker",
-    set_key = "BALATRO Standard",
+    series_key = "BALATRO Series",
     mod_id = "Balatro",
     rarity = "common",
     edition = "base",
@@ -1026,7 +1035,7 @@ function Storage.add_raw_card(state, args)
         id = id,
         status = "raw",
         center_key = args.center_key,
-        set_key = args.set_key,
+        series_key = args.series_key or args.set_key,
         mod_id = args.mod_id,
         rarity = args.rarity,
         edition = args.edition,
@@ -1120,11 +1129,17 @@ Expected: commit succeeds.
 
 ---
 
-### Task 7: Joker Catalog Discovery
+### Task 7: Joker Catalog Discovery and Slab Label Data
 
 **Files:**
+- Modify: `src/config.lua`
+- Modify: `src/storage.lua`
 - Create: `src/catalog.lua`
+- Create: `src/label.lua`
+- Modify: `tests/config_test.lua`
+- Modify: `tests/storage_test.lua`
 - Create: `tests/catalog_test.lua`
+- Create: `tests/label_test.lua`
 - Modify: `main.lua`
 
 - [ ] **Step 1: Write failing catalog tests**
@@ -1142,17 +1157,34 @@ local centers = {
     j_rare = { key = "j_rare", set = "Joker", rarity = 3, name = "Rare Joker" },
     j_legendary = { key = "j_legendary", set = "Joker", rarity = 4, name = "Legendary Joker" },
     c_fool = { key = "c_fool", set = "Tarot", rarity = 1, name = "The Fool" },
-    j_modded = { key = "j_modded", set = "Joker", rarity = "exotic", name = "Modded Joker", mod = { id = "Cryptid" } }
+    j_modded = { key = "j_modded", set = "Joker", rarity = "exotic", name = "Modded Joker", mod = { id = "Cryptid" } },
+    j_direct_mod = { key = "j_direct_mod", set = "Joker", rarity = "Mythic", name = "Direct Mod Joker", mod_id = "Kino" }
+}
+local mods = {
+    Balatro = { id = "Balatro", name = "BALATRO" },
+    Cryptid = { id = "Cryptid", name = "Cryptid" },
+    Kino = { id = "Kino", name = "Kino" },
+    NoJokers = { id = "NoJokers", name = "No Jokers" }
 }
 
-local catalog = Catalog.discover(config, centers)
-H.assert_equal(#catalog, 4, "only Jokers are cataloged")
-H.assert_equal(catalog[1].center_key, "j_joker", "sorted first key")
-H.assert_equal(catalog[1].series_key, "BALATRO Standard", "vanilla series")
-H.assert_equal(catalog[1].rarity, "common", "common rarity")
-H.assert_equal(catalog[3].rarity, "legendary", "legendary rarity")
-H.assert_equal(catalog[4].series_key, "Cryptid Expansion", "mod series")
-H.assert_equal(catalog[4].rarity, "exotic", "exotic rarity")
+local catalog = Catalog.discover(config, centers, mods)
+
+local function find(center_key)
+    for _, entry in ipairs(catalog) do
+        if entry.center_key == center_key then return entry end
+    end
+    return nil
+end
+
+H.assert_equal(#catalog, 5, "only Jokers are cataloged")
+H.assert_equal(catalog[1].center_key, "j_direct_mod", "sorted first key")
+H.assert_equal(find("j_direct_mod").series_key, "Kino Series", "direct mod series")
+H.assert_equal(find("j_direct_mod").rarity, "unknown_high", "unknown rarity maps high")
+H.assert_equal(find("j_joker").series_key, "BALATRO Series", "vanilla series")
+H.assert_equal(find("j_joker").rarity, "common", "common rarity")
+H.assert_equal(find("j_legendary").rarity, "legendary", "legendary rarity")
+H.assert_equal(find("j_modded").series_key, "Cryptid Series", "mod series")
+H.assert_equal(find("j_modded").rarity, "exotic", "exotic rarity")
 
 H.assert_equal(Catalog.normalize_edition(config, nil), "base", "nil edition")
 H.assert_equal(Catalog.normalize_edition(config, "negative"), "negative", "negative edition")
@@ -1193,9 +1225,11 @@ local function mod_id_for_center(center)
     return "Balatro"
 end
 
-local function series_for_mod(mod_id)
-    if mod_id == "Balatro" then return "BALATRO Standard" end
-    return tostring(mod_id) .. " Expansion"
+local function series_for_mod(config, mod_id, mods, text)
+    local mod = mods and mods[mod_id] or nil
+    local mod_name = mod and mod.name or mod_id
+    local format = text and text.series_format or config.catalog and config.catalog.series_format or "#1# Series"
+    return (format:gsub("#1#", tostring(mod_name)))
 end
 
 function Catalog.normalize_edition(config, edition)
@@ -1204,7 +1238,8 @@ function Catalog.normalize_edition(config, edition)
     return "base"
 end
 
-function Catalog.discover(config, centers)
+function Catalog.discover(config, centers, mods, text)
+    mods = mods or (rawget(_G, "SMODS") and SMODS.Mods) or {}
     local out = {}
     for _, center in pairs(centers or {}) do
         if center.set == "Joker" then
@@ -1213,7 +1248,8 @@ function Catalog.discover(config, centers)
                 center_key = center.key,
                 name = center.name or center.key,
                 mod_id = mod_id,
-                series_key = series_for_mod(mod_id),
+                series_id = mod_id,
+                series_key = series_for_mod(config, mod_id, mods, text),
                 rarity = rarity_name(center.rarity)
             }
         end
@@ -1232,25 +1268,29 @@ Modify `main.lua` after attaching `Storage`:
 ```lua
 local Catalog = load_src("catalog.lua")
 Bootstrap.attach(Gradelatro, "Catalog", Catalog)
+
+local Label = load_src("label.lua")
+Bootstrap.attach(Gradelatro, "Label", Label)
 ```
 
-- [ ] **Step 5: Run catalog tests**
+- [ ] **Step 5: Run catalog and label tests**
 
 Run:
 
 ```powershell
 $lua='C:\Users\ChromaPIE\AppData\Local\Programs\LuaJIT\bin\luajit.exe'; & $lua tests\catalog_test.lua
+$lua='C:\Users\ChromaPIE\AppData\Local\Programs\LuaJIT\bin\luajit.exe'; & $lua tests\label_test.lua
 ```
 
-Expected: `catalog tests ok`.
+Expected: `catalog tests ok` and `label tests ok`.
 
 - [ ] **Step 6: Commit catalog**
 
 Run:
 
 ```powershell
-git add main.lua src/catalog.lua tests/catalog_test.lua
-git commit -m "test: add Joker catalog discovery"
+git add main.lua src/config.lua src/storage.lua src/catalog.lua src/label.lua tests/config_test.lua tests/storage_test.lua tests/catalog_test.lua tests/label_test.lua
+git commit -m "test: add dynamic Joker catalog and slab labels"
 ```
 
 Expected: commit succeeds.
@@ -1274,6 +1314,7 @@ dofile("tests/stakes_test.lua")
 dofile("tests/condition_test.lua")
 dofile("tests/storage_test.lua")
 dofile("tests/catalog_test.lua")
+dofile("tests/label_test.lua")
 
 print("all Gradelatro foundation tests ok")
 ```
@@ -1306,6 +1347,9 @@ Gradelatro.collection = current_mod.config.collection
 
 local Catalog = load_src("catalog.lua")
 Bootstrap.attach(Gradelatro, "Catalog", Catalog)
+
+local Label = load_src("label.lua")
+Bootstrap.attach(Gradelatro, "Label", Label)
 ```
 
 - [ ] **Step 3: Run all tests**
@@ -1325,6 +1369,7 @@ stakes tests ok
 condition tests ok
 storage tests ok
 catalog tests ok
+label tests ok
 all Gradelatro foundation tests ok
 ```
 
@@ -1365,14 +1410,17 @@ Expected: commit succeeds.
 - Authenticated edition handling rejects custom editions by falling back to `base`.
 - Condition generation, wear, and PSA-style grade calculation are deterministic under test.
 - Collection storage never writes outside `SMODS.current_mod.config.collection`.
-- Catalog discovery only includes Jokers and assigns modded Jokers to brand series.
+- Catalog discovery only includes Jokers and assigns Jokers to dynamic `#1# Series` names using loaded mod metadata.
+- Series lists exclude mods with no discovered Joker centers.
+- Slab label line data includes run year, mod metadata name, dynamic series index, local Joker key text, edition text, PSA grade descriptor, numeric grade, and certification number.
+- Display text used by later UI has a localization path; label formatting accepts localized text overrides.
 - `tests/run_all.lua` passes with LuaJIT.
 - Lua bytecode syntax check passes for every `.lua` file.
 
 ## Self-Review
 
-**Spec coverage:** This plan covers the foundation needed by the confirmed design: separated `G-credit` economy, buyout pricing rules, Stake rarity gates, authenticated editions, hidden condition, grading math, collection storage, and mod-series cataloging. Post-win UI, binder UI, real-time queue screens, market interaction, and raw-card run carry are intentionally assigned to later plans because they need Balatro UI and run hooks.
+**Spec coverage:** This plan covers the foundation needed by the confirmed design: separated `G-credit` economy, buyout pricing rules, Stake rarity gates, authenticated editions, hidden condition, grading math, collection storage, dynamic mod-series cataloging, and slab label data formatting. Post-win UI, binder UI, decorative info queue rendering, real-time queue screens, market interaction, and raw-card run carry are intentionally assigned to later plans because they need Balatro UI and run hooks.
 
 **Placeholder scan:** The plan uses exact files, commands, expected outputs, and concrete Lua code for the foundation MVP. It does not contain open implementation markers.
 
-**Type consistency:** Shared names are consistent across tasks: `Gradelatro`, `Config.normalize`, `Economy.raw_anchor_value`, `Stakes.gate_for_level`, `Condition.grade`, `Storage.normalize`, and `Catalog.discover`.
+**Type consistency:** Shared names are consistent across tasks: `Gradelatro`, `Config.normalize`, `Economy.raw_anchor_value`, `Stakes.gate_for_level`, `Condition.grade`, `Storage.normalize`, `Catalog.discover`, and `Label.slab_lines`.

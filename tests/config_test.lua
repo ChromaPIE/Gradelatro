@@ -15,5 +15,6 @@ H.assert_near(normalized.market.heat_min, 0.75, 0.000001, "market heat min")
 local empty = Config.normalize(nil)
 H.assert_equal(empty.authenticated_editions.negative, true, "negative edition accepted")
 H.assert_equal(empty.authenticated_editions.cry_exotic, nil, "unknown custom edition not accepted")
+H.assert_equal(empty.catalog.series_format, "#1# Series", "series format is localizable config")
 
 print("config tests ok")
