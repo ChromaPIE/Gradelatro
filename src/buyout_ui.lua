@@ -8,6 +8,7 @@ local function load_src(path)
 end
 
 local Buyout = load_src("buyout.lua")
+local Persistence = load_src("persistence.lua")
 
 local TEXT_KEYS = {
     title = "grdl_k_buyout_title",
@@ -370,6 +371,7 @@ function BuyoutUI.confirm(namespace, state, now)
     if result.ok then
         namespace.pending_buyout_offer = nil
         namespace.buyout_ui_state = nil
+        namespace.last_save_ok = Persistence.save(namespace)
         state.confirmed = true
         state.last_reason = nil
     else

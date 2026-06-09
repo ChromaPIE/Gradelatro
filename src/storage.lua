@@ -25,6 +25,7 @@ function Storage.normalize(input)
     state.next_cert_id = math.max(1, math.floor(state.next_cert_id or 1))
     state.cards = type(state.cards) == "table" and state.cards or {}
     state.grading_queue = type(state.grading_queue) == "table" and state.grading_queue or {}
+    state.settlements = type(state.settlements) == "table" and state.settlements or {}
     state.market = type(state.market) == "table" and state.market or { series_heat = {} }
     state.market.series_heat = type(state.market.series_heat) == "table" and state.market.series_heat or {}
     return state

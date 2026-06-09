@@ -85,7 +85,17 @@ H.assert_equal(#poor_namespace.collection.cards, 0, "failed confirmation adds no
 local success_namespace = {
     config = config,
     collection = Storage.normalize({ currency_g = 100 }),
-    pending_buyout_offer = offer
+    pending_buyout_offer = offer,
+    mod = { id = "Gradelatro", config = {} }
+}
+local previous_smods_global = rawget(_G, "SMODS")
+local save_count = 0
+_G.SMODS = {
+    save_mod_config = function(mod)
+        H.assert_equal(mod, success_namespace.mod, "buyout saves namespace mod")
+        save_count = save_count + 1
+        return true
+    end
 }
 local success_state = BuyoutUI.default_state(offer)
 BuyoutUI.toggle_selection(success_state, "one")
@@ -99,6 +109,8 @@ H.assert_equal(success_namespace.collection.cards[1].acquired_year, 2026, "succe
 H.assert_equal(success_namespace.collection.cards[1].source_run_id, "RUNSEED", "success preserves run id")
 H.assert_equal(success_namespace.pending_buyout_offer, nil, "success clears pending offer")
 H.assert_equal(success_namespace.last_buyout_result, success_result, "success stores last result")
+H.assert_equal(save_count, 1, "success saves collection")
+_G.SMODS = previous_smods_global
 
 success_namespace.pending_buyout_offer = offer
 success_namespace.buyout_ui_state = success_state

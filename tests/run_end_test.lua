@@ -54,12 +54,23 @@ H.assert_equal(RunEnd.year_from_timestamp(1767225600), 2026, "year from timestam
 
 local namespace = {
     config = config,
-    collection = Storage.normalize({ currency_g = 1000 })
+    collection = Storage.normalize({ currency_g = 1000 }),
+    mod = { id = "Gradelatro", config = {} }
+}
+local previous_smods_global = rawget(_G, "SMODS")
+local save_count = 0
+_G.SMODS = {
+    save_mod_config = function(mod)
+        H.assert_equal(mod, namespace.mod, "run end saves namespace mod")
+        save_count = save_count + 1
+        return true
+    end
 }
 
 local runtime = {
     GAME = {
         stake = 2,
+        dollars = 100,
         pseudorandom = { seed = "RUNSEED" },
         grdl_run_started_at = 1767225600
     },
@@ -89,6 +100,10 @@ local smods = {
 local offer = RunEnd.capture_win_buyout_offer(namespace, runtime, smods, 1800000000)
 
 H.assert_equal(namespace.pending_buyout_offer, offer, "offer stored on namespace")
+H.assert_equal(namespace.collection.currency_g, 1045, "win settlement added before buyout")
+H.assert_equal(namespace.last_settlement_result.amount, 45, "settlement result stored")
+H.assert_equal(namespace.last_settlement_result.duplicate, false, "first settlement not duplicate")
+H.assert_equal(save_count, 1, "first settlement saved")
 H.assert_equal(offer.run_id, "RUNSEED", "run id from seed")
 H.assert_equal(offer.run_started_at, 1767225600, "run start timestamp kept")
 H.assert_equal(offer.acquired_year, 2026, "acquired year from run start")
@@ -97,5 +112,12 @@ H.assert_equal(#offer.eligible, 1, "red gate eligible count")
 H.assert_equal(offer.eligible[1].center_key, "j_common", "common eligible")
 H.assert_equal(#offer.blocked, 1, "rare blocked")
 H.assert_equal(offer.blocked[1].reason, "rarity_locked", "blocked reason code")
+
+local duplicate_offer = RunEnd.capture_win_buyout_offer(namespace, runtime, smods, 1800000001)
+H.assert_equal(namespace.collection.currency_g, 1045, "duplicate capture does not add currency")
+H.assert_equal(namespace.last_settlement_result.duplicate, true, "duplicate settlement flagged")
+H.assert_equal(duplicate_offer.run_id, "RUNSEED", "duplicate capture still refreshes offer")
+H.assert_equal(save_count, 1, "duplicate settlement not saved")
+_G.SMODS = previous_smods_global
 
 print("run end tests ok")

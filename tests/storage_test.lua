@@ -6,6 +6,7 @@ H.assert_equal(state.schema_version, 1, "schema version")
 H.assert_equal(state.currency_g, 0, "initial currency")
 H.assert_equal(#state.cards, 0, "initial cards")
 H.assert_equal(state.next_cert_id, 1, "initial cert id")
+H.assert_true(type(state.settlements) == "table", "initial settlements table")
 
 Storage.add_currency(state, 120)
 Storage.add_currency(state, -20)

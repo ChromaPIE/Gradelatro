@@ -41,8 +41,21 @@ Bootstrap.attach(Gradelatro, "Catalog", Catalog)
 local Label = load_src("label.lua")
 Bootstrap.attach(Gradelatro, "Label", Label)
 
+local Binder = load_src("binder.lua")
+Bootstrap.attach(Gradelatro, "Binder", Binder)
+
+local BinderUI = load_src("binder_ui.lua")
+Bootstrap.attach(Gradelatro, "BinderUI", BinderUI)
+BinderUI.install_runtime(Gradelatro, rawget(_G, "G"))
+
 local Buyout = load_src("buyout.lua")
 Bootstrap.attach(Gradelatro, "Buyout", Buyout)
+
+local Settlement = load_src("settlement.lua")
+Bootstrap.attach(Gradelatro, "Settlement", Settlement)
+
+local Persistence = load_src("persistence.lua")
+Bootstrap.attach(Gradelatro, "Persistence", Persistence)
 
 local BuyoutUI = load_src("buyout_ui.lua")
 Bootstrap.attach(Gradelatro, "BuyoutUI", BuyoutUI)

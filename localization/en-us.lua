@@ -13,10 +13,19 @@ return {
     misc = {
         dictionary = {
             grdl_b_buyout = "Card Buyout",
+            grdl_b_binder = "Gradelatro Binder",
             grdl_b_confirm_buyout = "Buy Out",
             grdl_b_skip_buyout = "Skip",
             grdl_b_select = "Select",
             grdl_b_selected = "Selected",
+            grdl_k_binder_title = "Gradelatro Binder",
+            grdl_k_binder_summary = "Ⓖ#1#  |  Owned #2#  |  Raw #3#  |  Graded #4#  |  Queue #5#",
+            grdl_k_binder_empty = "No Gradelatro cards collected.",
+            grdl_k_edition_base = "Base",
+            grdl_k_edition_foil = "Foil",
+            grdl_k_edition_holographic = "Holographic",
+            grdl_k_edition_polychrome = "Polychrome",
+            grdl_k_edition_negative = "Negative",
             grdl_k_buyout_title = "Gradelatro Buyout",
             grdl_k_buyout_subtitle = "Choose ending-run Jokers to archive.",
             grdl_k_currency = "Grade",
@@ -35,7 +44,13 @@ return {
             grdl_k_reason_missing_namespace = "Gradelatro state is unavailable.",
             grdl_k_reason_missing_state = "Buyout state is unavailable.",
             grdl_k_reason_missing_collection = "Collection data is unavailable.",
-            grdl_k_reason_unknown = "Unavailable."
+            grdl_k_reason_unknown = "Unavailable.",
+            grdl_k_status_raw = "Raw",
+            grdl_k_status_graded = "Graded",
+            grdl_k_status_queued = "Queued",
+            grdl_k_status_sold = "Sold",
+            grdl_k_status_lost = "Lost",
+            grdl_k_status_unknown = "Unknown"
         }
     }
 }

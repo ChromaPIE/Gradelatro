@@ -13,10 +13,19 @@ return {
     misc = {
         dictionary = {
             grdl_b_buyout = "买断藏卡",
+            grdl_b_binder = "Gradelatro 卡册",
             grdl_b_confirm_buyout = "买断",
             grdl_b_skip_buyout = "跳过",
             grdl_b_select = "选择",
             grdl_b_selected = "已选",
+            grdl_k_binder_title = "Gradelatro 卡册",
+            grdl_k_binder_summary = "Ⓖ#1#  |  持有 #2#  |  原卡 #3#  |  已评级 #4#  |  队列 #5#",
+            grdl_k_binder_empty = "尚未收藏 Gradelatro 卡牌。",
+            grdl_k_edition_base = "基础",
+            grdl_k_edition_foil = "闪箔",
+            grdl_k_edition_holographic = "镭射",
+            grdl_k_edition_polychrome = "多彩",
+            grdl_k_edition_negative = "负片",
             grdl_k_buyout_title = "Gradelatro 买断",
             grdl_k_buyout_subtitle = "选择本赛局结束时持有的小丑牌并收入卡册。",
             grdl_k_currency = "评级币",
@@ -35,7 +44,13 @@ return {
             grdl_k_reason_missing_namespace = "Gradelatro 状态不可用。",
             grdl_k_reason_missing_state = "买断状态不可用。",
             grdl_k_reason_missing_collection = "卡册数据不可用。",
-            grdl_k_reason_unknown = "暂不可用。"
+            grdl_k_reason_unknown = "暂不可用。",
+            grdl_k_status_raw = "原卡",
+            grdl_k_status_graded = "已评级",
+            grdl_k_status_queued = "评级中",
+            grdl_k_status_sold = "已出售",
+            grdl_k_status_lost = "已损失",
+            grdl_k_status_unknown = "未知"
         }
     }
 }

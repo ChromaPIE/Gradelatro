@@ -9,6 +9,9 @@ end
 
 local Buyout = load_src("buyout.lua")
 local Catalog = load_src("catalog.lua")
+local Persistence = load_src("persistence.lua")
+local Settlement = load_src("settlement.lua")
+local Stakes = load_src("stakes.lua")
 
 local function copy_shallow_table(value)
     if type(value) ~= "table" then return value end
@@ -111,16 +114,30 @@ function RunEnd.capture_win_buyout_offer(namespace, runtime, smods, now)
     if not collection then return nil end
 
     local run_started_at = RunEnd.ensure_run_started_at(runtime.GAME, now)
+    local current_run_id = run_id(runtime.GAME)
     local catalog = Catalog.discover(config, runtime.P_CENTERS, smods and smods.Mods or nil)
     local snapshots = RunEnd.collect_joker_snapshots(runtime.jokers)
+    local stake_anchors = RunEnd.stake_anchors(runtime.P_STAKES)
+    local gate = Stakes.gate_for_level(stake_anchors, runtime.GAME.stake or 1)
+    namespace.last_settlement_result = Settlement.apply(config, collection, {
+        run_id = current_run_id,
+        run_started_at = run_started_at,
+        gate = gate,
+        won = true,
+        dollars = runtime.GAME.dollars,
+        settled_at = now or os.time()
+    })
+    if namespace.last_settlement_result.ok and not namespace.last_settlement_result.duplicate then
+        namespace.last_save_ok = Persistence.save(namespace)
+    end
     local offer = Buyout.prepare_offer(config, collection, {
         catalog = catalog,
         jokers = snapshots,
         stake_level = runtime.GAME.stake or 1,
-        stake_anchors = RunEnd.stake_anchors(runtime.P_STAKES)
+        stake_anchors = stake_anchors
     })
 
-    offer.run_id = run_id(runtime.GAME)
+    offer.run_id = current_run_id
     offer.run_started_at = run_started_at
     offer.acquired_year = RunEnd.year_from_timestamp(run_started_at)
     namespace.pending_buyout_offer = offer
