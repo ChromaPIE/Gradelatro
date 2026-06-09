@@ -585,6 +585,7 @@ local anchors = {
     stake_gold = 8
 }
 
+H.assert_equal(Stakes.gate_for_level(nil, 1), "red", "nil anchors default")
 H.assert_equal(Stakes.gate_for_level(anchors, 1), "red", "white below red")
 H.assert_equal(Stakes.gate_for_level(anchors, 2), "red", "red gate")
 H.assert_equal(Stakes.gate_for_level(anchors, 4), "blue", "between red and blue")
@@ -633,6 +634,7 @@ local ALLOWED = {
 }
 
 function Stakes.gate_for_level(anchors, stake_level)
+    anchors = anchors or {}
     stake_level = stake_level or 1
     local red = anchors.stake_red or 2
     local blue = anchors.stake_blue or 5

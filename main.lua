@@ -23,4 +23,7 @@ current_mod.config = Gradelatro.config
 local Economy = load_src("economy.lua")
 Bootstrap.attach(Gradelatro, "Economy", Economy)
 
+local Stakes = load_src("stakes.lua")
+Bootstrap.attach(Gradelatro, "Stakes", Stakes)
+
 return Gradelatro
