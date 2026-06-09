@@ -44,6 +44,10 @@ Bootstrap.attach(Gradelatro, "Label", Label)
 local Buyout = load_src("buyout.lua")
 Bootstrap.attach(Gradelatro, "Buyout", Buyout)
 
+local BuyoutUI = load_src("buyout_ui.lua")
+Bootstrap.attach(Gradelatro, "BuyoutUI", BuyoutUI)
+BuyoutUI.install_runtime(Gradelatro, rawget(_G, "G"))
+
 local RunEnd = load_src("run_end.lua")
 Bootstrap.attach(Gradelatro, "RunEnd", RunEnd)
 

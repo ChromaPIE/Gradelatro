@@ -21,8 +21,23 @@ payload = '''
             if Gradelatro and Gradelatro.RunEnd then
                 pcall(function()
                     Gradelatro.RunEnd.capture_win_buyout_offer()
+                    if Gradelatro.BuyoutUI then
+                        Gradelatro.BuyoutUI.install_runtime(Gradelatro, G)
+                    end
                 end)
             end
+'''
+match_indent = false
+overwrite = false
+
+[[patches]]
+[patches.pattern]
+target = "functions/UI_definitions.lua"
+pattern = '''        not show_win_cta and UIBox_button({id = 'from_game_won', button = 'notify_then_setup_run', label = {localize('b_start_new_run')}, minw = 2.5, maxw = 2.5, minh = 1, focus_args = {nav = 'wide', snap_to = true}}) or nil,'''
+position = "before"
+payload = '''
+        not show_win_cta and Gradelatro and Gradelatro.BuyoutUI and Gradelatro.BuyoutUI.has_offer(Gradelatro.pending_buyout_offer) and UIBox_button({id = 'grdl_buyout_button', button = 'grdl_open_buyout', label = {localize('grdl_b_buyout')}, minw = 2.5, maxw = 2.5, minh = 1, colour = G.C.BLUE, focus_args = {nav = 'wide', snap_to = true}}) or nil,
+        not show_win_cta and Gradelatro and Gradelatro.BuyoutUI and Gradelatro.BuyoutUI.has_offer(Gradelatro.pending_buyout_offer) and {n=G.UIT.R, config={align = "cm", minh = 0.1, minw = 0.1}, nodes={}} or nil,
 '''
 match_indent = false
 overwrite = false
