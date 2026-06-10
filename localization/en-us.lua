@@ -22,6 +22,7 @@ return {
             grdl_b_desk = "Grading Desk",
             grdl_k_desk_title = "Grading Desk",
             grdl_k_desk_empty = "No raw cards to submit.",
+            grdl_k_badge_ungraded = "Ungraded",
             grdl_k_queue_title = "Grading Queue",
             grdl_k_grading_ready = "Ready",
             grdl_k_service_economy = "Economy",

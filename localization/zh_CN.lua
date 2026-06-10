@@ -22,6 +22,7 @@ return {
             grdl_b_desk = "送评服务台",
             grdl_k_desk_title = "送评服务台",
             grdl_k_desk_empty = "没有可送评的原卡。",
+            grdl_k_badge_ungraded = "未评级",
             grdl_k_queue_title = "评级队列",
             grdl_k_grading_ready = "已完成",
             grdl_k_service_economy = "经济",
