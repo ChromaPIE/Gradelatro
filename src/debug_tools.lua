@@ -111,6 +111,15 @@ function DebugTools.seed_graded(state, catalog, args)
     return { ok = true, cards = created }
 end
 
+function DebugTools.clear_collection(state)
+    if not state then return { ok = false, reason = "missing_collection" } end
+    local cards_removed = #(state.cards or {})
+    local queue_removed = #(state.grading_queue or {})
+    state.cards = {}
+    state.grading_queue = {}
+    return { ok = true, cards_removed = cards_removed, queue_removed = queue_removed }
+end
+
 function DebugTools.install(namespace)
     local ok, dpAPI = pcall(require, "debugplus-api")
     if not ok or type(dpAPI) ~= "table" then return false end
@@ -155,6 +164,22 @@ function DebugTools.install(namespace)
             end
             Persistence.save(namespace)
             return "Seeded " .. tostring(#result.cards) .. " graded cards into the binder."
+        end
+    })
+
+    pcall(dp.addCommand, {
+        name = "grdlclear",
+        shortDesc = "Clear the Gradelatro binder",
+        desc = "Remove every card and grading queue entry from the Gradelatro collection. Currency, certificate counters, and settlement history are kept. Usage:\ngrdlclear",
+        exec = function()
+            local collection = namespace and namespace.collection or nil
+            if not collection then return "Gradelatro collection unavailable.", "ERROR" end
+            local result = DebugTools.clear_collection(collection)
+            if not result.ok then
+                return "Clear failed: " .. tostring(result.reason), "ERROR"
+            end
+            Persistence.save(namespace)
+            return "Cleared " .. tostring(result.cards_removed) .. " cards and " .. tostring(result.queue_removed) .. " queue entries."
         end
     })
 

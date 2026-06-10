@@ -71,4 +71,18 @@ H.assert_true(pairing.cards[6].edition ~= pairing.cards[1].edition, "grade-editi
 
 H.assert_equal(DebugTools.seed_graded(Storage.normalize({}), {}, { count = 3 }).ok, false, "empty catalog rejected")
 
+local clear_state = Storage.normalize({ currency_g = 77 })
+DebugTools.seed_graded(clear_state, catalog, { count = 3, now = 1767225600 })
+clear_state.grading_queue[#clear_state.grading_queue + 1] = { card_id = clear_state.cards[1].id, due_at = 99 }
+local cert_before_clear = clear_state.next_cert_id
+local cleared = DebugTools.clear_collection(clear_state)
+H.assert_equal(cleared.ok, true, "clear succeeds")
+H.assert_equal(cleared.cards_removed, 3, "clear reports card count")
+H.assert_equal(cleared.queue_removed, 1, "clear reports queue count")
+H.assert_equal(#clear_state.cards, 0, "cards wiped")
+H.assert_equal(#clear_state.grading_queue, 0, "queue wiped")
+H.assert_equal(clear_state.currency_g, 77, "clear keeps currency")
+H.assert_equal(clear_state.next_cert_id, cert_before_clear, "clear keeps cert counter")
+H.assert_equal(DebugTools.clear_collection(nil).ok, false, "clear without collection rejected")
+
 print("debug tools tests ok")
