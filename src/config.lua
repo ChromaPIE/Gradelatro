@@ -43,7 +43,28 @@ Config.DEFAULTS = {
             express = 0.45,
             prescreen = 0.06
         },
-        minimum_fee = 15
+        minimum_fee = 15,
+        time_scale = "arcade",
+        durations = {
+            arcade = {
+                economy = 1200,
+                standard = 600,
+                priority = 240,
+                express = 60
+            },
+            hobbyist = {
+                economy = 86400,
+                standard = 28800,
+                priority = 7200,
+                express = 1800
+            },
+            realistic = {
+                economy = 2592000,
+                standard = 864000,
+                priority = 259200,
+                express = 86400
+            }
+        }
     },
     market = {
         heat_min = 0.75,

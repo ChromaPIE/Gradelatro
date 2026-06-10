@@ -38,6 +38,9 @@ Gradelatro.collection = current_mod.config.collection
 local Catalog = load_src("catalog.lua")
 Bootstrap.attach(Gradelatro, "Catalog", Catalog)
 
+local Grading = load_src("grading.lua")
+Bootstrap.attach(Gradelatro, "Grading", Grading)
+
 local Label = load_src("label.lua")
 Bootstrap.attach(Gradelatro, "Label", Label)
 
