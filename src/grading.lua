@@ -105,13 +105,17 @@ function Grading.queue_rows(state, now)
 
     for _, entry in ipairs(state.grading_queue or {}) do
         local card = Storage.find_card(state, entry.card_id, index)
+        local remaining = math.max(0, (entry.due_at or now) - now)
+        local duration = math.max(1, (entry.due_at or now) - (entry.submitted_at or entry.due_at or now))
         rows[#rows + 1] = {
             card_id = entry.card_id,
             center_key = card and card.center_key or nil,
             name_key = card and (card.local_key or card.center_key) or entry.card_id,
             service = entry.service,
+            submitted_at = entry.submitted_at,
             due_at = entry.due_at,
-            remaining = math.max(0, (entry.due_at or now) - now),
+            remaining = remaining,
+            progress = math.max(0, math.min(1, 1 - remaining / duration)),
             ready = (entry.due_at or 0) <= now
         }
     end

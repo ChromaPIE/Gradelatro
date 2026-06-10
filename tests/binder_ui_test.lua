@@ -204,6 +204,24 @@ H.assert_equal(#fill_namespace.binder_areas[1].cards, 1, "refill replaces cards 
 _G.G = previous_fill_g
 _G.Card = previous_fill_card
 
+H.assert_equal(BinderUI.countdown_text(0), "grdl_k_grading_ready", "zero countdown falls back to ready key")
+H.assert_equal(BinderUI.countdown_text(95), "1:35", "minute countdown format")
+H.assert_equal(BinderUI.countdown_text(3725), "1:02:05", "hour countdown format")
+H.assert_equal(BinderUI.countdown_text(-5), "grdl_k_grading_ready", "negative countdown treated as ready")
+
+H.assert_true(type(runtime.FUNCS.grdl_queue_tick) == "function", "queue tick func registered")
+local bar_element = {
+    config = {
+        ref_table = { due_at = os.time() + 3725 },
+        tooltip = { text = { "" } }
+    }
+}
+runtime.FUNCS.grdl_queue_tick(bar_element)
+H.assert_true(bar_element.config.tooltip.text[1]:find("^1:02:0") ~= nil, "tick writes precise countdown into tooltip")
+bar_element.config.ref_table.due_at = os.time() - 1
+runtime.FUNCS.grdl_queue_tick(bar_element)
+H.assert_equal(bar_element.config.tooltip.text[1], "grdl_k_grading_ready", "tick reports ready when due passed")
+
 _G.SMODS = previous_smods_global
 
 print("binder ui tests ok")

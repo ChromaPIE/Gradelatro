@@ -84,9 +84,6 @@ return {
             grdl_k_buyout_price = "Ⓖ#1#",
             grdl_k_buyout_summary = "已选 #1#/#2#  |  合计：Ⓖ#3#  |  持有：Ⓖ#4#",
             grdl_k_grading_fee = "Ⓖ#1#",
-            grdl_k_eta_minutes = "约#1#分钟",
-            grdl_k_eta_hours = "约#1#小时",
-            grdl_k_eta_days = "约#1#天",
             grdl_k_grading_revealed = "揭晓了 #1# 张卡牌的评级结果！",
             grdl_k_binder_hidden = "#1# 张卡牌因模组未加载而隐藏"
         }

@@ -75,6 +75,20 @@ local function suppress_selection(card)
     end
 end
 
+function BinderUI.countdown_text(seconds)
+    seconds = math.floor(seconds or 0)
+    if seconds <= 0 then
+        return safe_localize("grdl_k_grading_ready")
+    end
+    local hours = math.floor(seconds / 3600)
+    local minutes = math.floor((seconds % 3600) / 60)
+    local secs = seconds % 60
+    if hours > 0 then
+        return string.format("%d:%02d:%02d", hours, minutes, secs)
+    end
+    return string.format("%d:%02d", minutes, secs)
+end
+
 local function grading_fee_map(config, collection)
     local fees = {}
     for _, card in ipairs((collection and collection.cards) or {}) do
@@ -362,49 +376,63 @@ function BinderUI.create_overlay_definition(namespace)
     })
 end
 
-local function eta_text(remaining)
-    if remaining <= 0 then
-        return safe_localize("grdl_k_grading_ready")
+local QUEUE_BAR_W = 2.2
+local QUEUE_BAR_H = 0.3
+
+local function queue_bar(queue_data)
+    local progress = math.max(0, math.min(1, queue_data.progress or 0))
+    local fill_w = QUEUE_BAR_W * progress
+    local segments = {}
+    if fill_w > 0.02 then
+        segments[#segments + 1] = { n = G.UIT.C, config = { align = "cl", minw = fill_w, minh = QUEUE_BAR_H, r = 0.07, colour = queue_data.ready and G.C.GREEN or G.C.BLUE } }
     end
-    if remaining < 5400 then
-        return safe_localize("grdl_k_eta_minutes", { math.max(1, math.ceil(remaining / 60)) })
+    if QUEUE_BAR_W - fill_w > 0.02 then
+        segments[#segments + 1] = { n = G.UIT.C, config = { align = "cl", minw = QUEUE_BAR_W - fill_w, minh = QUEUE_BAR_H } }
     end
-    if remaining < 172800 then
-        return safe_localize("grdl_k_eta_hours", { math.ceil(remaining / 3600) })
-    end
-    return safe_localize("grdl_k_eta_days", { math.ceil(remaining / 86400) })
+    return { n = G.UIT.C, config = {
+        align = "cm",
+        minw = QUEUE_BAR_W + 0.1,
+        minh = QUEUE_BAR_H + 0.1,
+        padding = 0.05,
+        r = 0.1,
+        colour = G.C.BLACK,
+        emboss = 0.05,
+        func = "grdl_queue_tick",
+        ref_table = { due_at = queue_data.due_at },
+        tooltip = { text = { "" } }
+    }, nodes = segments }
 end
 
 local function desk_card_row(state, row_data)
     local fee = state.fees and state.fees[row_data.id] or nil
     local name = center_name(row_data)
     return row({
-        col({ ui_text(name, UICommon.fit_scale(name, 0.3, 18)) }, { align = "cl", minw = 2.0 }),
-        col({ ui_text(safe_localize("grdl_k_edition_" .. tostring(row_data.edition or "base")), 0.26) }, { align = "cl", minw = 0.9 }),
-        col({ ui_text(fee and safe_localize("grdl_k_grading_fee", { fee }) or "", 0.28, G.C.GOLD) }, { align = "cr", minw = 0.8 }),
+        col({ ui_text(name, UICommon.fit_scale(name, 0.32, 18)) }, { align = "cl", minw = 2.2 }),
+        col({ ui_text(safe_localize("grdl_k_edition_" .. tostring(row_data.edition or "base")), 0.28) }, { align = "cl", minw = 1.0 }),
+        col({ ui_text(fee and safe_localize("grdl_k_grading_fee", { fee }) or "", 0.3, G.C.GOLD) }, { align = "cr", minw = 0.9 }),
         col({
             UIBox_button({
                 button = "grdl_submit_grading",
                 label = { safe_localize("grdl_b_grade") },
                 ref_table = { id = row_data.id },
-                minw = 1.0,
-                maxw = 1.0,
-                minh = 0.5,
-                scale = 0.28,
+                minw = 1.1,
+                maxw = 1.1,
+                minh = 0.55,
+                scale = 0.3,
                 colour = G.C.BLUE,
                 focus_args = { nav = "wide" }
             })
-        }, { align = "cm", minw = 1.1 })
-    })
+        }, { align = "cm", minw = 1.2 })
+    }, { padding = 0.05 })
 end
 
 local function queue_row(queue_data)
     local name = center_name(queue_data)
     return row({
-        col({ ui_text(name, UICommon.fit_scale(name, 0.28, 18)) }, { align = "cl", minw = 2.0 }),
-        col({ ui_text(safe_localize("grdl_k_service_" .. tostring(queue_data.service or "standard")), 0.26) }, { align = "cl", minw = 0.9 }),
-        col({ ui_text(eta_text(queue_data.remaining or 0), 0.28, queue_data.ready and G.C.GREEN or G.C.UI.TEXT_LIGHT) }, { align = "cr", minw = 0.9 })
-    })
+        col({ ui_text(name, UICommon.fit_scale(name, 0.32, 18)) }, { align = "cl", minw = 2.2 }),
+        col({ ui_text(safe_localize("grdl_k_service_" .. tostring(queue_data.service or "standard")), 0.28) }, { align = "cl", minw = 1.0 }),
+        col({ queue_bar(queue_data) }, { align = "cr", minw = 2.5 })
+    }, { padding = 0.05 })
 end
 
 function BinderUI.create_desk_definition(namespace)
@@ -620,6 +648,13 @@ function BinderUI.install_runtime(namespace, runtime, adapter)
         if not event or not event.cycle_config then return end
         BinderUI.set_page(namespace, event.cycle_config.current_option)
         BinderUI.fill_card_areas(namespace)
+    end
+
+    runtime.FUNCS.grdl_queue_tick = function(element)
+        local info = element and element.config and element.config.ref_table or nil
+        local tooltip = element and element.config and element.config.tooltip or nil
+        if not info or not tooltip or not tooltip.text then return end
+        tooltip.text[1] = BinderUI.countdown_text((info.due_at or 0) - os.time())
     end
 
     runtime.FUNCS.grdl_submit_grading = function(event)

@@ -84,9 +84,6 @@ return {
             grdl_k_buyout_price = "G#1#",
             grdl_k_buyout_summary = "#1#/#2# selected  |  Total: G#3#  |  Held: G#4#",
             grdl_k_grading_fee = "G#1#",
-            grdl_k_eta_minutes = "~#1#m",
-            grdl_k_eta_hours = "~#1#h",
-            grdl_k_eta_days = "~#1#d",
             grdl_k_grading_revealed = "#1# grading result(s) revealed!",
             grdl_k_binder_hidden = "#1# card(s) hidden (mod not loaded)"
         }
