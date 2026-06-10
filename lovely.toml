@@ -45,15 +45,16 @@ overwrite = false
 [[patches]]
 [patches.pattern]
 target = "functions/UI_definitions.lua"
-pattern = '''    your_collection = UIBox_button{ label = {localize('b_collection')}, button = "your_collection", minw = 5, id = 'your_collection'}'''
+pattern = '''local your_collection = nil'''
 position = "after"
 payload = '''
-    if Gradelatro and Gradelatro.BinderUI then
-      Gradelatro.BinderUI.install_runtime(Gradelatro, G)
-    end
-    grdl_binder = Gradelatro and Gradelatro.BinderUI and UIBox_button{ label = {localize('grdl_b_binder')}, button = "grdl_open_binder", minw = 5, id = 'grdl_binder'} or nil
+local grdl_binder = nil
+if Gradelatro and Gradelatro.BinderUI then
+    pcall(function() Gradelatro.BinderUI.install_runtime(Gradelatro, G) end)
+    grdl_binder = UIBox_button{ label = {localize('grdl_b_binder')}, button = "grdl_open_binder", minw = 5, id = 'grdl_binder'}
+end
 '''
-match_indent = false
+match_indent = true
 overwrite = false
 
 [[patches]]
