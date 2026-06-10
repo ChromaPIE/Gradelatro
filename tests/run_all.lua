@@ -13,6 +13,8 @@ dofile("tests/binder_ui_test.lua")
 dofile("tests/buyout_test.lua")
 dofile("tests/settlement_test.lua")
 dofile("tests/buyout_ui_test.lua")
+dofile("tests/market_test.lua")
+dofile("tests/market_ui_test.lua")
 dofile("tests/run_end_test.lua")
 dofile("tests/debug_tools_test.lua")
 

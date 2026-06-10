@@ -288,21 +288,8 @@ local function build_card_grid(namespace)
     return deck_tables
 end
 
-local function stat_chip(text)
-    return { n = G.UIT.C, config = { align = "cm", padding = 0.09, r = 0.1, colour = G.C.WHITE, emboss = 0.05 }, nodes = {
-        { n = G.UIT.T, config = { text = text, scale = 0.31, colour = G.C.UI.TEXT_DARK } }
-    } }
-end
-
 local function summary_row(state)
-    local summary = state.summary
-    return row({
-        stat_chip(safe_localize("grdl_k_stat_g", { summary.currency_g })),
-        stat_chip(safe_localize("grdl_k_stat_owned") .. " " .. tostring(summary.owned_cards)),
-        stat_chip(safe_localize("grdl_k_stat_raw") .. " " .. tostring(summary.raw_cards)),
-        stat_chip(safe_localize("grdl_k_stat_graded") .. " " .. tostring(summary.graded_cards)),
-        stat_chip(safe_localize("grdl_k_stat_queue") .. " " .. tostring(summary.grading_queue))
-    }, { padding = 0.09 })
+    return UICommon.stat_chips(state.summary)
 end
 
 local function revealed_row(state)
@@ -361,6 +348,18 @@ function BinderUI.create_overlay_definition(namespace)
             minh = 0.7,
             scale = 0.34,
             colour = G.C.BLUE,
+            focus_args = { nav = "wide" }
+        })
+    })
+    controls[#controls + 1] = col({
+        UIBox_button({
+            button = "grdl_open_market",
+            label = { safe_localize("grdl_b_market") },
+            minw = 2.2,
+            maxw = 2.2,
+            minh = 0.7,
+            scale = 0.34,
+            colour = G.C.GREEN,
             focus_args = { nav = "wide" }
         })
     })

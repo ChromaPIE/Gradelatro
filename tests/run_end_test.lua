@@ -110,6 +110,8 @@ H.assert_equal(offer.acquired_year, 2026, "acquired year from run start")
 H.assert_equal(offer.gate, "red", "gate derived from runtime stake")
 H.assert_equal(#offer.eligible, 1, "red gate eligible count")
 H.assert_equal(offer.eligible[1].center_key, "j_common", "common eligible")
+H.assert_equal(namespace.collection.market.last_refresh, 1800000000, "win capture refreshes market heat")
+H.assert_true(offer.eligible[1].rav >= 35 * 0.75 and offer.eligible[1].rav <= 35 * 1.35, "offer prices through the heat band")
 H.assert_equal(#offer.blocked, 1, "rare blocked")
 H.assert_equal(offer.blocked[1].reason, "rarity_locked", "blocked reason code")
 

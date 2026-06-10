@@ -34,17 +34,17 @@
 
 ### Task 1: Market Service (commit `feat: market heat engine and system sales`)
 
-- [ ] Write failing `tests/market_test.lua`: refresh initializes/walks heat deterministically by seed, cooldown no-op, force flag, clamping, trend labels, heat map defaults, graded/raw valuation and quotes (with and without heat), sell happy path and rejections, sell rows.
-- [ ] Add market defaults to `src/config.lua`.
-- [ ] Implement `src/market.lua`; run the test green; commit.
+- [x] Write failing `tests/market_test.lua`: refresh initializes/walks heat deterministically by seed, cooldown no-op, force flag, clamping, trend labels, heat map defaults, graded/raw valuation and quotes (with and without heat), sell happy path and rejections, sell rows.
+- [x] Add market defaults to `src/config.lua`.
+- [x] Implement `src/market.lua`; run the test green; commit.
 
 ### Task 2: UI and Integration (commit `feat: market screen with heat board`)
 
-- [ ] Write failing `tests/market_ui_test.lua`: open refreshes heat once per cooldown, sell rows with quotes, two-step confirm, failure keeps state in place with reason text, success rebuilds and reports payout, runtime callbacks.
-- [ ] Implement `src/market_ui.lua`; add the binder button; register callbacks.
-- [ ] Wire `RunEnd.capture_win_buyout_offer` to refresh heat and pass the heat map to `Buyout.prepare_offer`; update `tests/run_end_test.lua` with a pinned market state for deterministic prices.
-- [ ] Localization keys for both locales; attach modules in `main.lua`; extend `tests/run_all.lua`.
-- [ ] Full suite + bytecode + text scan; commit.
+- [x] Write failing `tests/market_ui_test.lua`: open refreshes heat once per cooldown, sell rows with quotes, two-step confirm, failure keeps state in place with reason text, success rebuilds and reports payout, runtime callbacks.
+- [x] Implement `src/market_ui.lua`; add the binder button; register callbacks.
+- [x] Wire `RunEnd.capture_win_buyout_offer` to refresh heat and pass the heat map to `Buyout.prepare_offer`; update `tests/run_end_test.lua` with a pinned market state for deterministic prices.
+- [x] Localization keys for both locales; attach modules in `main.lua`; extend `tests/run_all.lua`.
+- [x] Full suite + bytecode + text scan; commit.
 
 ## Acceptance Criteria
 

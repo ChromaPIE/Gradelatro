@@ -20,6 +20,17 @@ return {
             grdl_b_selected = "Selected",
             grdl_b_grade = "Grade",
             grdl_b_desk = "Grading Desk",
+            grdl_b_market = "Market",
+            grdl_b_sell = "Sell",
+            grdl_b_confirm_sell = "Confirm",
+            grdl_k_market_title = "Gradelatro Market",
+            grdl_k_market_empty = "Nothing to sell.",
+            grdl_k_market_heat_title = "Series Trends",
+            grdl_k_heat_hot = "Hot",
+            grdl_k_heat_rising = "Rising",
+            grdl_k_heat_stable = "Stable",
+            grdl_k_heat_cooling = "Cooling",
+            grdl_k_reason_not_sellable = "This card cannot be sold.",
             grdl_k_desk_title = "Grading Desk",
             grdl_k_desk_empty = "No raw cards to submit.",
             grdl_k_badge_ungraded = "Ungraded",
@@ -85,6 +96,7 @@ return {
             grdl_k_buyout_summary = "#1#/#2# selected  |  Total: G#3#  |  Held: G#4#",
             grdl_k_grading_fee = "G#1#",
             grdl_k_grading_revealed = "#1# grading result(s) revealed!",
+            grdl_k_market_sold = "Sold: +G#1#",
             grdl_k_binder_hidden = "#1# card(s) hidden (mod not loaded)"
         }
     }

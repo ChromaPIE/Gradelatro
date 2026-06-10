@@ -9,6 +9,7 @@ end
 
 local Buyout = load_src("buyout.lua")
 local Catalog = load_src("catalog.lua")
+local Market = load_src("market.lua")
 local Persistence = load_src("persistence.lua")
 local Settlement = load_src("settlement.lua")
 local Stakes = load_src("stakes.lua")
@@ -120,11 +121,23 @@ function RunEnd.capture_win_buyout_offer(namespace, runtime, smods, now)
     if namespace.last_settlement_result.ok and not namespace.last_settlement_result.duplicate then
         namespace.last_save_ok = Persistence.save(namespace)
     end
+
+    local series_ids = {}
+    local seen_series = {}
+    for _, entry in ipairs(catalog) do
+        if not seen_series[entry.series_id] then
+            seen_series[entry.series_id] = true
+            series_ids[#series_ids + 1] = entry.series_id
+        end
+    end
+    Market.refresh(config, collection, { series_ids = series_ids, now = now or os.time() })
+
     local offer = Buyout.prepare_offer(config, collection, {
         catalog = catalog,
         jokers = snapshots,
         stake_level = runtime.GAME.stake or 1,
-        stake_anchors = stake_anchors
+        stake_anchors = stake_anchors,
+        series_heat = Market.heat_map(collection)
     })
 
     offer.run_id = current_run_id

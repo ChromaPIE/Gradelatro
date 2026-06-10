@@ -41,6 +41,9 @@ Bootstrap.attach(Gradelatro, "Catalog", Catalog)
 local Grading = load_src("grading.lua")
 Bootstrap.attach(Gradelatro, "Grading", Grading)
 
+local Market = load_src("market.lua")
+Bootstrap.attach(Gradelatro, "Market", Market)
+
 local Label = load_src("label.lua")
 Bootstrap.attach(Gradelatro, "Label", Label)
 
@@ -56,6 +59,10 @@ Bootstrap.attach(Gradelatro, "Binder", Binder)
 local BinderUI = load_src("binder_ui.lua")
 Bootstrap.attach(Gradelatro, "BinderUI", BinderUI)
 BinderUI.install_runtime(Gradelatro, rawget(_G, "G"))
+
+local MarketUI = load_src("market_ui.lua")
+Bootstrap.attach(Gradelatro, "MarketUI", MarketUI)
+MarketUI.install_runtime(Gradelatro, rawget(_G, "G"))
 
 if SMODS and SMODS.Keybind then
     pcall(SMODS.Keybind, {

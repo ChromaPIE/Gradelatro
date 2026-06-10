@@ -20,6 +20,17 @@ return {
             grdl_b_selected = "已选",
             grdl_b_grade = "送评",
             grdl_b_desk = "送评服务台",
+            grdl_b_market = "市场",
+            grdl_b_sell = "出售",
+            grdl_b_confirm_sell = "确认",
+            grdl_k_market_title = "Gradelatro 市场",
+            grdl_k_market_empty = "没有可出售的卡牌。",
+            grdl_k_market_heat_title = "系列行情",
+            grdl_k_heat_hot = "火热",
+            grdl_k_heat_rising = "上行",
+            grdl_k_heat_stable = "平稳",
+            grdl_k_heat_cooling = "遇冷",
+            grdl_k_reason_not_sellable = "此卡当前不可出售。",
             grdl_k_desk_title = "送评服务台",
             grdl_k_desk_empty = "没有可送评的原卡。",
             grdl_k_badge_ungraded = "未评级",
@@ -85,6 +96,7 @@ return {
             grdl_k_buyout_summary = "已选 #1#/#2#  |  合计：Ⓖ#3#  |  持有：Ⓖ#4#",
             grdl_k_grading_fee = "Ⓖ#1#",
             grdl_k_grading_revealed = "揭晓了 #1# 张卡牌的评级结果！",
+            grdl_k_market_sold = "已售出：+Ⓖ#1#",
             grdl_k_binder_hidden = "#1# 张卡牌因模组未加载而隐藏"
         }
     }

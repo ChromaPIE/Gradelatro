@@ -75,6 +75,23 @@ function UICommon.fit_scale(text, base, budget_bytes)
     return base
 end
 
+function UICommon.stat_chip(text)
+    return { n = G.UIT.C, config = { align = "cm", padding = 0.09, r = 0.1, colour = G.C.WHITE, emboss = 0.05 }, nodes = {
+        { n = G.UIT.T, config = { text = text, scale = 0.31, colour = G.C.UI.TEXT_DARK } }
+    } }
+end
+
+function UICommon.stat_chips(summary)
+    summary = summary or {}
+    return UICommon.row({
+        UICommon.stat_chip(UICommon.localize_text("grdl_k_stat_g", { summary.currency_g or 0 })),
+        UICommon.stat_chip(UICommon.localize_text("grdl_k_stat_owned") .. " " .. tostring(summary.owned_cards or 0)),
+        UICommon.stat_chip(UICommon.localize_text("grdl_k_stat_raw") .. " " .. tostring(summary.raw_cards or 0)),
+        UICommon.stat_chip(UICommon.localize_text("grdl_k_stat_graded") .. " " .. tostring(summary.graded_cards or 0)),
+        UICommon.stat_chip(UICommon.localize_text("grdl_k_stat_queue") .. " " .. tostring(summary.grading_queue or 0))
+    }, { padding = 0.09 })
+end
+
 function UICommon.event_ref_id(event)
     return event
         and event.config
