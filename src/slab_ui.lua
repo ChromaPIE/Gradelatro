@@ -31,11 +31,7 @@ function SlabUI.label_args(record, catalog_entry)
 end
 
 function SlabUI.line_scale(text, base, budget_bytes)
-    base = base or BASE_LINE_SCALE
-    budget_bytes = budget_bytes or LINE_BUDGET_BYTES
-    local length = #tostring(text or "")
-    if length <= budget_bytes then return base end
-    return base * budget_bytes / length
+    return UICommon.fit_scale(text, base or BASE_LINE_SCALE, budget_bytes or LINE_BUDGET_BYTES)
 end
 
 function SlabUI.label_font(fonts)

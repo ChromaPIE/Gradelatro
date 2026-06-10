@@ -23,6 +23,10 @@ return {
             grdl_k_desk_title = "送评服务台",
             grdl_k_desk_empty = "没有可送评的原卡。",
             grdl_k_badge_ungraded = "未评级",
+            grdl_k_stat_owned = "持有",
+            grdl_k_stat_raw = "原卡",
+            grdl_k_stat_graded = "已评级",
+            grdl_k_stat_queue = "队列",
             grdl_k_queue_title = "评级队列",
             grdl_k_grading_ready = "已完成",
             grdl_k_service_economy = "经济",
@@ -62,7 +66,7 @@ return {
             grdl_k_status_unknown = "未知"
         },
         v_dictionary = {
-            grdl_k_binder_summary = "Ⓖ#1#  |  持有 #2#  |  原卡 #3#  |  已评级 #4#  |  队列 #5#",
+            grdl_k_stat_g = "Ⓖ#1#",
             grdl_k_selected_count = "已选 #1#/#2#",
             grdl_k_buyout_total = "合计：Ⓖ#1#",
             grdl_k_buyout_price = "Ⓖ#1#",

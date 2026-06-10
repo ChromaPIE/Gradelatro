@@ -44,6 +44,14 @@ function UICommon.col(nodes, config)
     return { n = G.UIT.C, config = config, nodes = nodes }
 end
 
+function UICommon.fit_scale(text, base, budget_bytes)
+    local length = #tostring(text or "")
+    if budget_bytes and length > budget_bytes then
+        return base * budget_bytes / length
+    end
+    return base
+end
+
 function UICommon.event_ref_id(event)
     return event
         and event.config

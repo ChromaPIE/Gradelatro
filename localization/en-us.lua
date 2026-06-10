@@ -23,6 +23,10 @@ return {
             grdl_k_desk_title = "Grading Desk",
             grdl_k_desk_empty = "No raw cards to submit.",
             grdl_k_badge_ungraded = "Ungraded",
+            grdl_k_stat_owned = "Owned",
+            grdl_k_stat_raw = "Raw",
+            grdl_k_stat_graded = "Graded",
+            grdl_k_stat_queue = "Queue",
             grdl_k_queue_title = "Grading Queue",
             grdl_k_grading_ready = "Ready",
             grdl_k_service_economy = "Economy",
@@ -62,7 +66,7 @@ return {
             grdl_k_status_unknown = "Unknown"
         },
         v_dictionary = {
-            grdl_k_binder_summary = "G#1#  |  Owned #2#  |  Raw #3#  |  Graded #4#  |  Queue #5#",
+            grdl_k_stat_g = "G#1#",
             grdl_k_selected_count = "#1#/#2# selected",
             grdl_k_buyout_total = "Total: G#1#",
             grdl_k_buyout_price = "G#1#",

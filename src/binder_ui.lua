@@ -32,7 +32,6 @@ local EDITION_FLAGS = {
 
 local TEXT_KEYS = {
     title = "grdl_k_binder_title",
-    summary = "grdl_k_binder_summary",
     empty = "grdl_k_binder_empty",
     hidden = "grdl_k_binder_hidden",
     desk = "grdl_b_desk",
@@ -225,17 +224,21 @@ local function build_card_grid(namespace)
     return deck_tables
 end
 
+local function stat_chip(text)
+    return { n = G.UIT.C, config = { align = "cm", padding = 0.06, r = 0.1, colour = G.C.WHITE, emboss = 0.05 }, nodes = {
+        { n = G.UIT.T, config = { text = text, scale = 0.27, colour = G.C.UI.TEXT_DARK } }
+    } }
+end
+
 local function summary_row(state)
     local summary = state.summary
     return row({
-        ui_text(safe_localize(state.text_keys.summary, {
-            summary.currency_g,
-            summary.owned_cards,
-            summary.raw_cards,
-            summary.graded_cards,
-            summary.grading_queue
-        }), 0.32, G.C.WHITE)
-    })
+        stat_chip(safe_localize("grdl_k_stat_g", { summary.currency_g })),
+        stat_chip(safe_localize("grdl_k_stat_owned") .. " " .. tostring(summary.owned_cards)),
+        stat_chip(safe_localize("grdl_k_stat_raw") .. " " .. tostring(summary.raw_cards)),
+        stat_chip(safe_localize("grdl_k_stat_graded") .. " " .. tostring(summary.graded_cards)),
+        stat_chip(safe_localize("grdl_k_stat_queue") .. " " .. tostring(summary.grading_queue))
+    }, { padding = 0.05 })
 end
 
 local function revealed_row(state)
@@ -324,29 +327,33 @@ end
 
 local function desk_card_row(state, row_data)
     local fee = state.fees and state.fees[row_data.id] or nil
+    local name = center_name(row_data)
     return row({
-        col({ ui_text(center_name(row_data), 0.3) }, { align = "cl", minw = 2.6 }),
-        col({ ui_text(safe_localize("grdl_k_edition_" .. tostring(row_data.edition or "base")), 0.26) }, { align = "cl", minw = 1.2 }),
-        col({ ui_text(fee and safe_localize("grdl_k_grading_fee", { fee }) or "", 0.28, G.C.GOLD) }, { align = "cr", minw = 0.9 }),
-        UIBox_button({
-            button = "grdl_submit_grading",
-            label = { safe_localize("grdl_b_grade") },
-            ref_table = { id = row_data.id },
-            minw = 1.2,
-            maxw = 1.2,
-            minh = 0.55,
-            scale = 0.3,
-            colour = G.C.BLUE,
-            focus_args = { nav = "wide" }
-        })
+        col({ ui_text(name, UICommon.fit_scale(name, 0.3, 18)) }, { align = "cl", minw = 2.0 }),
+        col({ ui_text(safe_localize("grdl_k_edition_" .. tostring(row_data.edition or "base")), 0.26) }, { align = "cl", minw = 0.9 }),
+        col({ ui_text(fee and safe_localize("grdl_k_grading_fee", { fee }) or "", 0.28, G.C.GOLD) }, { align = "cr", minw = 0.8 }),
+        col({
+            UIBox_button({
+                button = "grdl_submit_grading",
+                label = { safe_localize("grdl_b_grade") },
+                ref_table = { id = row_data.id },
+                minw = 1.0,
+                maxw = 1.0,
+                minh = 0.5,
+                scale = 0.28,
+                colour = G.C.BLUE,
+                focus_args = { nav = "wide" }
+            })
+        }, { align = "cm", minw = 1.1 })
     })
 end
 
 local function queue_row(queue_data)
+    local name = center_name(queue_data)
     return row({
-        col({ ui_text(center_name(queue_data), 0.3) }, { align = "cl", minw = 3.0 }),
-        col({ ui_text(safe_localize("grdl_k_service_" .. tostring(queue_data.service or "standard")), 0.28) }, { align = "cl", minw = 1.5 }),
-        col({ ui_text(eta_text(queue_data.remaining or 0), 0.28, queue_data.ready and G.C.GREEN or G.C.UI.TEXT_LIGHT) }, { align = "cr", minw = 1.4 })
+        col({ ui_text(name, UICommon.fit_scale(name, 0.28, 18)) }, { align = "cl", minw = 2.0 }),
+        col({ ui_text(safe_localize("grdl_k_service_" .. tostring(queue_data.service or "standard")), 0.26) }, { align = "cl", minw = 0.9 }),
+        col({ ui_text(eta_text(queue_data.remaining or 0), 0.28, queue_data.ready and G.C.GREEN or G.C.UI.TEXT_LIGHT) }, { align = "cr", minw = 0.9 })
     })
 end
 
