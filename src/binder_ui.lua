@@ -225,8 +225,8 @@ local function build_card_grid(namespace)
 end
 
 local function stat_chip(text)
-    return { n = G.UIT.C, config = { align = "cm", padding = 0.06, r = 0.1, colour = G.C.WHITE, emboss = 0.05 }, nodes = {
-        { n = G.UIT.T, config = { text = text, scale = 0.27, colour = G.C.UI.TEXT_DARK } }
+    return { n = G.UIT.C, config = { align = "cm", padding = 0.09, r = 0.1, colour = G.C.WHITE, emboss = 0.05 }, nodes = {
+        { n = G.UIT.T, config = { text = text, scale = 0.31, colour = G.C.UI.TEXT_DARK } }
     } }
 end
 
@@ -238,7 +238,7 @@ local function summary_row(state)
         stat_chip(safe_localize("grdl_k_stat_raw") .. " " .. tostring(summary.raw_cards)),
         stat_chip(safe_localize("grdl_k_stat_graded") .. " " .. tostring(summary.graded_cards)),
         stat_chip(safe_localize("grdl_k_stat_queue") .. " " .. tostring(summary.grading_queue))
-    }, { padding = 0.05 })
+    }, { padding = 0.09 })
 end
 
 local function revealed_row(state)

@@ -35,7 +35,7 @@ local catalog = {
 }
 
 local seed_state = Storage.normalize({})
-local seeded = DebugTools.seed_graded(seed_state, catalog, { count = 4, now = 1767225600 })
+local seeded = DebugTools.seed_cards(seed_state, catalog, { count = 4, now = 1767225600 })
 H.assert_equal(seeded.ok, true, "seeding succeeds")
 H.assert_equal(#seeded.cards, 4, "requested count created")
 H.assert_equal(#seed_state.cards, 4, "cards stored in collection")
@@ -54,10 +54,10 @@ H.assert_equal(seeded.cards[2].edition, "foil", "editions cycle")
 H.assert_equal(seeded.cards[4].cert_number, "000004", "cert numbers increment")
 H.assert_true(seeded.cards[1].mod_id ~= seeded.cards[2].mod_id, "mods alternate round robin")
 
-local exhausted = DebugTools.seed_graded(Storage.normalize({}), catalog, { count = 99, now = 1767225600 })
+local exhausted = DebugTools.seed_cards(Storage.normalize({}), catalog, { count = 99, now = 1767225600 })
 H.assert_equal(#exhausted.cards, 4, "seeding stops when catalog exhausted")
 
-local pairing = DebugTools.seed_graded(Storage.normalize({}), {
+local pairing = DebugTools.seed_cards(Storage.normalize({}), {
     { center_key = "j_1", local_key = "k1", series_key = "S", mod_id = "M", rarity = "common" },
     { center_key = "j_2", local_key = "k2", series_key = "S", mod_id = "M", rarity = "common" },
     { center_key = "j_3", local_key = "k3", series_key = "S", mod_id = "M", rarity = "common" },
@@ -69,10 +69,35 @@ H.assert_equal(pairing.cards[1].edition, "base", "cycle one starts at base")
 H.assert_equal(pairing.cards[6].grade, 10, "sixth card wraps grade cycle")
 H.assert_true(pairing.cards[6].edition ~= pairing.cards[1].edition, "grade-edition pairing shifts between cycles")
 
-H.assert_equal(DebugTools.seed_graded(Storage.normalize({}), {}, { count = 3 }).ok, false, "empty catalog rejected")
+H.assert_equal(DebugTools.seed_cards(Storage.normalize({}), {}, { count = 3 }).ok, false, "empty catalog rejected")
+
+local raw_state = Storage.normalize({})
+local raw_seeded = DebugTools.seed_cards(raw_state, catalog, { count = 2, graded = false, now = 1767225600 })
+H.assert_equal(raw_seeded.ok, true, "ungraded seeding succeeds")
+H.assert_equal(#raw_seeded.cards, 2, "ungraded count created")
+H.assert_equal(raw_seeded.cards[1].status, "raw", "ungraded card stays raw")
+H.assert_equal(raw_seeded.cards[1].grade, nil, "ungraded card has no grade")
+H.assert_equal(raw_seeded.cards[1].cert_number, nil, "ungraded card has no cert")
+H.assert_equal(raw_state.next_cert_id, 1, "ungraded seeding keeps cert counter")
+H.assert_true(raw_seeded.cards[1].condition ~= nil, "ungraded card carries hidden condition")
+
+local parsed_default = DebugTools.parse_seed_args({})
+H.assert_equal(parsed_default.graded, true, "default mode graded")
+H.assert_equal(parsed_default.count, 10, "default count ten")
+local parsed_count = DebugTools.parse_seed_args({ "7" })
+H.assert_equal(parsed_count.graded, true, "numeric arg keeps graded mode")
+H.assert_equal(parsed_count.count, 7, "numeric arg sets count")
+local parsed_ug = DebugTools.parse_seed_args({ "ug", "5" })
+H.assert_equal(parsed_ug.graded, false, "ug selects ungraded")
+H.assert_equal(parsed_ug.count, 5, "ug count")
+local parsed_g = DebugTools.parse_seed_args({ "g", "3" })
+H.assert_equal(parsed_g.graded, true, "g selects graded")
+H.assert_equal(parsed_g.count, 3, "g count")
+H.assert_equal(DebugTools.parse_seed_args({ "ug" }).count, 10, "mode without count defaults to ten")
+H.assert_equal(DebugTools.parse_seed_args({ "warp" }).ok, false, "unknown mode rejected")
 
 local clear_state = Storage.normalize({ currency_g = 77 })
-DebugTools.seed_graded(clear_state, catalog, { count = 3, now = 1767225600 })
+DebugTools.seed_cards(clear_state, catalog, { count = 3, now = 1767225600 })
 clear_state.grading_queue[#clear_state.grading_queue + 1] = { card_id = clear_state.cards[1].id, due_at = 99 }
 local cert_before_clear = clear_state.next_cert_id
 local cleared = DebugTools.clear_collection(clear_state)

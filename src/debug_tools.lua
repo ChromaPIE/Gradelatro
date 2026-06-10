@@ -53,9 +53,23 @@ function DebugTools.adjust_currency(state, op, amount)
     return { ok = true, currency_g = state.currency_g }
 end
 
-function DebugTools.seed_graded(state, catalog, args)
+function DebugTools.parse_seed_args(args)
+    args = args or {}
+    local graded = true
+    local count_arg = args[1]
+    if args[1] == "g" or args[1] == "ug" then
+        graded = args[1] == "g"
+        count_arg = args[2]
+    elseif args[1] ~= nil and not tonumber(args[1]) then
+        return { ok = false, reason = "unknown_mode" }
+    end
+    return { ok = true, graded = graded, count = tonumber(count_arg) or 10 }
+end
+
+function DebugTools.seed_cards(state, catalog, args)
     if not state then return { ok = false, reason = "missing_collection" } end
     args = args or {}
+    local graded = args.graded ~= false
     local count = math.max(1, math.floor(args.count or 10))
     local now = args.now or os.time()
 
@@ -96,11 +110,13 @@ function DebugTools.seed_graded(state, catalog, args)
                 acquired_year = tonumber(os.date("%Y", now)),
                 source = "debug_seed"
             })
-            card.status = "graded"
-            card.grade = grade
-            card.graded_at = now
-            card.grade_service = "standard"
-            card.cert_number = Storage.allocate_cert_number(state)
+            if graded then
+                card.status = "graded"
+                card.grade = grade
+                card.graded_at = now
+                card.grade_service = "standard"
+                card.cert_number = Storage.allocate_cert_number(state)
+            end
             created[#created + 1] = card
         else
             table.remove(mod_order, mod_index)
@@ -148,22 +164,26 @@ function DebugTools.install(namespace)
 
     pcall(dp.addCommand, {
         name = "grdlseed",
-        shortDesc = "Seed graded test cards",
-        desc = "Seed graded Jokers into the Gradelatro binder for testing; grades and editions cycle, source mods rotate. Usage:\ngrdlseed [count] - default 10",
+        shortDesc = "Seed test cards",
+        desc = "Seed Jokers into the Gradelatro binder for testing; grades and editions cycle, source mods rotate. Usage:\ngrdlseed [count] - graded cards, default 10\ngrdlseed g [count] - graded cards\ngrdlseed ug [count] - ungraded raw cards",
         exec = function(args)
             local collection = namespace and namespace.collection or nil
             local config = namespace and namespace.config or nil
             local runtime = rawget(_G, "G")
             if not collection or not config then return "Gradelatro state unavailable.", "ERROR" end
             if not runtime or not runtime.P_CENTERS then return "Game centers not loaded yet.", "ERROR" end
+            local parsed = DebugTools.parse_seed_args(args)
+            if not parsed.ok then
+                return "Usage: grdlseed [g|ug] [count]", "ERROR"
+            end
             local smods = rawget(_G, "SMODS")
             local catalog = Catalog.discover(config, runtime.P_CENTERS, smods and smods.Mods or nil)
-            local result = DebugTools.seed_graded(collection, catalog, { count = tonumber(args[1]) or 10 })
+            local result = DebugTools.seed_cards(collection, catalog, { count = parsed.count, graded = parsed.graded })
             if not result.ok then
                 return "Seeding failed: " .. tostring(result.reason), "ERROR"
             end
             Persistence.save(namespace)
-            return "Seeded " .. tostring(#result.cards) .. " graded cards into the binder."
+            return "Seeded " .. tostring(#result.cards) .. (parsed.graded and " graded" or " ungraded") .. " cards into the binder."
         end
     })
 
