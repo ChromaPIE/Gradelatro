@@ -24,6 +24,8 @@ local event_card_id = UICommon.event_ref_id
 
 local PAGE_ROWS = { 5, 5 }
 
+local CARD_INSPECT_SCALE = 2.2
+
 local EDITION_FLAGS = {
     foil = { foil = true },
     holographic = { holo = true },
@@ -65,6 +67,12 @@ end
 local function runtime_centers()
     local runtime = rawget(_G, "G")
     return runtime and runtime.P_CENTERS or nil
+end
+
+local function suppress_selection(card)
+    card.click = function(self)
+        if self.juice_up then self:juice_up(0.3, 0.3) end
+    end
 end
 
 local function grading_fee_map(config, collection)
@@ -237,10 +245,11 @@ function BinderUI.fill_card_areas(namespace)
             if entry then
                 local center = G.P_CENTERS and G.P_CENTERS[entry.center_key] or nil
                 if center then
-                    local card = Card(area.T.x + area.T.w / 2, area.T.y, G.CARD_W, G.CARD_H, G.P_CARDS.empty, center)
+                    local card = Card(area.T.x + area.T.w / 2, area.T.y, G.CARD_W, G.CARD_H, (G.P_CARDS and G.P_CARDS.empty or nil), center)
                     local edition_flag = EDITION_FLAGS[entry.edition]
                     if edition_flag then card:set_edition(edition_flag, true, true) end
                     card.grdl_record = entry
+                    suppress_selection(card)
                     area:emplace(card)
                 end
             end
@@ -438,8 +447,6 @@ function BinderUI.create_desk_definition(namespace)
     })
 end
 
-local CARD_INSPECT_SCALE = 1.8
-
 local function inspect_text(text, scale, colour, font)
     return { n = G.UIT.T, config = { text = text, scale = scale, colour = colour, font = font } }
 end
@@ -481,7 +488,7 @@ local function inspect_detail_row(label_key, value, regular_font)
     }, { align = "cl", padding = 0.07 })
 end
 
-local function build_inspect_card(namespace, entry)
+local function build_inspect_card(namespace, entry, catalog_entry)
     if not rawget(_G, "CardArea") or not rawget(_G, "Card") then return nil end
     local centers = G.P_CENTERS or {}
     local center = entry.center_key and centers[entry.center_key] or nil
@@ -489,10 +496,10 @@ local function build_inspect_card(namespace, entry)
 
     local area = CardArea(
         G.ROOM.T.x + 0.2 * G.ROOM.T.w / 2, G.ROOM.T.h,
-        CARD_INSPECT_SCALE * G.CARD_W * 1.1,
+        CARD_INSPECT_SCALE * G.CARD_W,
         CARD_INSPECT_SCALE * G.CARD_H,
         { card_limit = 1, type = "title", highlight_limit = 0, collection = true })
-    local card = Card(area.T.x, area.T.y, CARD_INSPECT_SCALE * G.CARD_W, CARD_INSPECT_SCALE * G.CARD_H, G.P_CARDS.empty, center)
+    local card = Card(area.T.x, area.T.y, CARD_INSPECT_SCALE * G.CARD_W, CARD_INSPECT_SCALE * G.CARD_H, (G.P_CARDS and G.P_CARDS.empty or nil), center)
     local edition_flag = EDITION_FLAGS[entry.edition]
     if edition_flag then card:set_edition(edition_flag, true, true) end
     card.hover = function(self)
@@ -501,7 +508,11 @@ local function build_inspect_card(namespace, entry)
     card.stop_hover = function(self)
         if rawget(_G, "Node") then Node.stop_hover(self) end
     end
+    suppress_selection(card)
     area:emplace(card)
+    if entry.status == "graded" then
+        pcall(SlabUI.attach_above, card, entry, catalog_entry, { scale = CARD_INSPECT_SCALE * 0.52 })
+    end
     namespace.inspect_area = area
     return area
 end
@@ -521,12 +532,10 @@ function BinderUI.create_inspect_definition(namespace)
     local mod_display = (catalog_entry and catalog_entry.mod_name) or entry.mod_id or ""
 
     local left_nodes = {}
-    if entry.status == "graded" then
-        left_nodes[#left_nodes + 1] = row({ SlabUI.slab_box(entry, catalog_entry, { scale = CARD_INSPECT_SCALE * 0.8 }) }, { padding = 0.06 })
-    end
-    local area = build_inspect_card(namespace, entry)
+    left_nodes[#left_nodes + 1] = row({}, { minh = entry.status == "graded" and 1.5 or 0.2 })
+    local area = build_inspect_card(namespace, entry, catalog_entry)
     if area then
-        left_nodes[#left_nodes + 1] = row({ { n = G.UIT.O, config = { object = area } } }, { padding = 0.06 })
+        left_nodes[#left_nodes + 1] = row({ { n = G.UIT.O, config = { object = area } } }, { padding = 0.02 })
     end
 
     local right_nodes = {
@@ -542,27 +551,19 @@ function BinderUI.create_inspect_definition(namespace)
     }
 
     local close_char = "X"
-    if bold_font and bold_font.FONT and bold_font.FONT.hasGlyphs and bold_font.FONT:hasGlyphs("✕") then
+    if regular_font and regular_font.FONT and regular_font.FONT.hasGlyphs and regular_font.FONT:hasGlyphs("✕") then
         close_char = "✕"
     end
 
     return {
         n = G.UIT.ROOT,
-        config = { align = "cm", minw = G.ROOM.T.w * 5, minh = G.ROOM.T.h * 5, padding = 0.1, colour = { 0, 0, 0, 0.62 } },
+        config = { align = "cm", minw = G.ROOM.T.w * 5, minh = G.ROOM.T.h * 5, padding = 0.1, colour = { 0, 0, 0, 0.75 } },
         nodes = {
             { n = G.UIT.C, config = { align = "cm", minw = G.ROOM.T.w * 0.96, minh = G.ROOM.T.h * 0.92, padding = 0.1 }, nodes = {
                 { n = G.UIT.R, config = { align = "cr", padding = 0.04 }, nodes = {
-                    UIBox_button({
-                        button = "grdl_open_binder",
-                        label = { close_char },
-                        colour = G.C.CLEAR,
-                        shadow = false,
-                        minw = 0.8,
-                        maxw = 0.8,
-                        minh = 0.8,
-                        scale = 0.55,
-                        focus_args = { nav = "wide", snap_to = true }
-                    })
+                    { n = G.UIT.C, config = { align = "cm", minw = 0.8, minh = 0.8, r = 0.1, hover = true, colour = G.C.CLEAR, button = "grdl_open_binder", focus_args = { nav = "wide", snap_to = true } }, nodes = {
+                        { n = G.UIT.T, config = { text = close_char, scale = 0.55, colour = G.C.WHITE, font = regular_font } }
+                    } }
                 } },
                 { n = G.UIT.R, config = { align = "cm", padding = 0.15, minh = G.ROOM.T.h * 0.75 }, nodes = {
                     { n = G.UIT.C, config = { align = "cm", padding = 0.1 }, nodes = left_nodes },

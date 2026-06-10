@@ -73,6 +73,27 @@ function SlabUI.slab_box(record, catalog_entry, opts)
     } }
 end
 
+function SlabUI.attach_above(card, record, catalog_entry, opts)
+    if not rawget(_G, "UIBox") then return false end
+    if not card or not card.children or card.children.grdl_slab then return false end
+
+    card.children.grdl_slab = UIBox({
+        definition = { n = G.UIT.ROOT, config = { align = "cm", colour = G.C.CLEAR, padding = 0.02 }, nodes = {
+            SlabUI.slab_box(record, catalog_entry, opts)
+        } },
+        config = {
+            instance_type = "POPUP",
+            align = "tm",
+            offset = { x = 0, y = (opts and opts.offset_y) or -0.04 },
+            major = card,
+            bond = "Strong",
+            parent = card
+        }
+    })
+    card.children.grdl_slab.states.collide.can = false
+    return true
+end
+
 local function badge_node(card)
     local record = card.grdl_record
     if record.status == "graded" then

@@ -148,6 +148,62 @@ H.assert_equal(namespace.inspect_ui_state, inspect_state, "inspect state stored 
 H.assert_equal(BinderUI.open_inspect(namespace, "grdl_unknown"), nil, "unknown card cannot be inspected")
 H.assert_equal(BinderUI.open_inspect(nil, raw_card.id), nil, "missing namespace rejected")
 
+local previous_fill_g = rawget(_G, "G")
+local previous_fill_card = rawget(_G, "Card")
+_G.G = {
+    P_CENTERS = { j_joker = { key = "j_joker", set = "Joker" } },
+    CARD_W = 1.44,
+    CARD_H = 1.9
+}
+_G.Card = function(x, y, w, h, front, center)
+    return {
+        center = center,
+        children = {},
+        set_edition = function(self, flag) self.edition_flag = flag end,
+        juice_up = function(self) self.juiced = (self.juiced or 0) + 1 end,
+        remove = function() end
+    }
+end
+local function fake_area()
+    return {
+        cards = {},
+        T = { x = 0, y = 0, w = 7.2, h = 1.9 },
+        remove_card = function(self, card)
+            for index, value in ipairs(self.cards) do
+                if value == card then
+                    table.remove(self.cards, index)
+                    return card
+                end
+            end
+        end,
+        emplace = function(self, card) self.cards[#self.cards + 1] = card end
+    }
+end
+local fill_namespace = {
+    binder_areas = { fake_area(), fake_area() },
+    binder_ui_state = {
+        page_view = {
+            items = {
+                { id = "f1", center_key = "j_joker", edition = "negative", status = "graded" },
+                { id = "f2", center_key = "j_missing", edition = "base", status = "raw" }
+            }
+        }
+    }
+}
+BinderUI.fill_card_areas(fill_namespace)
+local filled = fill_namespace.binder_areas[1].cards
+H.assert_equal(#filled, 1, "only loaded centers become cards")
+H.assert_equal(filled[1].grdl_record.id, "f1", "grid card carries record")
+H.assert_true(filled[1].edition_flag ~= nil and filled[1].edition_flag.negative == true, "edition applied to grid card")
+H.assert_true(type(filled[1].click) == "function", "grid card click overridden")
+filled[1]:click()
+H.assert_equal(filled[1].juiced, 1, "click keeps juice feedback")
+H.assert_equal(filled[1].highlighted, nil, "click never selects the card")
+BinderUI.fill_card_areas(fill_namespace)
+H.assert_equal(#fill_namespace.binder_areas[1].cards, 1, "refill replaces cards without stacking")
+_G.G = previous_fill_g
+_G.Card = previous_fill_card
+
 _G.SMODS = previous_smods_global
 
 print("binder ui tests ok")

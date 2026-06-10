@@ -92,6 +92,29 @@ H.assert_near(scaled_inner.nodes[1].nodes[1].nodes[1].config.scale, SlabUI.line_
 H.assert_near(scaled_inner.nodes[2].config.minw, 0.7, 0.000001, "scaled column gap")
 H.assert_near(scaled_inner.nodes[1].nodes[1].config.minh, 0.64, 0.000001, "scaled line height")
 
+local attach_card = { children = {} }
+H.assert_equal(SlabUI.attach_above(attach_card, record, catalog_entry), false, "attach without UIBox global is a safe no-op")
+H.assert_equal(attach_card.children.grdl_slab, nil, "no slab child without UIBox global")
+
+local attach_args = nil
+_G.UIBox = function(args)
+    attach_args = args
+    return {
+        states = { collide = { can = true } },
+        remove = function() end
+    }
+end
+H.assert_equal(SlabUI.attach_above(attach_card, record, catalog_entry, { scale = 1.2 }), true, "attach succeeds with UIBox")
+H.assert_true(attach_card.children.grdl_slab ~= nil, "slab child stored on card")
+H.assert_equal(attach_args.config.align, "tm", "slab mounts above the card")
+H.assert_equal(attach_args.config.major, attach_card, "slab follows the card")
+H.assert_equal(attach_args.config.instance_type, "POPUP", "slab draws on the popup layer")
+H.assert_equal(attach_args.definition.n, "ROOT", "slab wrapped in clear root")
+H.assert_equal(attach_args.definition.nodes[1].config.colour, _G.G.C.RED, "wrapped root carries the red slab box")
+H.assert_equal(attach_card.children.grdl_slab.states.collide.can, false, "slab does not catch the cursor")
+H.assert_equal(SlabUI.attach_above(attach_card, record, catalog_entry), false, "second attach is a no-op")
+_G.UIBox = nil
+
 local namespace = {
     binder_hover_index = { kino_air_freshener = catalog_entry }
 }
