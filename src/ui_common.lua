@@ -58,7 +58,7 @@ function UICommon.noto_bold(fonts, lang)
     if lang and lang.font and type(lang.font.file) == "string" and lang.font.file:find("Noto") then
         return lang.font
     end
-    return font_by_file(fonts, "NotoSans%-Bold")
+    return font_by_file(fonts, "GoNotoCurrent%-Bold") or font_by_file(fonts, "NotoSans%-Bold")
 end
 
 function UICommon.noto_regular(fonts)

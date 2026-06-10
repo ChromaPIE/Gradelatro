@@ -63,8 +63,12 @@ _G.G.FONTS[4] = { file = "resources/fonts/GoNotoCJKCore.ttf" }
 H.assert_equal(UICommon.noto_regular(), _G.G.FONTS[4], "regular cjk noto found")
 _G.G.LANG = { font = _G.G.FONTS[2] }
 H.assert_equal(UICommon.noto_bold(), _G.G.FONTS[2], "noto language font preferred for bold")
+H.assert_equal(SlabUI.label_font(), _G.G.FONTS[3], "slab label font ignores language font")
 _G.G.LANG = { font = _G.G.FONTS[1] }
 H.assert_equal(UICommon.noto_bold(), _G.G.FONTS[3], "pixel language font falls back to noto sans bold")
+_G.G.FONTS[5] = { file = "resources/fonts/GoNotoCurrent-Bold.ttf" }
+H.assert_equal(UICommon.noto_bold(), _G.G.FONTS[5], "universal bold preferred over latin-only bold")
+_G.G.FONTS[5] = nil
 _G.G.LANG = nil
 
 local box = SlabUI.slab_box(record, catalog_entry)

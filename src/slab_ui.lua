@@ -34,7 +34,13 @@ function SlabUI.line_scale(text, base, budget_bytes)
 end
 
 function SlabUI.label_font(fonts)
-    return UICommon.noto_bold(fonts)
+    fonts = fonts or (rawget(_G, "G") and G.FONTS) or {}
+    for _, font in ipairs(fonts) do
+        if type(font.file) == "string" and font.file:find("NotoSans%-Bold") then
+            return font
+        end
+    end
+    return nil
 end
 
 local function label_line(text, side, font, scale_mult)

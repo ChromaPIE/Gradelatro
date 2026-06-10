@@ -438,7 +438,7 @@ function BinderUI.create_desk_definition(namespace)
     })
 end
 
-local CARD_INSPECT_SCALE = 1.4
+local CARD_INSPECT_SCALE = 1.8
 
 local function inspect_text(text, scale, colour, font)
     return { n = G.UIT.T, config = { text = text, scale = scale, colour = colour, font = font } }
@@ -465,11 +465,20 @@ local function inspect_psa_text(entry)
     return safe_localize("grdl_k_badge_ungraded")
 end
 
+local function inspect_edition_text(entry)
+    local edition = tostring(entry.edition or "base")
+    if rawget(_G, "localize") then
+        local ok, value = pcall(localize, { type = "name_text", key = "e_" .. edition, set = "Edition" })
+        if ok and value and value ~= "ERROR" then return value end
+    end
+    return safe_localize("grdl_k_edition_" .. edition)
+end
+
 local function inspect_detail_row(label_key, value, regular_font)
     return row({
-        col({ inspect_text(safe_localize(label_key), 0.33, G.C.UI.TEXT_INACTIVE, regular_font) }, { align = "cl", minw = 1.9 }),
-        col({ inspect_text(value, 0.33, G.C.WHITE, regular_font) }, { align = "cl", minw = 2.7 })
-    }, { align = "cl", padding = 0.06 })
+        col({ inspect_text(safe_localize(label_key), 0.36, G.C.UI.TEXT_INACTIVE, regular_font) }, { align = "cl", minw = 2.0 }),
+        col({ inspect_text(value, 0.36, G.C.WHITE, regular_font) }, { align = "cl", minw = 2.9 })
+    }, { align = "cl", padding = 0.07 })
 end
 
 local function build_inspect_card(namespace, entry)
@@ -513,19 +522,20 @@ function BinderUI.create_inspect_definition(namespace)
 
     local left_nodes = {}
     if entry.status == "graded" then
-        left_nodes[#left_nodes + 1] = row({ SlabUI.slab_box(entry, catalog_entry, { scale = CARD_INSPECT_SCALE * 0.85 }) }, { padding = 0.06, no_fill = true })
+        left_nodes[#left_nodes + 1] = row({ SlabUI.slab_box(entry, catalog_entry, { scale = CARD_INSPECT_SCALE * 0.8 }) }, { padding = 0.06 })
     end
     local area = build_inspect_card(namespace, entry)
     if area then
-        left_nodes[#left_nodes + 1] = row({ { n = G.UIT.O, config = { object = area } } }, { padding = 0.06, no_fill = true })
+        left_nodes[#left_nodes + 1] = row({ { n = G.UIT.O, config = { object = area } } }, { padding = 0.06 })
     end
 
     local right_nodes = {
-        row({ inspect_text(mod_display, 0.45, G.C.UI.TEXT_LIGHT, regular_font) }, { align = "cl", padding = 0.03 }),
-        row({ inspect_text(center_name(entry), 0.72, G.C.WHITE, bold_font) }, { align = "cl", padding = 0.05 }),
-        row({}, { minh = 0.35 }),
+        row({ inspect_text(mod_display, 0.5, G.C.UI.TEXT_LIGHT, regular_font) }, { align = "cl", padding = 0.03 }),
+        row({ inspect_text(center_name(entry), 0.8, G.C.WHITE, bold_font) }, { align = "cl", padding = 0.05 }),
+        row({}, { minh = 0.4 }),
         inspect_detail_row("grdl_k_detail_source", mod_display, regular_font),
         inspect_detail_row("grdl_k_detail_rarity", safe_localize("grdl_k_rarity_" .. tostring(entry.rarity or "common")), regular_font),
+        inspect_detail_row("grdl_k_detail_edition", inspect_edition_text(entry), regular_font),
         inspect_detail_row("grdl_k_detail_date", inspect_date_text(entry), regular_font),
         inspect_detail_row("grdl_k_detail_price", safe_localize("grdl_k_stat_g", { entry.acquired_price or 0 }), regular_font),
         inspect_detail_row("grdl_k_detail_psa", inspect_psa_text(entry), regular_font)
@@ -538,7 +548,7 @@ function BinderUI.create_inspect_definition(namespace)
 
     return {
         n = G.UIT.ROOT,
-        config = { align = "cm", minw = G.ROOM.T.w * 5, minh = G.ROOM.T.h * 5, padding = 0.1, colour = { 0, 0, 0, 0.85 } },
+        config = { align = "cm", minw = G.ROOM.T.w * 5, minh = G.ROOM.T.h * 5, padding = 0.1, colour = { 0, 0, 0, 0.62 } },
         nodes = {
             { n = G.UIT.C, config = { align = "cm", minw = G.ROOM.T.w * 0.96, minh = G.ROOM.T.h * 0.92, padding = 0.1 }, nodes = {
                 { n = G.UIT.R, config = { align = "cr", padding = 0.04 }, nodes = {
@@ -556,7 +566,7 @@ function BinderUI.create_inspect_definition(namespace)
                 } },
                 { n = G.UIT.R, config = { align = "cm", padding = 0.15, minh = G.ROOM.T.h * 0.75 }, nodes = {
                     { n = G.UIT.C, config = { align = "cm", padding = 0.1 }, nodes = left_nodes },
-                    { n = G.UIT.C, config = { align = "cm", minw = 0.8 }, nodes = {} },
+                    { n = G.UIT.C, config = { align = "cm", minw = 1.0 }, nodes = {} },
                     { n = G.UIT.C, config = { align = "tl", padding = 0.1 }, nodes = right_nodes }
                 } }
             } }

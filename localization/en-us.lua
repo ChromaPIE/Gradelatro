@@ -29,6 +29,7 @@ return {
             grdl_k_stat_queue = "Queue",
             grdl_k_detail_source = "Source Mod",
             grdl_k_detail_rarity = "Rarity",
+            grdl_k_detail_edition = "Edition",
             grdl_k_detail_date = "Acquired",
             grdl_k_detail_price = "Paid",
             grdl_k_detail_psa = "PSA Grade",

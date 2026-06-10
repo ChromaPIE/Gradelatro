@@ -29,6 +29,7 @@ return {
             grdl_k_stat_queue = "队列",
             grdl_k_detail_source = "来源模组",
             grdl_k_detail_rarity = "稀有度",
+            grdl_k_detail_edition = "版本",
             grdl_k_detail_date = "获得日期",
             grdl_k_detail_price = "入手价",
             grdl_k_detail_psa = "PSA评级",
