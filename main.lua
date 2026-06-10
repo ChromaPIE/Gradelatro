@@ -47,6 +47,9 @@ Bootstrap.attach(Gradelatro, "Label", Label)
 local UICommon = load_src("ui_common.lua")
 Bootstrap.attach(Gradelatro, "UICommon", UICommon)
 
+local SlabUI = load_src("slab_ui.lua")
+Bootstrap.attach(Gradelatro, "SlabUI", SlabUI)
+
 local Binder = load_src("binder.lua")
 Bootstrap.attach(Gradelatro, "Binder", Binder)
 

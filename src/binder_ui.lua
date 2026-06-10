@@ -8,13 +8,36 @@ local function load_src(path)
 end
 
 local Binder = load_src("binder.lua")
+local Catalog = load_src("catalog.lua")
 local Grading = load_src("grading.lua")
 local Persistence = load_src("persistence.lua")
+local SlabUI = load_src("slab_ui.lua")
+local UICommon = load_src("ui_common.lua")
+
+local safe_localize = UICommon.localize_text
+local center_name = UICommon.center_name
+local ui_text = UICommon.text_node
+local row = UICommon.row
+local col = UICommon.col
+local event_card_id = UICommon.event_ref_id
+
+local PAGE_ROWS = { 5, 5 }
+
+local EDITION_FLAGS = {
+    foil = { foil = true },
+    holographic = { holo = true },
+    polychrome = { polychrome = true },
+    negative = { negative = true }
+}
 
 local TEXT_KEYS = {
     title = "grdl_k_binder_title",
     summary = "grdl_k_binder_summary",
     empty = "grdl_k_binder_empty",
+    hidden = "grdl_k_binder_hidden",
+    desk = "grdl_b_desk",
+    desk_title = "grdl_k_desk_title",
+    desk_empty = "grdl_k_desk_empty",
     queue_title = "grdl_k_queue_title",
     revealed = "grdl_k_grading_revealed"
 }
@@ -27,6 +50,23 @@ local function copy_text_keys()
     return out
 end
 
+local function per_page()
+    local total = 0
+    for _, count in ipairs(PAGE_ROWS) do
+        total = total + count
+    end
+    return total
+end
+
+local function reason_key(reason)
+    return "grdl_k_reason_" .. tostring(reason or "unknown")
+end
+
+local function runtime_centers()
+    local runtime = rawget(_G, "G")
+    return runtime and runtime.P_CENTERS or nil
+end
+
 local function grading_fee_map(config, collection)
     local fees = {}
     for _, card in ipairs((collection and collection.cards) or {}) do
@@ -37,38 +77,72 @@ local function grading_fee_map(config, collection)
     return fees
 end
 
-function BinderUI.default_state(collection, extras)
-    extras = extras or {}
-    return {
-        text_keys = copy_text_keys(),
-        summary = Binder.summary(collection),
-        rows = Binder.card_rows(collection, { limit = 20 }),
-        queue_rows = Grading.queue_rows(collection or {}, extras.now or os.time()),
-        grading_fees = extras.grading_fees or {},
-        revealed_count = extras.revealed_count or 0,
-        last_reason = nil
-    }
+local function process_due(namespace, now)
+    if not namespace.config then return 0 end
+    local processed = Grading.process_due(namespace.config, namespace.collection, now)
+    if #processed.revealed > 0 then
+        namespace.last_save_ok = Persistence.save(namespace)
+    end
+    return #processed.revealed
+end
+
+local function refresh_hover_index(namespace)
+    local centers = runtime_centers()
+    if not centers or not namespace.config then return end
+    local smods = rawget(_G, "SMODS")
+    local ok, catalog = pcall(Catalog.discover, namespace.config, centers, smods and smods.Mods or nil)
+    if not ok then return end
+    local index = {}
+    for _, entry in ipairs(catalog) do
+        index[entry.center_key] = entry
+    end
+    namespace.binder_hover_index = index
 end
 
 function BinderUI.open(namespace, now)
     if not namespace or not namespace.collection then return nil end
     now = now or os.time()
 
-    local revealed_count = 0
-    if namespace.config then
-        local processed = Grading.process_due(namespace.config, namespace.collection, now)
-        revealed_count = #processed.revealed
-        if revealed_count > 0 then
-            namespace.last_save_ok = Persistence.save(namespace)
-        end
-    end
+    local revealed_count = process_due(namespace, now)
+    refresh_hover_index(namespace)
+    SlabUI.install(namespace)
 
-    namespace.binder_ui_state = BinderUI.default_state(namespace.collection, {
-        now = now,
-        revealed_count = revealed_count,
-        grading_fees = namespace.config and grading_fee_map(namespace.config, namespace.collection) or {}
-    })
+    local view = Binder.entries(namespace.collection, { centers = runtime_centers() })
+    namespace.binder_ui_state = {
+        text_keys = copy_text_keys(),
+        summary = Binder.summary(namespace.collection),
+        entries = view.entries,
+        hidden = view.hidden,
+        page = 1,
+        page_view = Binder.page(view.entries, 1, per_page()),
+        revealed_count = revealed_count
+    }
     return namespace.binder_ui_state
+end
+
+function BinderUI.set_page(namespace, page)
+    local state = namespace and namespace.binder_ui_state or nil
+    if not state then return nil end
+    state.page_view = Binder.page(state.entries, page, per_page())
+    state.page = state.page_view.page
+    return state
+end
+
+function BinderUI.open_desk(namespace, now)
+    if not namespace or not namespace.collection then return nil end
+    now = now or os.time()
+
+    local revealed_count = process_due(namespace, now)
+    namespace.desk_ui_state = {
+        text_keys = copy_text_keys(),
+        summary = Binder.summary(namespace.collection),
+        rows = Binder.desk_rows(namespace.collection),
+        fees = namespace.config and grading_fee_map(namespace.config, namespace.collection) or {},
+        queue_rows = Grading.queue_rows(namespace.collection, now),
+        revealed_count = revealed_count,
+        last_reason = nil
+    }
+    return namespace.desk_ui_state
 end
 
 function BinderUI.submit_grading(namespace, card_id, now)
@@ -89,86 +163,146 @@ function BinderUI.submit_grading(namespace, card_id, now)
         namespace.last_save_ok = Persistence.save(namespace)
     end
 
-    local state = BinderUI.open(namespace, now)
+    local state = BinderUI.open_desk(namespace, now)
     if state and not result.ok then
         state.last_reason = result.reason
     end
     return result
 end
 
-local function safe_localize(key, vars)
-    if rawget(_G, "localize") then
-        if vars then
-            local ok, value = pcall(localize, { type = "variable", key = key, vars = vars })
-            if ok and value then return value end
+function BinderUI.fill_card_areas(namespace)
+    local state = namespace and namespace.binder_ui_state or nil
+    local areas = namespace and namespace.binder_areas or nil
+    if not state or not areas then return end
+
+    for j = 1, #areas do
+        local area = areas[j]
+        for i = #area.cards, 1, -1 do
+            local card = area:remove_card(area.cards[i])
+            if card then card:remove() end
         end
-        local ok, value = pcall(localize, key)
-        if ok and value then return value end
     end
-    return key
-end
 
-local function safe_center_name(row)
-    if rawget(_G, "localize") then
-        local ok, value = pcall(localize, {
-            type = "name_text",
-            key = row.center_key,
-            set = "Joker"
-        })
-        if ok and value then return value end
+    local items = state.page_view and state.page_view.items or {}
+    local slot = 0
+    for j = 1, #areas do
+        local area = areas[j]
+        for _ = 1, (PAGE_ROWS[j] or 0) do
+            slot = slot + 1
+            local entry = items[slot]
+            if entry then
+                local center = G.P_CENTERS and G.P_CENTERS[entry.center_key] or nil
+                if center then
+                    local card = Card(area.T.x + area.T.w / 2, area.T.y, G.CARD_W, G.CARD_H, G.P_CARDS.empty, center)
+                    local edition_flag = EDITION_FLAGS[entry.edition]
+                    if edition_flag then card:set_edition(edition_flag, true, true) end
+                    card.grdl_record = entry
+                    area:emplace(card)
+                end
+            end
+        end
     end
-    return tostring(row.name_key or row.center_key or row.id)
 end
 
-local function edition_text(edition)
-    return safe_localize("grdl_k_edition_" .. tostring(edition or "base"))
+local function build_card_grid(namespace)
+    local areas = {}
+    local deck_tables = {}
+    for j = 1, #PAGE_ROWS do
+        local area = CardArea(
+            G.ROOM.T.x + 0.2 * G.ROOM.T.w / 2, G.ROOM.T.h,
+            (PAGE_ROWS[j] + 0.25) * G.CARD_W,
+            0.95 * G.CARD_H,
+            { card_limit = PAGE_ROWS[j], type = "title", highlight_limit = 0, collection = true })
+        areas[j] = area
+        deck_tables[#deck_tables + 1] = row({ { n = G.UIT.O, config = { object = area } } }, { padding = 0.07, no_fill = true })
+    end
+    namespace.binder_areas = areas
+    BinderUI.fill_card_areas(namespace)
+    return deck_tables
 end
 
-local function ui_text(text, scale, colour)
-    return { n = G.UIT.T, config = { text = text, scale = scale or 0.35, colour = colour or G.C.UI.TEXT_LIGHT } }
+local function summary_row(state)
+    local summary = state.summary
+    return row({
+        ui_text(safe_localize(state.text_keys.summary, {
+            summary.currency_g,
+            summary.owned_cards,
+            summary.raw_cards,
+            summary.graded_cards,
+            summary.grading_queue
+        }), 0.32, G.C.WHITE)
+    })
 end
 
-local function row(nodes, config)
-    config = config or {}
-    config.align = config.align or "cm"
-    config.padding = config.padding or 0.04
-    return { n = G.UIT.R, config = config, nodes = nodes }
+local function revealed_row(state)
+    if (state.revealed_count or 0) <= 0 then return nil end
+    return row({ ui_text(safe_localize(state.text_keys.revealed, { state.revealed_count }), 0.34, G.C.GOLD) })
 end
 
-local function col(nodes, config)
-    config = config or {}
-    config.align = config.align or "cm"
-    config.padding = config.padding or 0.04
-    return { n = G.UIT.C, config = config, nodes = nodes }
-end
+function BinderUI.create_overlay_definition(namespace)
+    namespace = namespace or rawget(_G, "Gradelatro") or {}
+    local state = namespace.binder_ui_state or BinderUI.open(namespace)
+    if not state then
+        return create_UIBox_generic_options({ back_func = "options", contents = {} })
+    end
 
-local function card_row(state, row_data)
-    local nodes = {
-        col({ ui_text(safe_center_name(row_data), 0.32) }, { align = "cl", minw = 3.0 }),
-        col({ ui_text(edition_text(row_data.edition), 0.28, G.C.UI.TEXT_LIGHT) }, { align = "cl", minw = 1.5 }),
-        col({ ui_text(safe_localize(row_data.status_key), 0.28, G.C.UI.TEXT_LIGHT) }, { align = "cl", minw = 1.2 }),
-        col({ ui_text(row_data.grade and tostring(row_data.grade) or "", 0.28, G.C.GOLD) }, { align = "cr", minw = 0.5 })
+    local rows = {
+        row({ ui_text(safe_localize(state.text_keys.title), 0.55, G.C.WHITE) }),
+        summary_row(state),
+        revealed_row(state)
     }
 
-    local fee = state.grading_fees and state.grading_fees[row_data.id] or nil
-    if fee and row_data.status == "raw" then
-        nodes[#nodes + 1] = UIBox_button({
-            button = "grdl_submit_grading",
-            label = {
-                safe_localize("grdl_b_grade"),
-                safe_localize("grdl_k_grading_fee", { fee })
-            },
-            ref_table = { id = row_data.id },
-            minw = 1.5,
-            maxw = 1.5,
-            minh = 0.65,
-            scale = 0.28,
+    if state.page_view.total == 0 then
+        rows[#rows + 1] = row({ ui_text(safe_localize(state.text_keys.empty), 0.34, G.C.UI.TEXT_INACTIVE) })
+    else
+        rows[#rows + 1] = { n = G.UIT.R, config = { align = "cm", r = 0.1, colour = G.C.BLACK, emboss = 0.05 }, nodes = build_card_grid(namespace) }
+    end
+
+    if (state.hidden or 0) > 0 then
+        rows[#rows + 1] = row({ ui_text(safe_localize(state.text_keys.hidden, { state.hidden }), 0.28, G.C.UI.TEXT_INACTIVE) })
+    end
+
+    local controls = {}
+    if state.page_view.pages > 1 then
+        local options = {}
+        for i = 1, state.page_view.pages do
+            options[#options + 1] = safe_localize("k_page") .. " " .. tostring(i) .. "/" .. tostring(state.page_view.pages)
+        end
+        controls[#controls + 1] = col({
+            create_option_cycle({
+                options = options,
+                w = 4.5,
+                cycle_shoulders = true,
+                opt_callback = "grdl_binder_page",
+                current_option = state.page,
+                colour = G.C.RED,
+                no_pips = true,
+                focus_args = { snap_to = true, nav = "wide" }
+            })
+        })
+    end
+    controls[#controls + 1] = col({
+        UIBox_button({
+            button = "grdl_open_desk",
+            label = { safe_localize(state.text_keys.desk) },
+            minw = 2.8,
+            maxw = 2.8,
+            minh = 0.7,
+            scale = 0.34,
             colour = G.C.BLUE,
             focus_args = { nav = "wide" }
         })
-    end
+    })
+    rows[#rows + 1] = row(controls, { padding = 0.08 })
 
-    return row(nodes, { align = "cm" })
+    return create_UIBox_generic_options({
+        back_func = "options",
+        minw = 7.2,
+        padding = 0.12,
+        colour = G.C.L_BLACK,
+        outline_colour = G.C.RED,
+        contents = rows
+    })
 end
 
 local function eta_text(remaining)
@@ -184,40 +318,54 @@ local function eta_text(remaining)
     return safe_localize("grdl_k_eta_days", { math.ceil(remaining / 86400) })
 end
 
-local function queue_row(queue_data)
+local function desk_card_row(state, row_data)
+    local fee = state.fees and state.fees[row_data.id] or nil
     return row({
-        col({ ui_text(safe_center_name(queue_data), 0.3) }, { align = "cl", minw = 3.0 }),
-        col({ ui_text(safe_localize("grdl_k_service_" .. tostring(queue_data.service or "standard")), 0.28, G.C.UI.TEXT_LIGHT) }, { align = "cl", minw = 1.5 }),
-        col({ ui_text(eta_text(queue_data.remaining or 0), 0.28, queue_data.ready and G.C.GREEN or G.C.UI.TEXT_LIGHT) }, { align = "cr", minw = 1.4 })
-    }, { align = "cm" })
+        col({ ui_text(center_name(row_data), 0.32) }, { align = "cl", minw = 3.0 }),
+        col({ ui_text(safe_localize("grdl_k_edition_" .. tostring(row_data.edition or "base")), 0.28) }, { align = "cl", minw = 1.5 }),
+        UIBox_button({
+            button = "grdl_submit_grading",
+            label = {
+                safe_localize("grdl_b_grade"),
+                fee and safe_localize("grdl_k_grading_fee", { fee }) or ""
+            },
+            ref_table = { id = row_data.id },
+            minw = 1.6,
+            maxw = 1.6,
+            minh = 0.65,
+            scale = 0.28,
+            colour = G.C.BLUE,
+            focus_args = { nav = "wide" }
+        })
+    })
 end
 
-function BinderUI.create_overlay_definition(namespace)
-    namespace = namespace or rawget(_G, "Gradelatro") or {}
-    local state = namespace.binder_ui_state or BinderUI.open(namespace) or BinderUI.default_state(namespace.collection)
-    local summary = state.summary
-    local rows = {
-        row({ ui_text(safe_localize(state.text_keys.title), 0.55, G.C.WHITE) }),
-        row({
-            ui_text(safe_localize(state.text_keys.summary, {
-                summary.currency_g,
-                summary.owned_cards,
-                summary.raw_cards,
-                summary.graded_cards,
-                summary.grading_queue
-            }), 0.32, G.C.WHITE)
-        })
-    }
+local function queue_row(queue_data)
+    return row({
+        col({ ui_text(center_name(queue_data), 0.3) }, { align = "cl", minw = 3.0 }),
+        col({ ui_text(safe_localize("grdl_k_service_" .. tostring(queue_data.service or "standard")), 0.28) }, { align = "cl", minw = 1.5 }),
+        col({ ui_text(eta_text(queue_data.remaining or 0), 0.28, queue_data.ready and G.C.GREEN or G.C.UI.TEXT_LIGHT) }, { align = "cr", minw = 1.4 })
+    })
+end
 
-    if (state.revealed_count or 0) > 0 then
-        rows[#rows + 1] = row({ ui_text(safe_localize(state.text_keys.revealed, { state.revealed_count }), 0.34, G.C.GOLD) })
+function BinderUI.create_desk_definition(namespace)
+    namespace = namespace or rawget(_G, "Gradelatro") or {}
+    local state = namespace.desk_ui_state or BinderUI.open_desk(namespace)
+    if not state then
+        return create_UIBox_generic_options({ back_func = "grdl_open_binder", contents = {} })
     end
 
+    local rows = {
+        row({ ui_text(safe_localize(state.text_keys.desk_title), 0.55, G.C.WHITE) }),
+        summary_row(state),
+        revealed_row(state)
+    }
+
     if #state.rows == 0 then
-        rows[#rows + 1] = row({ ui_text(safe_localize(state.text_keys.empty), 0.34, G.C.UI.TEXT_INACTIVE) })
+        rows[#rows + 1] = row({ ui_text(safe_localize(state.text_keys.desk_empty), 0.34, G.C.UI.TEXT_INACTIVE) })
     else
-        for _, card in ipairs(state.rows) do
-            rows[#rows + 1] = card_row(state, card)
+        for _, entry in ipairs(state.rows) do
+            rows[#rows + 1] = desk_card_row(state, entry)
         end
     end
 
@@ -229,11 +377,11 @@ function BinderUI.create_overlay_definition(namespace)
     end
 
     if state.last_reason then
-        rows[#rows + 1] = row({ ui_text(safe_localize("grdl_k_reason_" .. tostring(state.last_reason)), 0.3, G.C.RED) })
+        rows[#rows + 1] = row({ ui_text(safe_localize(reason_key(state.last_reason)), 0.3, G.C.RED) })
     end
 
     return create_UIBox_generic_options({
-        back_func = "exit_overlay_menu",
+        back_func = "grdl_open_binder",
         minw = 7.2,
         padding = 0.12,
         colour = G.C.L_BLACK,
@@ -242,29 +390,22 @@ function BinderUI.create_overlay_definition(namespace)
     })
 end
 
-local function event_card_id(event)
-    return event
-        and event.config
-        and event.config.ref_table
-        and event.config.ref_table.id
-        or nil
-end
-
 local function default_adapter(runtime)
     runtime = runtime or rawget(_G, "G")
+    local function show(definition)
+        if not runtime or not runtime.FUNCS or not runtime.FUNCS.overlay_menu then return end
+        if runtime.SETTINGS then runtime.SETTINGS.paused = true end
+        runtime.FUNCS.overlay_menu({ definition = definition })
+    end
     return {
-        open_overlay = function(namespace)
-            if not runtime or not runtime.FUNCS or not runtime.FUNCS.overlay_menu then return end
-            if runtime.SETTINGS then runtime.SETTINGS.paused = true end
-            runtime.FUNCS.overlay_menu({
-                definition = BinderUI.create_overlay_definition(namespace)
-            })
+        open_binder = function(namespace)
+            show(BinderUI.create_overlay_definition(namespace))
         end,
-        refresh_overlay = function(namespace)
-            if not runtime or not runtime.FUNCS or not runtime.FUNCS.overlay_menu then return end
-            runtime.FUNCS.overlay_menu({
-                definition = BinderUI.create_overlay_definition(namespace)
-            })
+        open_desk = function(namespace)
+            show(BinderUI.create_desk_definition(namespace))
+        end,
+        refresh_desk = function(namespace)
+            show(BinderUI.create_desk_definition(namespace))
         end
     }
 end
@@ -277,12 +418,23 @@ function BinderUI.install_runtime(namespace, runtime, adapter)
 
     runtime.FUNCS.grdl_open_binder = function(event)
         local state = BinderUI.open(namespace)
-        if state and adapter.open_overlay then adapter.open_overlay(namespace, state, event) end
+        if state and adapter.open_binder then adapter.open_binder(namespace, state, event) end
+    end
+
+    runtime.FUNCS.grdl_open_desk = function(event)
+        local state = BinderUI.open_desk(namespace)
+        if state and adapter.open_desk then adapter.open_desk(namespace, state, event) end
+    end
+
+    runtime.FUNCS.grdl_binder_page = function(event)
+        if not event or not event.cycle_config then return end
+        BinderUI.set_page(namespace, event.cycle_config.current_option)
+        BinderUI.fill_card_areas(namespace)
     end
 
     runtime.FUNCS.grdl_submit_grading = function(event)
         BinderUI.submit_grading(namespace, event_card_id(event), os.time())
-        if adapter.refresh_overlay then adapter.refresh_overlay(namespace, namespace.binder_ui_state, event) end
+        if adapter.refresh_desk then adapter.refresh_desk(namespace, namespace.desk_ui_state, event) end
     end
 
     return true

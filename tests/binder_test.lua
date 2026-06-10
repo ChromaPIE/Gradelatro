@@ -23,7 +23,9 @@ local state = Storage.normalize({
             local_key = "greedy_joker",
             edition = "negative",
             grade = 10,
-            acquired_at = 2000
+            cert_number = "000001",
+            acquired_at = 2000,
+            acquired_year = 2026
         },
         {
             id = "grdl_3",
@@ -44,19 +46,50 @@ H.assert_equal(summary.raw_cards, 1, "summary raw count")
 H.assert_equal(summary.graded_cards, 1, "summary graded count")
 H.assert_equal(summary.grading_queue, 1, "summary grading queue")
 
-local rows = Binder.card_rows(state, { include_lost = false })
-H.assert_equal(#rows, 2, "lost cards hidden by default")
-H.assert_equal(rows[1].id, "grdl_2", "newer acquired card first")
-H.assert_equal(rows[1].name_key, "greedy_joker", "row name key")
-H.assert_equal(rows[1].edition, "negative", "row edition")
-H.assert_equal(rows[1].status_key, "grdl_k_status_graded", "graded status key")
-H.assert_equal(rows[2].status_key, "grdl_k_status_raw", "raw status key")
+local view = Binder.entries(state)
+H.assert_equal(#view.entries, 2, "lost cards hidden")
+H.assert_equal(view.hidden, 0, "nothing hidden without centers")
+H.assert_equal(view.entries[1].id, "grdl_2", "newer acquired card first")
+H.assert_equal(view.entries[1].name_key, "greedy_joker", "entry name key")
+H.assert_equal(view.entries[1].edition, "negative", "entry edition")
+H.assert_equal(view.entries[1].status_key, "grdl_k_status_graded", "graded status key")
+H.assert_equal(view.entries[1].grade, 10, "entry grade")
+H.assert_equal(view.entries[1].cert_number, "000001", "entry cert number")
+H.assert_equal(view.entries[1].acquired_year, 2026, "entry acquired year")
+H.assert_equal(view.entries[2].status_key, "grdl_k_status_raw", "raw status key")
 
-local limited = Binder.card_rows(state, { limit = 1 })
-H.assert_equal(#limited, 1, "limit applied")
+local filtered = Binder.entries(state, {
+    centers = { j_joker = { key = "j_joker" } }
+})
+H.assert_equal(#filtered.entries, 1, "missing centers excluded")
+H.assert_equal(filtered.entries[1].id, "grdl_1", "loaded center kept")
+H.assert_equal(filtered.hidden, 1, "hidden count reported")
+
+local many = {}
+for i = 1, 13 do
+    many[#many + 1] = { id = "e" .. tostring(i) }
+end
+local page_one = Binder.page(many, 1, 5)
+H.assert_equal(page_one.pages, 3, "page count")
+H.assert_equal(page_one.total, 13, "page total")
+H.assert_equal(#page_one.items, 5, "first page full")
+H.assert_equal(page_one.items[1].id, "e1", "first page starts at one")
+local page_three = Binder.page(many, 3, 5)
+H.assert_equal(#page_three.items, 3, "last page remainder")
+H.assert_equal(page_three.items[1].id, "e11", "last page offset")
+H.assert_equal(Binder.page(many, 99, 5).page, 3, "page clamps high")
+H.assert_equal(Binder.page(many, 0, 5).page, 1, "page clamps low")
+local empty_page = Binder.page({}, 1, 5)
+H.assert_equal(empty_page.pages, 1, "empty collection still one page")
+H.assert_equal(empty_page.total, 0, "empty total")
+
+local desk = Binder.desk_rows(state)
+H.assert_equal(#desk, 1, "desk lists raw cards only")
+H.assert_equal(desk[1].id, "grdl_1", "desk raw card id")
+H.assert_equal(desk[1].name_key, "joker", "desk name key")
 
 local empty = Binder.summary(Storage.normalize({}))
 H.assert_equal(empty.total_cards, 0, "empty total")
-H.assert_equal(#Binder.card_rows(Storage.normalize({})), 0, "empty rows")
+H.assert_equal(#Binder.entries(Storage.normalize({})).entries, 0, "empty entries")
 
 print("binder tests ok")

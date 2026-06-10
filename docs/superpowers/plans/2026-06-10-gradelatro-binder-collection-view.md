@@ -55,26 +55,26 @@
 
 ### Task 1: Menu Entry and Localization Fixes (commit `fix: binder menu entry and variable localization`)
 
-- [ ] Rewrite the options-menu Lovely patch anchored at `local your_collection = nil` with a local `grdl_binder` and pcall-wrapped runtime install.
-- [ ] Verify both patterns hit exactly once against the game dump.
-- [ ] Restructure both localization files: parameterized keys into `misc.v_dictionary`, en `Ⓖ` -> `G`.
-- [ ] Run `luajit tests\run_all.lua` and bytecode checks; commit.
+- [x] Rewrite the options-menu Lovely patch anchored at `local your_collection = nil` with a local `grdl_binder` and pcall-wrapped runtime install.
+- [x] Verify both patterns hit exactly once against the game dump.
+- [x] Restructure both localization files: parameterized keys into `misc.v_dictionary`, en `Ⓖ` -> `G`.
+- [x] Run `luajit tests\run_all.lua` and bytecode checks; commit.
 
 ### Task 2: Review Refactor (commit `refactor: extract shared ui and catalog helpers`)
 
-- [ ] Write failing tests for `Catalog.center_key_from_card`, `Catalog.edition_from_card`, and `mod_name` on entries.
-- [ ] Move the helpers into `catalog.lua`; update `buyout.lua`/`run_end.lua` and their tests.
-- [ ] Create `src/ui_common.lua`; switch `buyout_ui.lua` to it; remove `grdl_k_currency`.
-- [ ] Run the full suite; commit.
+- [x] Write failing tests for `Catalog.center_key_from_card`, `Catalog.edition_from_card`, and `mod_name` on entries.
+- [x] Move the helpers into `catalog.lua`; update `buyout.lua`/`run_end.lua` and their tests.
+- [x] Create `src/ui_common.lua`; switch `buyout_ui.lua` to it; remove `grdl_k_currency`.
+- [x] Run the full suite; commit.
 
 ### Task 3: Binder Grid, Desk, Slab Label (commit `feat: binder collection grid with slab labels`)
 
-- [ ] Write failing tests for `Binder.entries`/`Binder.page`/`Binder.desk_rows`, slab `label_args`/`inject`, and the reworked `BinderUI` state machine (open processes due gradings, desk fees, submit callback, page changes).
-- [ ] Implement `binder.lua` model changes.
-- [ ] Implement `slab_ui.lua` with the red-frame label drawn from `Label.slab_lines` data.
-- [ ] Rewrite `binder_ui.lua`: grid overlay, page cycle, desk overlay, callbacks, slab install on open.
-- [ ] Add localization keys for desk, page note, hidden-card note.
-- [ ] Wire `main.lua` and `tests/run_all.lua`; run the full suite and bytecode checks; commit.
+- [x] Write failing tests for `Binder.entries`/`Binder.page`/`Binder.desk_rows`, slab `label_args`/`inject`, and the reworked `BinderUI` state machine (open processes due gradings, desk fees, submit callback, page changes).
+- [x] Implement `binder.lua` model changes.
+- [x] Implement `slab_ui.lua` with the red-frame label drawn from `Label.slab_lines` data.
+- [x] Rewrite `binder_ui.lua`: grid overlay, page cycle, desk overlay, callbacks, slab install on open.
+- [x] Add localization keys for desk, page note, hidden-card note.
+- [x] Wire `main.lua` and `tests/run_all.lua`; run the full suite and bytecode checks; commit.
 
 ## Acceptance Criteria
 

@@ -19,6 +19,9 @@ return {
             grdl_b_select = "Select",
             grdl_b_selected = "Selected",
             grdl_b_grade = "Grade",
+            grdl_b_desk = "Grading Desk",
+            grdl_k_desk_title = "Grading Desk",
+            grdl_k_desk_empty = "No raw cards to submit.",
             grdl_k_queue_title = "Grading Queue",
             grdl_k_grading_ready = "Ready",
             grdl_k_service_economy = "Economy",
@@ -67,7 +70,8 @@ return {
             grdl_k_eta_minutes = "~#1#m",
             grdl_k_eta_hours = "~#1#h",
             grdl_k_eta_days = "~#1#d",
-            grdl_k_grading_revealed = "#1# grading result(s) revealed!"
+            grdl_k_grading_revealed = "#1# grading result(s) revealed!",
+            grdl_k_binder_hidden = "#1# card(s) hidden (mod not loaded)"
         }
     }
 }

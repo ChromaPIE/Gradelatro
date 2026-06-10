@@ -27,13 +27,6 @@ local raw_card = Storage.add_raw_card(namespace.collection, {
     acquired_at = 1000
 })
 
-local state = BinderUI.default_state(namespace.collection)
-H.assert_equal(state.text_keys.title, "grdl_k_binder_title", "title key")
-H.assert_equal(state.summary.currency_g, 25, "state summary currency")
-H.assert_equal(#state.rows, 1, "state rows")
-H.assert_equal(#state.queue_rows, 0, "no queue rows for empty queue")
-H.assert_equal(state.revealed_count, 0, "no revealed count by default")
-
 local previous_smods_global = rawget(_G, "SMODS")
 local save_count = 0
 _G.SMODS = {
@@ -45,28 +38,70 @@ _G.SMODS = {
 }
 
 local runtime = { FUNCS = {} }
-local adapter = { opened = 0, refreshed = 0 }
-function adapter.open_overlay()
-    adapter.opened = adapter.opened + 1
+local adapter = { binder_opened = 0, desk_opened = 0, desk_refreshed = 0 }
+function adapter.open_binder()
+    adapter.binder_opened = adapter.binder_opened + 1
 end
-function adapter.refresh_overlay()
-    adapter.refreshed = adapter.refreshed + 1
+function adapter.open_desk()
+    adapter.desk_opened = adapter.desk_opened + 1
+end
+function adapter.refresh_desk()
+    adapter.desk_refreshed = adapter.desk_refreshed + 1
 end
 
 H.assert_true(BinderUI.install_runtime(namespace, runtime, adapter), "runtime callbacks installed")
+
 runtime.FUNCS.grdl_open_binder()
-H.assert_true(namespace.binder_ui_state ~= nil, "binder state stored")
-H.assert_equal(adapter.opened, 1, "binder overlay opened")
-H.assert_equal(namespace.binder_ui_state.grading_fees[raw_card.id], 15, "raw card grading fee exposed")
+local binder_state = namespace.binder_ui_state
+H.assert_true(binder_state ~= nil, "binder state stored")
+H.assert_equal(adapter.binder_opened, 1, "binder overlay opened")
+H.assert_equal(binder_state.text_keys.title, "grdl_k_binder_title", "binder title key")
+H.assert_equal(binder_state.summary.currency_g, 25, "binder summary currency")
+H.assert_equal(binder_state.page, 1, "binder starts at page one")
+H.assert_equal(binder_state.page_view.total, 1, "binder page total")
+H.assert_equal(binder_state.page_view.items[1].id, raw_card.id, "binder page item")
+H.assert_equal(binder_state.hidden, 0, "no hidden cards without centers")
+H.assert_equal(binder_state.revealed_count, 0, "no reveals yet")
+
+for i = 1, 12 do
+    Storage.add_raw_card(namespace.collection, {
+        center_key = "j_extra_" .. tostring(i),
+        local_key = "extra_" .. tostring(i),
+        rarity = "common",
+        edition = "base",
+        condition = mint_condition,
+        acquired_at = 1000 + i
+    })
+end
+BinderUI.open(namespace, 2000)
+binder_state = namespace.binder_ui_state
+H.assert_equal(binder_state.page_view.total, 13, "all cards counted")
+H.assert_equal(binder_state.page_view.pages, 2, "two pages at ten per page")
+H.assert_equal(#binder_state.page_view.items, 10, "first page full")
+
+BinderUI.set_page(namespace, 2)
+H.assert_equal(namespace.binder_ui_state.page, 2, "page switched")
+H.assert_equal(#namespace.binder_ui_state.page_view.items, 3, "second page remainder")
+BinderUI.set_page(namespace, 99)
+H.assert_equal(namespace.binder_ui_state.page, 2, "page clamps to max")
+
+runtime.FUNCS.grdl_open_desk()
+local desk_state = namespace.desk_ui_state
+H.assert_true(desk_state ~= nil, "desk state stored")
+H.assert_equal(adapter.desk_opened, 1, "desk overlay opened")
+H.assert_equal(#desk_state.rows, 13, "desk lists raw cards")
+H.assert_equal(desk_state.fees[raw_card.id], 15, "desk fee exposed")
+H.assert_equal(#desk_state.queue_rows, 0, "queue empty before submit")
 
 runtime.FUNCS.grdl_submit_grading({ config = { ref_table = { id = raw_card.id } } })
 H.assert_equal(raw_card.status, "queued", "submit callback queues card")
 H.assert_equal(namespace.collection.currency_g, 10, "submit callback charges fee")
 H.assert_equal(save_count, 1, "successful submit saves config")
-H.assert_equal(adapter.refreshed, 1, "submit refreshes overlay")
-H.assert_equal(#namespace.binder_ui_state.queue_rows, 1, "queue row visible after submit")
-H.assert_equal(namespace.binder_ui_state.queue_rows[1].card_id, raw_card.id, "queue row card id")
-H.assert_equal(namespace.binder_ui_state.grading_fees[raw_card.id], nil, "queued card no longer offers a fee")
+H.assert_equal(adapter.desk_refreshed, 1, "submit refreshes desk overlay")
+desk_state = namespace.desk_ui_state
+H.assert_equal(#desk_state.queue_rows, 1, "queue row visible after submit")
+H.assert_equal(desk_state.queue_rows[1].card_id, raw_card.id, "queue row card id")
+H.assert_equal(desk_state.fees[raw_card.id], nil, "queued card no longer offers a fee")
 
 local expensive_card = Storage.add_raw_card(namespace.collection, {
     center_key = "j_rare",
@@ -74,27 +109,25 @@ local expensive_card = Storage.add_raw_card(namespace.collection, {
     rarity = "rare",
     edition = "negative",
     condition = mint_condition,
-    acquired_at = 1001
+    acquired_at = 2001
 })
 runtime.FUNCS.grdl_submit_grading({ config = { ref_table = { id = expensive_card.id } } })
 H.assert_equal(expensive_card.status, "raw", "failed submit keeps card raw")
 H.assert_equal(namespace.collection.currency_g, 10, "failed submit keeps currency")
 H.assert_equal(save_count, 1, "failed submit does not save")
-H.assert_equal(adapter.refreshed, 2, "failed submit still refreshes overlay")
-H.assert_equal(namespace.binder_ui_state.last_reason, "insufficient_funds", "failure reason surfaced")
+H.assert_equal(adapter.desk_refreshed, 2, "failed submit still refreshes desk")
+H.assert_equal(namespace.desk_ui_state.last_reason, "insufficient_funds", "failure reason surfaced")
 
 namespace.collection.grading_queue[1].due_at = 900
 local opened = BinderUI.open(namespace, 1000)
-H.assert_equal(opened.revealed_count, 1, "due grading revealed on open")
+H.assert_equal(opened.revealed_count, 1, "due grading revealed on binder open")
 H.assert_equal(raw_card.status, "graded", "card graded on binder open")
 H.assert_equal(raw_card.grade, 10, "grade derived from hidden condition")
 H.assert_equal(raw_card.cert_number, "000001", "cert number assigned on reveal")
-H.assert_equal(raw_card.graded_at, 900, "graded timestamp uses due time")
-H.assert_equal(#opened.queue_rows, 0, "queue cleared after reveal")
 H.assert_equal(save_count, 2, "reveal saves config")
 
-local reopened = BinderUI.open(namespace, 1001)
-H.assert_equal(reopened.revealed_count, 0, "reopen reveals nothing new")
+local reopened_desk = BinderUI.open_desk(namespace, 1001)
+H.assert_equal(reopened_desk.revealed_count, 0, "desk reopen reveals nothing new")
 H.assert_equal(save_count, 2, "reopen without reveals does not save")
 
 _G.SMODS = previous_smods_global

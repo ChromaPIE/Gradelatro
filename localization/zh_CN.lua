@@ -19,6 +19,9 @@ return {
             grdl_b_select = "选择",
             grdl_b_selected = "已选",
             grdl_b_grade = "送评",
+            grdl_b_desk = "送评服务台",
+            grdl_k_desk_title = "送评服务台",
+            grdl_k_desk_empty = "没有可送评的原卡。",
             grdl_k_queue_title = "评级队列",
             grdl_k_grading_ready = "已完成",
             grdl_k_service_economy = "经济",
@@ -67,7 +70,8 @@ return {
             grdl_k_eta_minutes = "约#1#分钟",
             grdl_k_eta_hours = "约#1#小时",
             grdl_k_eta_days = "约#1#天",
-            grdl_k_grading_revealed = "揭晓了 #1# 张卡牌的评级结果！"
+            grdl_k_grading_revealed = "揭晓了 #1# 张卡牌的评级结果！",
+            grdl_k_binder_hidden = "#1# 张卡牌因模组未加载而隐藏"
         }
     }
 }
