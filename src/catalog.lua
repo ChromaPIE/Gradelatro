@@ -26,10 +26,6 @@ local function mod_name_for_id(mod_id, mods)
     return mod and mod.name or mod_id
 end
 
-local function series_for_mod(config, mod_id, mods, text)
-    return format_series_name(config, mod_name_for_id(mod_id, mods), text)
-end
-
 local function sort_for_series(a, b)
     local order_a = a.order or 0
     local order_b = b.order or 0
@@ -57,19 +53,48 @@ function Catalog.normalize_edition(config, edition)
     return "base"
 end
 
+function Catalog.center_key_from_card(card)
+    if not card then return nil end
+    if card.center_key then return card.center_key end
+    if card.config and card.config.center and card.config.center.key then
+        return card.config.center.key
+    end
+    if card.config and card.config.center_key then return card.config.center_key end
+    return nil
+end
+
+local function strip_edition_prefix(key)
+    key = tostring(key or "base")
+    return (key:gsub("^e_", ""))
+end
+
+function Catalog.edition_from_card(card)
+    local edition = card and card.edition or nil
+    if not edition then return "base" end
+    if type(edition) == "string" then return strip_edition_prefix(edition) end
+    if edition.key then return strip_edition_prefix(edition.key) end
+    if edition.negative then return "negative" end
+    if edition.polychrome then return "polychrome" end
+    if edition.holographic or edition.holo then return "holographic" end
+    if edition.foil then return "foil" end
+    return "base"
+end
+
 function Catalog.discover(config, centers, mods, text)
     mods = mods or (rawget(_G, "SMODS") and SMODS.Mods) or {}
     local out = {}
     for _, center in pairs(centers or {}) do
         if center.set == "Joker" then
             local mod_id = mod_id_for_center(center)
+            local mod_name = mod_name_for_id(mod_id, mods)
             out[#out + 1] = {
                 center_key = center.key,
                 local_key = center.original_key or center.key,
                 name = center.name or center.key,
                 mod_id = mod_id,
+                mod_name = mod_name,
                 series_id = mod_id,
-                series_key = series_for_mod(config, mod_id, mods, text),
+                series_key = format_series_name(config, mod_name, text),
                 rarity = rarity_name(center.rarity),
                 order = center.order or 0
             }

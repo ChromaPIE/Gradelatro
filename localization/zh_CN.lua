@@ -34,7 +34,6 @@ return {
             grdl_k_edition_negative = "负片",
             grdl_k_buyout_title = "Gradelatro 买断",
             grdl_k_buyout_subtitle = "选择本赛局结束时持有的小丑牌并收入卡册。",
-            grdl_k_currency = "评级币",
             grdl_k_buyout_empty = "没有可买断的小丑牌。",
             grdl_k_buyout_blocked = "暂不可买断",
             grdl_k_reason_rarity_locked = "当前底注门槛不足。",

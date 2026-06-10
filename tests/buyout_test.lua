@@ -47,9 +47,9 @@ H.assert_equal(#offer.blocked, 2, "blocked rare and missing")
 H.assert_equal(offer.blocked[1].reason, "rarity_locked", "rare blocked by stake")
 H.assert_equal(offer.blocked[2].reason, "not_in_catalog", "missing catalog blocked")
 
-H.assert_equal(Buyout.edition_from_card(card("j_common", { key = "e_negative" })), "negative", "edition key normalized")
-H.assert_equal(Buyout.edition_from_card(card("j_common", { holo = true })), "holographic", "holo edition normalized")
-H.assert_equal(Buyout.edition_from_card(card("j_common", { key = "e_cry_oversat" })), "cry_oversat", "custom edition key preserved before auth")
+H.assert_equal(Catalog.edition_from_card(card("j_common", { key = "e_negative" })), "negative", "edition key normalized")
+H.assert_equal(Catalog.edition_from_card(card("j_common", { holo = true })), "holographic", "holo edition normalized")
+H.assert_equal(Catalog.edition_from_card(card("j_common", { key = "e_cry_oversat" })), "cry_oversat", "custom edition key preserved before auth")
 
 local too_many = {}
 for i = 1, 6 do

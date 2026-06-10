@@ -31,6 +31,8 @@ end
 H.assert_equal(#catalog, 6, "only Jokers are cataloged")
 H.assert_equal(catalog[1].center_key, "cry_modded", "sorted first key")
 H.assert_equal(find("kino_air_freshener").series_key, "Kino Series", "direct mod series")
+H.assert_equal(find("kino_air_freshener").mod_name, "Kino", "raw mod name kept for labels")
+H.assert_equal(find("j_joker").mod_name, "BALATRO", "vanilla mod name kept for labels")
 H.assert_equal(find("kino_air_freshener").local_key, "air_freshener", "original key kept")
 H.assert_equal(find("kino_air_freshener").series_index, 1, "series index by order")
 H.assert_equal(find("kino_air_freshener").rarity, "unknown_high", "unknown rarity maps high")
@@ -71,5 +73,16 @@ H.assert_equal(#Catalog.series(duplicate_name_catalog), 2, "same display name st
 H.assert_equal(Catalog.normalize_edition(config, nil), "base", "nil edition")
 H.assert_equal(Catalog.normalize_edition(config, "negative"), "negative", "negative edition")
 H.assert_equal(Catalog.normalize_edition(config, "cry_oversat"), "base", "custom edition rejected")
+
+H.assert_equal(Catalog.center_key_from_card({ center_key = "j_direct" }), "j_direct", "direct center key")
+H.assert_equal(Catalog.center_key_from_card({ config = { center = { key = "j_nested" } } }), "j_nested", "nested center key")
+H.assert_equal(Catalog.center_key_from_card({ config = { center_key = "j_flat" } }), "j_flat", "flat config center key")
+H.assert_equal(Catalog.center_key_from_card(nil), nil, "nil card has no center key")
+
+H.assert_equal(Catalog.edition_from_card({ edition = { key = "e_negative" } }), "negative", "edition key normalized")
+H.assert_equal(Catalog.edition_from_card({ edition = { holo = true } }), "holographic", "holo edition normalized")
+H.assert_equal(Catalog.edition_from_card({ edition = { key = "e_cry_oversat" } }), "cry_oversat", "custom edition key preserved before auth")
+H.assert_equal(Catalog.edition_from_card({ edition = "foil" }), "foil", "string edition accepted")
+H.assert_equal(Catalog.edition_from_card({}), "base", "missing edition defaults to base")
 
 print("catalog tests ok")

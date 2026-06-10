@@ -34,7 +34,6 @@ return {
             grdl_k_edition_negative = "Negative",
             grdl_k_buyout_title = "Gradelatro Buyout",
             grdl_k_buyout_subtitle = "Choose ending-run Jokers to archive.",
-            grdl_k_currency = "Grade",
             grdl_k_buyout_empty = "No eligible Jokers available.",
             grdl_k_buyout_blocked = "Unavailable",
             grdl_k_reason_rarity_locked = "Stake gate not high enough.",

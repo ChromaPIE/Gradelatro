@@ -9,11 +9,18 @@ end
 
 local Buyout = load_src("buyout.lua")
 local Persistence = load_src("persistence.lua")
+local UICommon = load_src("ui_common.lua")
+
+local safe_localize = UICommon.localize_text
+local safe_center_name = UICommon.center_name
+local ui_text = UICommon.text_node
+local row = UICommon.row
+local col = UICommon.col
+local event_candidate_id = UICommon.event_ref_id
 
 local TEXT_KEYS = {
     title = "grdl_k_buyout_title",
     subtitle = "grdl_k_buyout_subtitle",
-    currency = "grdl_k_currency",
     selected = "grdl_k_selected_count",
     total = "grdl_k_buyout_total",
     price = "grdl_k_buyout_price",
@@ -121,58 +128,8 @@ function BuyoutUI.summary(state, collection)
     }
 end
 
-local function event_candidate_id(event)
-    return event
-        and event.config
-        and event.config.ref_table
-        and event.config.ref_table.id
-        or nil
-end
-
-local function safe_localize(key, vars)
-    if rawget(_G, "localize") then
-        if vars then
-            local ok, value = pcall(localize, { type = "variable", key = key, vars = vars })
-            if ok and value then return value end
-        end
-        local ok, value = pcall(localize, key)
-        if ok and value then return value end
-    end
-    return key
-end
-
-local function safe_center_name(candidate)
-    if rawget(_G, "localize") then
-        local ok, value = pcall(localize, {
-            type = "name_text",
-            key = candidate.center_key,
-            set = "Joker"
-        })
-        if ok and value then return value end
-    end
-    return tostring(candidate.local_key or candidate.center_key or candidate.id)
-end
-
 local function reason_key(reason)
     return "grdl_k_reason_" .. tostring(reason or "unknown")
-end
-
-local function ui_text(text, scale, colour)
-    return { n = G.UIT.T, config = { text = text, scale = scale or 0.35, colour = colour or G.C.UI.TEXT_LIGHT } }
-end
-
-local function row(nodes, config)
-    config = config or {}
-    config.align = config.align or "cm"
-    config.padding = config.padding or 0.04
-    return { n = G.UIT.R, config = config, nodes = nodes }
-end
-
-local function col(nodes, config)
-    config = config or {}
-    config.align = config.align or "cm"
-    config.padding = config.padding or 0.04
-    return { n = G.UIT.C, config = config, nodes = nodes }
 end
 
 local function candidate_row(state, candidate)

@@ -22,16 +22,6 @@ local function copy_shallow_table(value)
     return out
 end
 
-local function center_key_from_card(card)
-    if not card then return nil end
-    if card.center_key then return card.center_key end
-    if card.config and card.config.center and card.config.center.key then
-        return card.config.center.key
-    end
-    if card.config and card.config.center_key then return card.config.center_key end
-    return nil
-end
-
 local function set_from_card(card)
     if not card then return nil end
     if card.config and card.config.center and card.config.center.set then
@@ -81,7 +71,7 @@ function RunEnd.stake_anchors(p_stakes)
 end
 
 function RunEnd.snapshot_card(card, index)
-    local center_key = center_key_from_card(card)
+    local center_key = Catalog.center_key_from_card(card)
     if not center_key then return nil end
     if set_from_card(card) ~= "Joker" then return nil end
     return {

@@ -13,21 +13,6 @@ local Economy = load_src("economy.lua")
 local Stakes = load_src("stakes.lua")
 local Storage = load_src("storage.lua")
 
-local function strip_edition_prefix(key)
-    key = tostring(key or "base")
-    return (key:gsub("^e_", ""))
-end
-
-local function center_key_from_card(card)
-    if not card then return nil end
-    if card.center_key then return card.center_key end
-    if card.config and card.config.center and card.config.center.key then
-        return card.config.center.key
-    end
-    if card.config and card.config.center_key then return card.config.center_key end
-    return nil
-end
-
 local function catalog_index(catalog)
     local out = {}
     for _, entry in ipairs(catalog or {}) do
@@ -56,18 +41,6 @@ local function acquired_year(args)
     return tonumber(os.date("%Y", args.now or os.time()))
 end
 
-function Buyout.edition_from_card(card)
-    local edition = card and card.edition or nil
-    if not edition then return "base" end
-    if type(edition) == "string" then return strip_edition_prefix(edition) end
-    if edition.key then return strip_edition_prefix(edition.key) end
-    if edition.negative then return "negative" end
-    if edition.polychrome then return "polychrome" end
-    if edition.holographic or edition.holo then return "holographic" end
-    if edition.foil then return "foil" end
-    return "base"
-end
-
 function Buyout.prepare_offer(config, state, args)
     args = args or {}
     local gate = args.gate or Stakes.gate_for_level(args.stake_anchors, args.stake_level)
@@ -77,7 +50,7 @@ function Buyout.prepare_offer(config, state, args)
     local blocked = {}
 
     for source_index, card in ipairs(args.jokers or {}) do
-        local center_key = center_key_from_card(card)
+        local center_key = Catalog.center_key_from_card(card)
         local entry = center_key and by_center[center_key] or nil
         if not entry then
             blocked[#blocked + 1] = {
@@ -95,7 +68,7 @@ function Buyout.prepare_offer(config, state, args)
                 reason = "rarity_locked"
             }
         else
-            local raw_edition = Buyout.edition_from_card(card)
+            local raw_edition = Catalog.edition_from_card(card)
             local edition = Catalog.normalize_edition(config, raw_edition)
             local series_heat = value_from_map(args.series_heat, entry.series_id, entry.series_key, 1.0)
             local availability_mult = value_from_map(args.availability_mult, center_key, entry.series_id, 1.0)

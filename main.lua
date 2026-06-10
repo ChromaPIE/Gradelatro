@@ -44,6 +44,9 @@ Bootstrap.attach(Gradelatro, "Grading", Grading)
 local Label = load_src("label.lua")
 Bootstrap.attach(Gradelatro, "Label", Label)
 
+local UICommon = load_src("ui_common.lua")
+Bootstrap.attach(Gradelatro, "UICommon", UICommon)
+
 local Binder = load_src("binder.lua")
 Bootstrap.attach(Gradelatro, "Binder", Binder)
 
