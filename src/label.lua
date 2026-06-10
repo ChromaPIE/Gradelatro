@@ -13,6 +13,19 @@ local GRADE_TEXT = {
     [1] = "PR"
 }
 
+local GRADE_FULL = {
+    [10] = "Gem Mint",
+    [9] = "Mint",
+    [8] = "Near Mint-Mint",
+    [7] = "Near Mint",
+    [6] = "Excellent-Mint",
+    [5] = "Excellent",
+    [4] = "Very Good-Excellent",
+    [3] = "Very Good",
+    [2] = "Good",
+    [1] = "Poor"
+}
+
 local EDITION_TEXT = {
     base = "BASE",
     foil = "FOIL",
@@ -43,6 +56,12 @@ function Label.grade_text(grade, text)
         return text.grade_text[grade]
     end
     return GRADE_TEXT[grade] or (text and text.unknown_grade) or "AUTH"
+end
+
+function Label.grade_full(grade)
+    local full = GRADE_FULL[grade]
+    if not full then return "AUTH" end
+    return tostring(grade) .. " - " .. full
 end
 
 function Label.edition_text(edition, text)

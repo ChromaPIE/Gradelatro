@@ -64,6 +64,9 @@ function Storage.add_raw_card(state, args)
         condition = copy_condition(args.condition),
         acquired_at = args.acquired_at,
         acquired_year = args.acquired_year,
+        acquired_month = args.acquired_month,
+        acquired_day = args.acquired_day,
+        acquired_price = args.acquired_price,
         source_run_id = args.source_run_id,
         source_run_started_at = args.source_run_started_at,
         source = args.source

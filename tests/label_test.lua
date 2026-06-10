@@ -49,4 +49,16 @@ local localized = Label.slab_lines({
 H.assert_equal(localized[2].right, "宝石完美", "localized grade descriptor")
 H.assert_equal(localized[3].left, "负片", "localized edition descriptor")
 
+H.assert_equal(Label.grade_full(10), "10 - Gem Mint", "grade ten full name")
+H.assert_equal(Label.grade_full(9), "9 - Mint", "grade nine full name")
+H.assert_equal(Label.grade_full(8), "8 - Near Mint-Mint", "grade eight full name")
+H.assert_equal(Label.grade_full(7), "7 - Near Mint", "grade seven full name")
+H.assert_equal(Label.grade_full(6), "6 - Excellent-Mint", "grade six full name")
+H.assert_equal(Label.grade_full(5), "5 - Excellent", "grade five full name")
+H.assert_equal(Label.grade_full(4), "4 - Very Good-Excellent", "grade four full name")
+H.assert_equal(Label.grade_full(3), "3 - Very Good", "grade three full name")
+H.assert_equal(Label.grade_full(2), "2 - Good", "grade two full name")
+H.assert_equal(Label.grade_full(1), "1 - Poor", "grade one full name")
+H.assert_equal(Label.grade_full(nil), "AUTH", "missing grade falls back to authentic")
+
 print("label tests ok")

@@ -22,10 +22,14 @@ local state = Storage.normalize({
             center_key = "j_greedy_joker",
             local_key = "greedy_joker",
             edition = "negative",
+            rarity = "rare",
             grade = 10,
             cert_number = "000001",
             acquired_at = 2000,
-            acquired_year = 2026
+            acquired_year = 2026,
+            acquired_month = 6,
+            acquired_day = 10,
+            acquired_price = 149
         },
         {
             id = "grdl_3",
@@ -56,6 +60,10 @@ H.assert_equal(view.entries[1].status_key, "grdl_k_status_graded", "graded statu
 H.assert_equal(view.entries[1].grade, 10, "entry grade")
 H.assert_equal(view.entries[1].cert_number, "000001", "entry cert number")
 H.assert_equal(view.entries[1].acquired_year, 2026, "entry acquired year")
+H.assert_equal(view.entries[1].acquired_month, 6, "entry acquired month")
+H.assert_equal(view.entries[1].acquired_day, 10, "entry acquired day")
+H.assert_equal(view.entries[1].acquired_price, 149, "entry acquired price")
+H.assert_equal(view.entries[1].rarity, "rare", "entry rarity")
 H.assert_equal(view.entries[2].status_key, "grdl_k_status_raw", "raw status key")
 
 local filtered = Binder.entries(state, {

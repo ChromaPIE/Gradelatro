@@ -65,12 +65,16 @@ function Binder.entries(collection, args)
                     name_key = card.local_key or card.center_key or card.id,
                     local_key = card.local_key,
                     edition = card.edition or "base",
+                    rarity = card.rarity,
                     status = card.status or "raw",
                     status_key = status_key(card.status),
                     grade = card.grade,
                     cert_number = card.cert_number,
                     acquired_at = card.acquired_at or 0,
                     acquired_year = card.acquired_year,
+                    acquired_month = card.acquired_month,
+                    acquired_day = card.acquired_day,
+                    acquired_price = card.acquired_price,
                     mod_id = card.mod_id
                 }
             end

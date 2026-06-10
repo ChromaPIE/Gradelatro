@@ -149,6 +149,7 @@ function Buyout.purchase(config, state, args)
 
     local created = {}
     local seed = args.condition_seed or args.now or os.time()
+    local acquired_date = os.date("*t", args.run_started_at or args.now or os.time())
     for index, candidate in ipairs(selected) do
         local condition = candidate.condition or Condition.generate(seed + index - 1, candidate.edition)
         created[#created + 1] = Storage.add_raw_card(state, {
@@ -161,6 +162,9 @@ function Buyout.purchase(config, state, args)
             condition = condition,
             acquired_at = args.now,
             acquired_year = acquired_year(args),
+            acquired_month = acquired_date.month,
+            acquired_day = acquired_date.day,
+            acquired_price = math.floor(candidate.price or 0),
             source_run_id = args.run_id,
             source_run_started_at = args.run_started_at,
             source = args.source or "win_buyout"

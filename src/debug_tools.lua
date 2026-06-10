@@ -8,6 +8,7 @@ local function load_src(path)
 end
 
 local Catalog = load_src("catalog.lua")
+local Economy = load_src("economy.lua")
 local Persistence = load_src("persistence.lua")
 local Storage = load_src("storage.lua")
 
@@ -88,6 +89,7 @@ function DebugTools.seed_cards(state, catalog, args)
     local created = {}
     local cursor = {}
     local mod_index = 0
+    local acquired_date = os.date("*t", now)
     while #created < count and #mod_order > 0 do
         mod_index = mod_index % #mod_order + 1
         local mod_id = mod_order[mod_index]
@@ -98,6 +100,13 @@ function DebugTools.seed_cards(state, catalog, args)
             local grade = SEED_GRADES[(n - 1) % #SEED_GRADES + 1]
             local edition_index = ((n - 1) + math.floor((n - 1) / #SEED_EDITIONS)) % #SEED_EDITIONS + 1
             local edition = SEED_EDITIONS[edition_index]
+            local price = 0
+            if args.config then
+                price = math.floor(Economy.raw_anchor_value(args.config, {
+                    rarity = entry.rarity,
+                    edition = edition
+                }))
+            end
             local card = Storage.add_raw_card(state, {
                 center_key = entry.center_key,
                 local_key = entry.local_key,
@@ -107,7 +116,10 @@ function DebugTools.seed_cards(state, catalog, args)
                 edition = edition,
                 condition = DebugTools.condition_for_grade(grade),
                 acquired_at = now,
-                acquired_year = tonumber(os.date("%Y", now)),
+                acquired_year = acquired_date.year,
+                acquired_month = acquired_date.month,
+                acquired_day = acquired_date.day,
+                acquired_price = price,
                 source = "debug_seed"
             })
             if graded then
@@ -178,7 +190,7 @@ function DebugTools.install(namespace)
             end
             local smods = rawget(_G, "SMODS")
             local catalog = Catalog.discover(config, runtime.P_CENTERS, smods and smods.Mods or nil)
-            local result = DebugTools.seed_cards(collection, catalog, { count = parsed.count, graded = parsed.graded })
+            local result = DebugTools.seed_cards(collection, catalog, { count = parsed.count, graded = parsed.graded, config = config })
             if not result.ok then
                 return "Seeding failed: " .. tostring(result.reason), "ERROR"
             end

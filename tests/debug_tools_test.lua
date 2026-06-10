@@ -35,7 +35,9 @@ local catalog = {
 }
 
 local seed_state = Storage.normalize({})
-local seeded = DebugTools.seed_cards(seed_state, catalog, { count = 4, now = 1767225600 })
+local Config = dofile("src/config.lua")
+local seed_config = Config.normalize({})
+local seeded = DebugTools.seed_cards(seed_state, catalog, { count = 4, now = 1767225600, config = seed_config })
 H.assert_equal(seeded.ok, true, "seeding succeeds")
 H.assert_equal(#seeded.cards, 4, "requested count created")
 H.assert_equal(#seed_state.cards, 4, "cards stored in collection")
@@ -46,6 +48,9 @@ H.assert_equal(first.grade, 10, "first seeded grade")
 H.assert_equal(first.edition, "base", "first seeded edition")
 H.assert_equal(first.cert_number, "000001", "first cert number")
 H.assert_equal(first.acquired_year, 2026, "seeded acquired year")
+H.assert_equal(first.acquired_month, 1, "seeded acquired month")
+H.assert_equal(first.acquired_day, 1, "seeded acquired day")
+H.assert_equal(first.acquired_price, 35, "seeded price from anchor value")
 H.assert_equal(first.source, "debug_seed", "seeded source marker")
 H.assert_true(first.condition ~= nil and first.condition.surface ~= nil, "seeded condition stored")
 
