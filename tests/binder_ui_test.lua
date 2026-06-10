@@ -38,7 +38,7 @@ _G.SMODS = {
 }
 
 local runtime = { FUNCS = {} }
-local adapter = { binder_opened = 0, desk_opened = 0, desk_refreshed = 0 }
+local adapter = { binder_opened = 0, desk_opened = 0, desk_refreshed = 0, fail_notified = 0 }
 function adapter.open_binder()
     adapter.binder_opened = adapter.binder_opened + 1
 end
@@ -47,6 +47,9 @@ function adapter.open_desk()
 end
 function adapter.refresh_desk()
     adapter.desk_refreshed = adapter.desk_refreshed + 1
+end
+function adapter.notify_failure()
+    adapter.fail_notified = adapter.fail_notified + 1
 end
 
 H.assert_true(BinderUI.install_runtime(namespace, runtime, adapter), "runtime callbacks installed")
@@ -92,12 +95,14 @@ H.assert_equal(adapter.desk_opened, 1, "desk overlay opened")
 H.assert_equal(#desk_state.rows, 13, "desk lists raw cards")
 H.assert_equal(desk_state.fees[raw_card.id], 15, "desk fee exposed")
 H.assert_equal(#desk_state.queue_rows, 0, "queue empty before submit")
+H.assert_equal(desk_state.last_reason_text, "", "no failure text initially")
 
 runtime.FUNCS.grdl_submit_grading({ config = { ref_table = { id = raw_card.id } } })
 H.assert_equal(raw_card.status, "queued", "submit callback queues card")
 H.assert_equal(namespace.collection.currency_g, 10, "submit callback charges fee")
 H.assert_equal(save_count, 1, "successful submit saves config")
 H.assert_equal(adapter.desk_refreshed, 1, "submit refreshes desk overlay")
+H.assert_true(namespace.desk_ui_state ~= desk_state, "success rebuilds desk state")
 desk_state = namespace.desk_ui_state
 H.assert_equal(#desk_state.queue_rows, 1, "queue row visible after submit")
 H.assert_equal(desk_state.queue_rows[1].card_id, raw_card.id, "queue row card id")
@@ -111,12 +116,16 @@ local expensive_card = Storage.add_raw_card(namespace.collection, {
     condition = mint_condition,
     acquired_at = 2001
 })
+local stable_state = namespace.desk_ui_state
 runtime.FUNCS.grdl_submit_grading({ config = { ref_table = { id = expensive_card.id } } })
 H.assert_equal(expensive_card.status, "raw", "failed submit keeps card raw")
 H.assert_equal(namespace.collection.currency_g, 10, "failed submit keeps currency")
 H.assert_equal(save_count, 1, "failed submit does not save")
-H.assert_equal(adapter.desk_refreshed, 2, "failed submit still refreshes desk")
-H.assert_equal(namespace.desk_ui_state.last_reason, "insufficient_funds", "failure reason surfaced")
+H.assert_equal(adapter.desk_refreshed, 1, "failed submit does not rebuild overlay")
+H.assert_equal(adapter.fail_notified, 1, "failed submit notifies failure")
+H.assert_true(namespace.desk_ui_state == stable_state, "failed submit keeps desk state in place")
+H.assert_equal(stable_state.last_reason, "insufficient_funds", "failure reason surfaced")
+H.assert_equal(stable_state.last_reason_text, "grdl_k_reason_insufficient_funds", "failure text bound for live update")
 
 namespace.collection.grading_queue[1].due_at = 900
 local opened = BinderUI.open(namespace, 1000)

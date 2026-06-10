@@ -140,7 +140,8 @@ function BinderUI.open_desk(namespace, now)
         fees = namespace.config and grading_fee_map(namespace.config, namespace.collection) or {},
         queue_rows = Grading.queue_rows(namespace.collection, now),
         revealed_count = revealed_count,
-        last_reason = nil
+        last_reason = nil,
+        last_reason_text = ""
     }
     return namespace.desk_ui_state
 end
@@ -159,13 +160,16 @@ function BinderUI.submit_grading(namespace, card_id, now)
         now = now
     })
     namespace.last_grading_result = result
+
     if result.ok then
         namespace.last_save_ok = Persistence.save(namespace)
-    end
-
-    local state = BinderUI.open_desk(namespace, now)
-    if state and not result.ok then
-        state.last_reason = result.reason
+        BinderUI.open_desk(namespace, now)
+    else
+        local state = namespace.desk_ui_state or BinderUI.open_desk(namespace, now)
+        if state then
+            state.last_reason = result.reason
+            state.last_reason_text = safe_localize(reason_key(result.reason))
+        end
     end
     return result
 end
@@ -321,19 +325,17 @@ end
 local function desk_card_row(state, row_data)
     local fee = state.fees and state.fees[row_data.id] or nil
     return row({
-        col({ ui_text(center_name(row_data), 0.32) }, { align = "cl", minw = 3.0 }),
-        col({ ui_text(safe_localize("grdl_k_edition_" .. tostring(row_data.edition or "base")), 0.28) }, { align = "cl", minw = 1.5 }),
+        col({ ui_text(center_name(row_data), 0.3) }, { align = "cl", minw = 2.6 }),
+        col({ ui_text(safe_localize("grdl_k_edition_" .. tostring(row_data.edition or "base")), 0.26) }, { align = "cl", minw = 1.2 }),
+        col({ ui_text(fee and safe_localize("grdl_k_grading_fee", { fee }) or "", 0.28, G.C.GOLD) }, { align = "cr", minw = 0.9 }),
         UIBox_button({
             button = "grdl_submit_grading",
-            label = {
-                safe_localize("grdl_b_grade"),
-                fee and safe_localize("grdl_k_grading_fee", { fee }) or ""
-            },
+            label = { safe_localize("grdl_b_grade") },
             ref_table = { id = row_data.id },
-            minw = 1.6,
-            maxw = 1.6,
-            minh = 0.65,
-            scale = 0.28,
+            minw = 1.2,
+            maxw = 1.2,
+            minh = 0.55,
+            scale = 0.3,
             colour = G.C.BLUE,
             focus_args = { nav = "wide" }
         })
@@ -376,9 +378,7 @@ function BinderUI.create_desk_definition(namespace)
         end
     end
 
-    if state.last_reason then
-        rows[#rows + 1] = row({ ui_text(safe_localize(reason_key(state.last_reason)), 0.3, G.C.RED) })
-    end
+    rows[#rows + 1] = row({ { n = G.UIT.T, config = { ref_table = state, ref_value = "last_reason_text", scale = 0.3, colour = G.C.RED } } })
 
     return create_UIBox_generic_options({
         back_func = "grdl_open_binder",
@@ -406,6 +406,11 @@ local function default_adapter(runtime)
         end,
         refresh_desk = function(namespace)
             show(BinderUI.create_desk_definition(namespace))
+        end,
+        notify_failure = function()
+            if rawget(_G, "play_sound") then
+                pcall(play_sound, "tarot2", 0.76, 0.4)
+            end
         end
     }
 end
@@ -433,8 +438,12 @@ function BinderUI.install_runtime(namespace, runtime, adapter)
     end
 
     runtime.FUNCS.grdl_submit_grading = function(event)
-        BinderUI.submit_grading(namespace, event_card_id(event), os.time())
-        if adapter.refresh_desk then adapter.refresh_desk(namespace, namespace.desk_ui_state, event) end
+        local result = BinderUI.submit_grading(namespace, event_card_id(event), os.time())
+        if result.ok then
+            if adapter.refresh_desk then adapter.refresh_desk(namespace, namespace.desk_ui_state, event) end
+        elseif adapter.notify_failure then
+            adapter.notify_failure(namespace, namespace.desk_ui_state, event)
+        end
     end
 
     return true
