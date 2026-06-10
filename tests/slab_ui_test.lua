@@ -58,6 +58,15 @@ _G.G = {
 
 H.assert_equal(SlabUI.label_font(), _G.G.FONTS[3], "noto sans bold font found")
 
+local UICommon = dofile("src/ui_common.lua")
+_G.G.FONTS[4] = { file = "resources/fonts/GoNotoCJKCore.ttf" }
+H.assert_equal(UICommon.noto_regular(), _G.G.FONTS[4], "regular cjk noto found")
+_G.G.LANG = { font = _G.G.FONTS[2] }
+H.assert_equal(UICommon.noto_bold(), _G.G.FONTS[2], "noto language font preferred for bold")
+_G.G.LANG = { font = _G.G.FONTS[1] }
+H.assert_equal(UICommon.noto_bold(), _G.G.FONTS[3], "pixel language font falls back to noto sans bold")
+_G.G.LANG = nil
+
 local box = SlabUI.slab_box(record, catalog_entry)
 H.assert_equal(box.n, "R", "slab box is a framed row node")
 H.assert_equal(box.config.colour, _G.G.C.RED, "slab frame is red")
@@ -72,6 +81,12 @@ H.assert_true((spacer.config.minw or 0) > 0, "spacer keeps a fixed gap")
 H.assert_equal(left_col.nodes[1].nodes[1].config.font, _G.G.FONTS[3], "label text forced to noto sans")
 H.assert_equal(left_col.nodes[1].nodes[1].config.text, "2026 MONARCHY", "left text content")
 H.assert_equal(right_col.nodes[1].nodes[1].config.text, "#001", "right text content")
+
+local scaled = SlabUI.slab_box(record, catalog_entry, { scale = 2 })
+local scaled_inner = scaled.nodes[1]
+H.assert_near(scaled_inner.nodes[1].nodes[1].nodes[1].config.scale, SlabUI.line_scale("2026 MONARCHY") * 2, 0.000001, "scaled label text")
+H.assert_near(scaled_inner.nodes[2].config.minw, 0.7, 0.000001, "scaled column gap")
+H.assert_near(scaled_inner.nodes[1].nodes[1].config.minh, 0.64, 0.000001, "scaled line height")
 
 local namespace = {
     binder_hover_index = { kino_air_freshener = catalog_entry }

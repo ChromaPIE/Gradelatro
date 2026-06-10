@@ -34,40 +34,35 @@ function SlabUI.line_scale(text, base, budget_bytes)
 end
 
 function SlabUI.label_font(fonts)
-    fonts = fonts or (rawget(_G, "G") and G.FONTS) or {}
-    for _, font in ipairs(fonts) do
-        if type(font.file) == "string" and font.file:find("NotoSans%-Bold") then
-            return font
-        end
-    end
-    return nil
+    return UICommon.noto_bold(fonts)
 end
 
-local function label_line(text, side, font)
-    return { n = G.UIT.R, config = { align = side, minh = LINE_HEIGHT, padding = 0.01 }, nodes = {
+local function label_line(text, side, font, scale_mult)
+    return { n = G.UIT.R, config = { align = side, minh = LINE_HEIGHT * scale_mult, padding = 0.01 * scale_mult }, nodes = {
         { n = G.UIT.T, config = {
             text = text ~= "" and text or " ",
-            scale = SlabUI.line_scale(text),
+            scale = SlabUI.line_scale(text) * scale_mult,
             colour = G.C.UI.TEXT_DARK,
             font = font
         } }
     } }
 end
 
-function SlabUI.slab_box(record, catalog_entry)
+function SlabUI.slab_box(record, catalog_entry, opts)
+    local scale_mult = opts and opts.scale or 1
     local lines = Label.slab_lines(SlabUI.label_args(record, catalog_entry))
     local font = SlabUI.label_font()
     local left_lines = {}
     local right_lines = {}
     for _, line in ipairs(lines) do
-        left_lines[#left_lines + 1] = label_line(line.left, "cl", font)
-        right_lines[#right_lines + 1] = label_line(line.right, "cr", font)
+        left_lines[#left_lines + 1] = label_line(line.left, "cl", font, scale_mult)
+        right_lines[#right_lines + 1] = label_line(line.right, "cr", font, scale_mult)
     end
-    return { n = G.UIT.R, config = { align = "cm", padding = 0.07, r = 0.05, colour = G.C.RED, emboss = 0.05, shadow = true }, nodes = {
-        { n = G.UIT.R, config = { align = "cm", padding = 0.06, r = 0.04, colour = G.C.WHITE }, nodes = {
-            { n = G.UIT.C, config = { align = "cl", padding = 0.01 }, nodes = left_lines },
-            { n = G.UIT.C, config = { align = "cm", minw = COLUMN_GAP }, nodes = {} },
-            { n = G.UIT.C, config = { align = "cr", padding = 0.01 }, nodes = right_lines }
+    return { n = G.UIT.R, config = { align = "cm", padding = 0.07 * scale_mult, r = 0.05, colour = G.C.RED, emboss = 0.05, shadow = true }, nodes = {
+        { n = G.UIT.R, config = { align = "cm", padding = 0.06 * scale_mult, r = 0.04, colour = G.C.WHITE }, nodes = {
+            { n = G.UIT.C, config = { align = "cl", padding = 0.01 * scale_mult }, nodes = left_lines },
+            { n = G.UIT.C, config = { align = "cm", minw = COLUMN_GAP * scale_mult }, nodes = {} },
+            { n = G.UIT.C, config = { align = "cr", padding = 0.01 * scale_mult }, nodes = right_lines }
         } }
     } }
 end

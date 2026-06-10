@@ -57,6 +57,20 @@ local BinderUI = load_src("binder_ui.lua")
 Bootstrap.attach(Gradelatro, "BinderUI", BinderUI)
 BinderUI.install_runtime(Gradelatro, rawget(_G, "G"))
 
+if SMODS and SMODS.Keybind then
+    pcall(SMODS.Keybind, {
+        key_pressed = "g",
+        event = "pressed",
+        action = function()
+            local runtime = rawget(_G, "G")
+            local target = runtime and runtime.CONTROLLER and runtime.CONTROLLER.hovering and runtime.CONTROLLER.hovering.target or nil
+            if target and target.grdl_record then
+                BinderUI.inspect_from_card(Gradelatro, target)
+            end
+        end
+    })
+end
+
 local Buyout = load_src("buyout.lua")
 Bootstrap.attach(Gradelatro, "Buyout", Buyout)
 

@@ -139,6 +139,15 @@ local reopened_desk = BinderUI.open_desk(namespace, 1001)
 H.assert_equal(reopened_desk.revealed_count, 0, "desk reopen reveals nothing new")
 H.assert_equal(save_count, 2, "reopen without reveals does not save")
 
+local inspect_state = BinderUI.open_inspect(namespace, raw_card.id)
+H.assert_true(inspect_state ~= nil, "inspect state opens for known card")
+H.assert_equal(inspect_state.entry.id, raw_card.id, "inspect entry resolved by id")
+H.assert_equal(inspect_state.entry.grade, 10, "inspect entry carries grade")
+H.assert_equal(inspect_state.entry.status, "graded", "inspect entry carries status")
+H.assert_equal(namespace.inspect_ui_state, inspect_state, "inspect state stored on namespace")
+H.assert_equal(BinderUI.open_inspect(namespace, "grdl_unknown"), nil, "unknown card cannot be inspected")
+H.assert_equal(BinderUI.open_inspect(nil, raw_card.id), nil, "missing namespace rejected")
+
 _G.SMODS = previous_smods_global
 
 print("binder ui tests ok")

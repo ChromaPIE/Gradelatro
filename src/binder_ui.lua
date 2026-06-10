@@ -10,6 +10,7 @@ end
 local Binder = load_src("binder.lua")
 local Catalog = load_src("catalog.lua")
 local Grading = load_src("grading.lua")
+local Label = load_src("label.lua")
 local Persistence = load_src("persistence.lua")
 local SlabUI = load_src("slab_ui.lua")
 local UICommon = load_src("ui_common.lua")
@@ -143,6 +144,46 @@ function BinderUI.open_desk(namespace, now)
         last_reason_text = ""
     }
     return namespace.desk_ui_state
+end
+
+function BinderUI.open_inspect(namespace, card_id, now)
+    if not namespace or not namespace.collection or not card_id then return nil end
+
+    local entries = namespace.binder_ui_state and namespace.binder_ui_state.entries or nil
+    if not entries then
+        entries = Binder.entries(namespace.collection, { centers = runtime_centers() }).entries
+    end
+
+    local entry = nil
+    for _, candidate in ipairs(entries) do
+        if candidate.id == card_id then
+            entry = candidate
+            break
+        end
+    end
+    if not entry then return nil end
+
+    namespace.inspect_ui_state = {
+        entry = entry,
+        text_keys = copy_text_keys()
+    }
+    return namespace.inspect_ui_state
+end
+
+function BinderUI.inspect_from_card(namespace, card)
+    local record = card and card.grdl_record or nil
+    if not record then return nil end
+    local state = BinderUI.open_inspect(namespace, record.id)
+    if not state then return nil end
+
+    local runtime = rawget(_G, "G")
+    if runtime and runtime.FUNCS and runtime.FUNCS.overlay_menu then
+        if runtime.SETTINGS then runtime.SETTINGS.paused = true end
+        runtime.FUNCS.overlay_menu({
+            definition = BinderUI.create_inspect_definition(namespace)
+        })
+    end
+    return state
 end
 
 function BinderUI.submit_grading(namespace, card_id, now)
@@ -395,6 +436,132 @@ function BinderUI.create_desk_definition(namespace)
         outline_colour = G.C.RED,
         contents = rows
     })
+end
+
+local CARD_INSPECT_SCALE = 1.4
+
+local function inspect_text(text, scale, colour, font)
+    return { n = G.UIT.T, config = { text = text, scale = scale, colour = colour, font = font } }
+end
+
+local function inspect_date_text(entry)
+    local year = entry.acquired_year
+    local month = entry.acquired_month
+    local day = entry.acquired_day
+    if (not year or not month or not day) and (entry.acquired_at or 0) > 0 then
+        local parts = os.date("*t", entry.acquired_at)
+        year = year or parts.year
+        month = month or parts.month
+        day = day or parts.day
+    end
+    if not year then return "-" end
+    return table.concat({ year, month or 1, day or 1 }, "/")
+end
+
+local function inspect_psa_text(entry)
+    if entry.status == "graded" and entry.grade then
+        return Label.grade_full(entry.grade)
+    end
+    return safe_localize("grdl_k_badge_ungraded")
+end
+
+local function inspect_detail_row(label_key, value, regular_font)
+    return row({
+        col({ inspect_text(safe_localize(label_key), 0.33, G.C.UI.TEXT_INACTIVE, regular_font) }, { align = "cl", minw = 1.9 }),
+        col({ inspect_text(value, 0.33, G.C.WHITE, regular_font) }, { align = "cl", minw = 2.7 })
+    }, { align = "cl", padding = 0.06 })
+end
+
+local function build_inspect_card(namespace, entry)
+    if not rawget(_G, "CardArea") or not rawget(_G, "Card") then return nil end
+    local centers = G.P_CENTERS or {}
+    local center = entry.center_key and centers[entry.center_key] or nil
+    if not center then return nil end
+
+    local area = CardArea(
+        G.ROOM.T.x + 0.2 * G.ROOM.T.w / 2, G.ROOM.T.h,
+        CARD_INSPECT_SCALE * G.CARD_W * 1.1,
+        CARD_INSPECT_SCALE * G.CARD_H,
+        { card_limit = 1, type = "title", highlight_limit = 0, collection = true })
+    local card = Card(area.T.x, area.T.y, CARD_INSPECT_SCALE * G.CARD_W, CARD_INSPECT_SCALE * G.CARD_H, G.P_CARDS.empty, center)
+    local edition_flag = EDITION_FLAGS[entry.edition]
+    if edition_flag then card:set_edition(edition_flag, true, true) end
+    card.hover = function(self)
+        if rawget(_G, "Node") then Node.hover(self) end
+    end
+    card.stop_hover = function(self)
+        if rawget(_G, "Node") then Node.stop_hover(self) end
+    end
+    area:emplace(card)
+    namespace.inspect_area = area
+    return area
+end
+
+function BinderUI.create_inspect_definition(namespace)
+    namespace = namespace or rawget(_G, "Gradelatro") or {}
+    local state = namespace.inspect_ui_state
+    if not state then
+        return create_UIBox_generic_options({ back_func = "grdl_open_binder", contents = {} })
+    end
+
+    local entry = state.entry
+    local bold_font = UICommon.noto_bold()
+    local regular_font = UICommon.noto_regular()
+    local hover_index = namespace.binder_hover_index or {}
+    local catalog_entry = entry.center_key and hover_index[entry.center_key] or nil
+    local mod_display = (catalog_entry and catalog_entry.mod_name) or entry.mod_id or ""
+
+    local left_nodes = {}
+    if entry.status == "graded" then
+        left_nodes[#left_nodes + 1] = row({ SlabUI.slab_box(entry, catalog_entry, { scale = CARD_INSPECT_SCALE * 0.85 }) }, { padding = 0.06, no_fill = true })
+    end
+    local area = build_inspect_card(namespace, entry)
+    if area then
+        left_nodes[#left_nodes + 1] = row({ { n = G.UIT.O, config = { object = area } } }, { padding = 0.06, no_fill = true })
+    end
+
+    local right_nodes = {
+        row({ inspect_text(mod_display, 0.45, G.C.UI.TEXT_LIGHT, regular_font) }, { align = "cl", padding = 0.03 }),
+        row({ inspect_text(center_name(entry), 0.72, G.C.WHITE, bold_font) }, { align = "cl", padding = 0.05 }),
+        row({}, { minh = 0.35 }),
+        inspect_detail_row("grdl_k_detail_source", mod_display, regular_font),
+        inspect_detail_row("grdl_k_detail_rarity", safe_localize("grdl_k_rarity_" .. tostring(entry.rarity or "common")), regular_font),
+        inspect_detail_row("grdl_k_detail_date", inspect_date_text(entry), regular_font),
+        inspect_detail_row("grdl_k_detail_price", safe_localize("grdl_k_stat_g", { entry.acquired_price or 0 }), regular_font),
+        inspect_detail_row("grdl_k_detail_psa", inspect_psa_text(entry), regular_font)
+    }
+
+    local close_char = "X"
+    if bold_font and bold_font.FONT and bold_font.FONT.hasGlyphs and bold_font.FONT:hasGlyphs("✕") then
+        close_char = "✕"
+    end
+
+    return {
+        n = G.UIT.ROOT,
+        config = { align = "cm", minw = G.ROOM.T.w * 5, minh = G.ROOM.T.h * 5, padding = 0.1, colour = { 0, 0, 0, 0.85 } },
+        nodes = {
+            { n = G.UIT.C, config = { align = "cm", minw = G.ROOM.T.w * 0.96, minh = G.ROOM.T.h * 0.92, padding = 0.1 }, nodes = {
+                { n = G.UIT.R, config = { align = "cr", padding = 0.04 }, nodes = {
+                    UIBox_button({
+                        button = "grdl_open_binder",
+                        label = { close_char },
+                        colour = G.C.CLEAR,
+                        shadow = false,
+                        minw = 0.8,
+                        maxw = 0.8,
+                        minh = 0.8,
+                        scale = 0.55,
+                        focus_args = { nav = "wide", snap_to = true }
+                    })
+                } },
+                { n = G.UIT.R, config = { align = "cm", padding = 0.15, minh = G.ROOM.T.h * 0.75 }, nodes = {
+                    { n = G.UIT.C, config = { align = "cm", padding = 0.1 }, nodes = left_nodes },
+                    { n = G.UIT.C, config = { align = "cm", minw = 0.8 }, nodes = {} },
+                    { n = G.UIT.C, config = { align = "tl", padding = 0.1 }, nodes = right_nodes }
+                } }
+            } }
+        }
+    }
 end
 
 local function default_adapter(runtime)

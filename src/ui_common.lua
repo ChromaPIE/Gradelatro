@@ -44,6 +44,29 @@ function UICommon.col(nodes, config)
     return { n = G.UIT.C, config = config, nodes = nodes }
 end
 
+local function font_by_file(fonts, pattern)
+    for _, font in ipairs(fonts or {}) do
+        if type(font.file) == "string" and font.file:find(pattern) then return font end
+    end
+    return nil
+end
+
+function UICommon.noto_bold(fonts, lang)
+    local runtime = rawget(_G, "G")
+    fonts = fonts or (runtime and runtime.FONTS) or {}
+    lang = lang or (runtime and runtime.LANG) or nil
+    if lang and lang.font and type(lang.font.file) == "string" and lang.font.file:find("Noto") then
+        return lang.font
+    end
+    return font_by_file(fonts, "NotoSans%-Bold")
+end
+
+function UICommon.noto_regular(fonts)
+    local runtime = rawget(_G, "G")
+    fonts = fonts or (runtime and runtime.FONTS) or {}
+    return font_by_file(fonts, "GoNotoCJKCore") or UICommon.noto_bold(fonts)
+end
+
 function UICommon.fit_scale(text, base, budget_bytes)
     local length = #tostring(text or "")
     if budget_bytes and length > budget_bytes then
