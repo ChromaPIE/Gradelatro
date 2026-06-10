@@ -10,11 +10,10 @@ end
 local Label = load_src("label.lua")
 local UICommon = load_src("ui_common.lua")
 
--- vertical room the tooltip leaves for the card-mounted slab when it opens above the card
-local SLAB_LIFT = 0.85
-local SLAB_OFFSET_Y = -0.04
-local BASE_LINE_SCALE = 0.2
-local LINE_BUDGET_BYTES = 20
+local BASE_LINE_SCALE = 0.27
+local LINE_BUDGET_BYTES = 24
+local COLUMN_GAP = 0.35
+local LINE_HEIGHT = 0.32
 
 function SlabUI.label_args(record, catalog_entry)
     record = record or {}
@@ -44,65 +43,36 @@ function SlabUI.label_font(fonts)
     return nil
 end
 
-local function label_text(text, font)
-    return { n = G.UIT.T, config = {
-        text = text ~= "" and text or " ",
-        scale = SlabUI.line_scale(text),
-        colour = G.C.UI.TEXT_DARK,
-        font = font
+local function label_line(text, side, font)
+    return { n = G.UIT.R, config = { align = side, minh = LINE_HEIGHT, padding = 0.01 }, nodes = {
+        { n = G.UIT.T, config = {
+            text = text ~= "" and text or " ",
+            scale = SlabUI.line_scale(text),
+            colour = G.C.UI.TEXT_DARK,
+            font = font
+        } }
     } }
 end
 
-local function label_line(line, font)
-    return { n = G.UIT.R, config = { align = "cm" }, nodes = {
-        { n = G.UIT.C, config = { align = "cl", minw = 1.2, padding = 0.02 }, nodes = { label_text(line.left, font) } },
-        { n = G.UIT.C, config = { align = "cr", minw = 0.6, padding = 0.02 }, nodes = { label_text(line.right, font) } }
-    } }
-end
-
-function SlabUI.slab_definition(record, catalog_entry)
+function SlabUI.slab_box(record, catalog_entry)
     local lines = Label.slab_lines(SlabUI.label_args(record, catalog_entry))
     local font = SlabUI.label_font()
-    local rows = {}
+    local left_lines = {}
+    local right_lines = {}
     for _, line in ipairs(lines) do
-        rows[#rows + 1] = label_line(line, font)
+        left_lines[#left_lines + 1] = label_line(line.left, "cl", font)
+        right_lines[#right_lines + 1] = label_line(line.right, "cr", font)
     end
-    return { n = G.UIT.ROOT, config = { align = "cm", padding = 0.05, r = 0.04, colour = G.C.RED, emboss = 0.05, shadow = true }, nodes = {
-        { n = G.UIT.R, config = { align = "cm", padding = 0.04, r = 0.03, colour = G.C.WHITE }, nodes = rows }
+    return { n = G.UIT.R, config = { align = "cm", padding = 0.07, r = 0.05, colour = G.C.RED, emboss = 0.05, shadow = true }, nodes = {
+        { n = G.UIT.R, config = { align = "cm", padding = 0.06, r = 0.04, colour = G.C.WHITE }, nodes = {
+            { n = G.UIT.C, config = { align = "cl", padding = 0.01 }, nodes = left_lines },
+            { n = G.UIT.C, config = { align = "cm", minw = COLUMN_GAP }, nodes = {} },
+            { n = G.UIT.C, config = { align = "cr", padding = 0.01 }, nodes = right_lines }
+        } }
     } }
 end
 
-function SlabUI.attach(namespace, card)
-    if not rawget(_G, "UIBox") then return false end
-    if not card or card.children.grdl_slab then return false end
-    local record = card.grdl_record
-    if not record or record.status ~= "graded" then return false end
-
-    local hover_index = namespace and namespace.binder_hover_index or {}
-    local catalog_entry = record.center_key and hover_index[record.center_key] or nil
-    card.children.grdl_slab = UIBox({
-        definition = SlabUI.slab_definition(record, catalog_entry),
-        config = {
-            instance_type = "POPUP",
-            align = "tm",
-            offset = { x = 0, y = SLAB_OFFSET_Y },
-            major = card,
-            bond = "Strong",
-            parent = card
-        }
-    })
-    card.children.grdl_slab.states.collide.can = false
-    return true
-end
-
-function SlabUI.detach(card)
-    if not card or not card.children or not card.children.grdl_slab then return false end
-    card.children.grdl_slab:remove()
-    card.children.grdl_slab = nil
-    return true
-end
-
-local function badge_row(card)
+local function badge_node(card)
     local record = card.grdl_record
     if record.status == "graded" then
         return create_badge("PSA " .. tostring(record.grade or 0), G.C.RED, G.C.WHITE)
@@ -110,67 +80,75 @@ local function badge_row(card)
     return create_badge(UICommon.localize_text("grdl_k_badge_ungraded"), G.C.JOKER_GREY, G.C.UI.TEXT_DARK)
 end
 
+local function popup_column(popup)
+    local level_one = type(popup) == "table" and popup.nodes and popup.nodes[1] or nil
+    return type(level_one) == "table" and level_one.nodes or nil
+end
+
 local function append_badge(popup, card)
     if not rawget(_G, "create_badge") then return end
-    local level_one = type(popup) == "table" and popup.nodes and popup.nodes[1] or nil
-    local level_two = type(level_one) == "table" and level_one.nodes and level_one.nodes[1] or nil
+    local column = popup_column(popup)
+    local level_two = type(column) == "table" and column[#column] or nil
     local level_three = type(level_two) == "table" and level_two.nodes and level_two.nodes[1] or nil
     local inner_rows = type(level_three) == "table" and level_three.nodes or nil
     if type(inner_rows) ~= "table" then return end
     inner_rows[#inner_rows + 1] = {
         n = G.UIT.R,
         config = { align = "cm", padding = 0.03 },
-        nodes = { badge_row(card) }
+        nodes = { badge_node(card) }
     }
+end
+
+local function insert_slab_anchor(namespace, popup, card)
+    local column = popup_column(popup)
+    if type(column) ~= "table" or not column[1] then return end
+    local record = card.grdl_record
+    local hover_index = namespace and namespace.binder_hover_index or {}
+    local catalog_entry = record.center_key and hover_index[record.center_key] or nil
+    table.insert(column, 1, {
+        n = G.UIT.R,
+        config = {
+            align = "cm",
+            padding = 0,
+            func = "grdl_show_slab",
+            object = rawget(_G, "Moveable") and Moveable() or nil,
+            ref_table = { SlabUI.slab_box(record, catalog_entry) }
+        },
+        nodes = {}
+    })
+end
+
+local function show_slab(e)
+    if not rawget(_G, "UIBox") then return end
+    if not e or not e.config or not e.config.ref_table or e.children.info then return end
+    e.children.info = UIBox({
+        definition = { n = G.UIT.ROOT, config = { align = "cm", colour = G.C.CLEAR, padding = 0.02 }, nodes = e.config.ref_table },
+        config = { offset = { x = 0, y = -0.04 }, align = "tm", parent = e }
+    })
+    e.children.info:align_to_major()
+    e.config.ref_table = nil
 end
 
 function SlabUI.install(namespace, env)
     env = env or {}
     local ui_def = env.ui_def or (rawget(_G, "G") and G.UIDEF) or nil
-    local card_class = env.card_class or rawget(_G, "Card") or nil
-    if not namespace or not ui_def or not card_class then return false end
+    local funcs = env.funcs or (rawget(_G, "G") and G.FUNCS) or nil
+    if not namespace or not ui_def or not funcs then return false end
     if type(ui_def.card_h_popup) ~= "function" then return false end
     if namespace.slab_hooks_installed then return true end
+
+    funcs.grdl_show_slab = show_slab
 
     local original_popup = ui_def.card_h_popup
     ui_def.card_h_popup = function(card)
         local popup = original_popup(card)
         if popup and card and card.grdl_record then
             pcall(append_badge, popup, card)
+            if card.grdl_record.status == "graded" then
+                pcall(insert_slab_anchor, namespace, popup, card)
+            end
         end
         return popup
-    end
-
-    local original_align = card_class.align_h_popup
-    if type(original_align) == "function" then
-        card_class.align_h_popup = function(card, ...)
-            local popup_config = original_align(card, ...)
-            local record = card and card.grdl_record or nil
-            if popup_config and popup_config.offset and record and record.status == "graded" and popup_config.type == "tm" then
-                popup_config.offset.y = (popup_config.offset.y or 0) - SLAB_LIFT
-            end
-            return popup_config
-        end
-    end
-
-    local original_hover = card_class.hover
-    if type(original_hover) == "function" then
-        card_class.hover = function(card, ...)
-            original_hover(card, ...)
-            if card and card.grdl_record then
-                pcall(SlabUI.attach, namespace, card)
-            end
-        end
-    end
-
-    local original_stop_hover = card_class.stop_hover
-    if type(original_stop_hover) == "function" then
-        card_class.stop_hover = function(card, ...)
-            original_stop_hover(card, ...)
-            if card and card.children and card.children.grdl_slab then
-                pcall(SlabUI.detach, card)
-            end
-        end
     end
 
     namespace.slab_hooks_installed = true
