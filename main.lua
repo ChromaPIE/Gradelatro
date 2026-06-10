@@ -73,4 +73,8 @@ BuyoutUI.install_runtime(Gradelatro, rawget(_G, "G"))
 local RunEnd = load_src("run_end.lua")
 Bootstrap.attach(Gradelatro, "RunEnd", RunEnd)
 
+local DebugTools = load_src("debug_tools.lua")
+Bootstrap.attach(Gradelatro, "DebugTools", DebugTools)
+pcall(DebugTools.install, Gradelatro)
+
 return Gradelatro

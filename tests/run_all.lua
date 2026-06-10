@@ -14,5 +14,6 @@ dofile("tests/buyout_test.lua")
 dofile("tests/settlement_test.lua")
 dofile("tests/buyout_ui_test.lua")
 dofile("tests/run_end_test.lua")
+dofile("tests/debug_tools_test.lua")
 
 print("all Gradelatro foundation tests ok")
