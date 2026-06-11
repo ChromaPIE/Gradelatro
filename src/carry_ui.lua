@@ -12,7 +12,8 @@ local Catalog = load_src("catalog.lua")
 local Persistence = load_src("persistence.lua")
 local UICommon = load_src("ui_common.lua")
 
-local PEEK_VISIBLE_FRACTION = 1 / 3
+local PEEK_X_FRACTION = 0.05
+local PEEK_VISIBLE_FRACTION = 0.25
 local GLIDE_DELAY = 0.35
 
 function CarryUI.on_run_start(namespace)
@@ -156,8 +157,8 @@ function CarryUI.build_peek(namespace)
     local center = runtime.P_CENTERS[info.center_key]
     if not center then return false end
 
-    local home_x = runtime.ROOM.T.x + runtime.ROOM.T.w * 0.18
-    local home_y = runtime.ROOM.T.h - PEEK_VISIBLE_FRACTION * runtime.CARD_H
+    local home_x = runtime.ROOM.T.x + PEEK_X_FRACTION * runtime.ROOM.T.w
+    local home_y = runtime.ROOM.T.y + runtime.ROOM.T.h - PEEK_VISIBLE_FRACTION * runtime.CARD_H
     local area = CardArea(home_x, home_y, runtime.CARD_W, runtime.CARD_H,
         { card_limit = 1, type = "title", highlight_limit = 0, collection = false })
     if runtime.I then
@@ -178,6 +179,7 @@ function CarryUI.build_peek(namespace)
         definition = { n = runtime.UIT.ROOT, config = { align = "cm", colour = runtime.C.CLEAR, padding = 0.03 }, nodes = {
             UICommon.outline_button({
                 button = "grdl_carry_activate",
+                solid = true,
                 minw = 1.3,
                 minh = 0.55,
                 lines = { { text = UICommon.localize_text("grdl_b_activate_carry"), scale = 0.3 } }

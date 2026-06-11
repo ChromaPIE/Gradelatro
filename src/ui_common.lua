@@ -211,10 +211,12 @@ end
 
 function UICommon.outline_button(args)
     args = args or {}
+    local solid = args.solid
+    local text_default = solid and G.C.UI.TEXT_DARK or G.C.WHITE
     local nodes = {}
     for _, line in ipairs(args.lines or {}) do
         nodes[#nodes + 1] = { n = G.UIT.R, config = { align = "cm", padding = 0.01 }, nodes = {
-            { n = G.UIT.T, config = { text = line.text, scale = line.scale or 0.32, colour = line.colour or G.C.WHITE, font = args.font } }
+            { n = G.UIT.T, config = { text = line.text, scale = line.scale or 0.32, colour = line.colour or text_default, font = args.font } }
         } }
     end
     return { n = G.UIT.C, config = {
@@ -223,11 +225,11 @@ function UICommon.outline_button(args)
         minh = args.minh or 0.9,
         padding = 0.08,
         r = 0.06,
-        colour = G.C.CLEAR,
-        outline = 1.2,
-        outline_colour = args.outline_colour or G.C.WHITE,
+        colour = solid and G.C.WHITE or G.C.CLEAR,
+        outline = not solid and 1.2 or nil,
+        outline_colour = not solid and (args.outline_colour or G.C.WHITE) or nil,
         hover = true,
-        shadow = false,
+        shadow = solid and true or false,
         button = args.button,
         ref_table = args.ref,
         focus_args = { nav = "wide" }

@@ -128,6 +128,63 @@ H.assert_equal(_G.G.GAME.grdl_carry_active, nil, "active marker cleared after lo
 
 H.assert_equal(CarryUI.build_peek(namespace), false, "peek build is a safe no-op without ui globals")
 
+local peek_raw = Storage.add_raw_card(namespace.collection, {
+    center_key = "j_peek",
+    local_key = "peek",
+    mod_id = "Balatro",
+    rarity = "common",
+    edition = "base",
+    condition = { centering = 9, print_quality = 9, corners = 9, edges = 9, surface = 9 },
+    acquired_at = 7000
+})
+Carry.select_for_run(config, namespace.collection, { card_id = peek_raw.id })
+
+local previous_cardarea = rawget(_G, "CardArea")
+local previous_card_class = rawget(_G, "Card")
+local previous_uibox = rawget(_G, "UIBox")
+local captured_area = nil
+_G.CardArea = function(x, y, w, h, args)
+    captured_area = {
+        T = { x = x, y = y, w = w, h = h },
+        cards = {},
+        emplace = function(self, c) self.cards[#self.cards + 1] = c end,
+        remove = function() end
+    }
+    return captured_area
+end
+_G.Card = function(x, y, w, h, front, center)
+    return { children = {}, states = {}, set_edition = function() end, remove = function() end }
+end
+local captured_button = nil
+_G.UIBox = function(args)
+    captured_button = args
+    return { remove = function() end }
+end
+_G.G = {
+    GAME = { pseudorandom = { seed = "PEEKRUN" } },
+    ROOM = { T = { x = 1.5, y = 0.5, w = 20, h = 11 } },
+    CARD_W = 1.44,
+    CARD_H = 1.9,
+    P_CENTERS = { j_peek = { key = "j_peek", set = "Joker" } },
+    P_CARDS = {},
+    I = { CARDAREA = {}, POPUP = {} },
+    UIT = { R = "R", C = "C", T = "T", O = "O", ROOT = "ROOT" },
+    C = { CLEAR = "CLEAR", WHITE = "WHITE", UI = { TEXT_DARK = "TEXT_DARK", TEXT_LIGHT = "TEXT_LIGHT" } },
+    FUNCS = {}
+}
+H.assert_equal(CarryUI.build_peek(namespace), true, "peek builds with ui globals")
+H.assert_near(captured_area.T.x, 1.5 + 0.05 * 20, 0.000001, "peek hugs the bottom left edge")
+H.assert_near(captured_area.T.y, 0.5 + 11 - 0.25 * 1.9, 0.000001, "peek shows a quarter of the card")
+H.assert_equal(_G.G.I.POPUP[1], captured_area, "peek area promoted to popup layer")
+local button_node = captured_button.definition.nodes[1]
+H.assert_equal(button_node.config.colour, "WHITE", "activate button solid white")
+H.assert_equal(button_node.config.outline, nil, "activate button drops the outline")
+H.assert_equal(button_node.nodes[1].nodes[1].config.colour, "TEXT_DARK", "activate button dark text")
+CarryUI.teardown_peek(namespace)
+_G.CardArea = previous_cardarea
+_G.Card = previous_card_class
+_G.UIBox = previous_uibox
+
 _G.SMODS = previous_smods
 _G.G = previous_g
 
