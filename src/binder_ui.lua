@@ -12,6 +12,7 @@ local Carry = load_src("carry.lua")
 local Catalog = load_src("catalog.lua")
 local Grading = load_src("grading.lua")
 local Label = load_src("label.lua")
+local Market = load_src("market.lua")
 local Persistence = load_src("persistence.lua")
 local SlabUI = load_src("slab_ui.lua")
 local UICommon = load_src("ui_common.lua")
@@ -35,9 +36,7 @@ local TEXT_KEYS = {
     hidden = "grdl_k_binder_hidden",
     desk = "grdl_b_desk",
     desk_title = "grdl_k_desk_title",
-    desk_empty = "grdl_k_desk_empty",
     queue_empty = "grdl_k_queue_empty",
-    tab_submit = "grdl_k_tab_submit",
     tab_progress = "grdl_k_tab_progress",
     revealed = "grdl_k_grading_revealed"
 }
@@ -85,16 +84,6 @@ function BinderUI.countdown_text(seconds)
         return string.format("%d:%02d:%02d", hours, minutes, secs)
     end
     return string.format("%d:%02d", minutes, secs)
-end
-
-local function grading_fee_map(config, collection)
-    local fees = {}
-    for _, card in ipairs((collection and collection.cards) or {}) do
-        if (card.status or "raw") == "raw" then
-            fees[card.id] = Grading.fee_for(config, card)
-        end
-    end
-    return fees
 end
 
 local function process_due(namespace, now)
@@ -156,27 +145,17 @@ function BinderUI.open_desk(namespace, now)
     namespace.desk_ui_state = {
         text_keys = copy_text_keys(),
         summary = Binder.summary(namespace.collection),
-        rows = Binder.desk_rows(namespace.collection),
-        fees = namespace.config and grading_fee_map(namespace.config, namespace.collection) or {},
         queue_rows = Grading.queue_rows(namespace.collection, now),
         revealed_count = revealed_count,
-        desk_tab = "submit",
-        submit_page = 1,
-        queue_page = 1,
-        last_reason = nil,
-        last_reason_text = ""
+        queue_page = 1
     }
     return namespace.desk_ui_state
 end
 
-function BinderUI.set_desk_page(namespace, list_key, page)
+function BinderUI.set_desk_page(namespace, page)
     local state = namespace and namespace.desk_ui_state or nil
     if not state then return nil end
-    if list_key == "queue" then
-        state.queue_page = Binder.page(state.queue_rows, page, DESK_PAGE_SIZE).page
-    else
-        state.submit_page = Binder.page(state.rows, page, DESK_PAGE_SIZE).page
-    end
+    state.queue_page = Binder.page(state.queue_rows, page, DESK_PAGE_SIZE).page
     return state
 end
 
@@ -199,7 +178,9 @@ function BinderUI.open_inspect(namespace, card_id, now)
 
     namespace.inspect_ui_state = {
         entry = entry,
-        text_keys = copy_text_keys()
+        text_keys = copy_text_keys(),
+        pending_sell = false,
+        last_reason_text = ""
     }
     return namespace.inspect_ui_state
 end
@@ -260,12 +241,38 @@ function BinderUI.submit_grading(namespace, card_id, now)
     if result.ok then
         namespace.last_save_ok = Persistence.save(namespace)
         BinderUI.open_desk(namespace, now)
+    end
+    return result
+end
+
+function BinderUI.sell_from_inspect(namespace, card_id, now)
+    if not namespace or not namespace.collection then
+        return { ok = false, reason = "missing_collection" }
+    end
+    if not namespace.config then
+        return { ok = false, reason = "missing_config" }
+    end
+    local state = namespace.inspect_ui_state
+    if not state or not state.entry or state.entry.id ~= card_id then
+        return { ok = false, reason = "missing_state" }
+    end
+
+    if not state.pending_sell then
+        state.pending_sell = true
+        state.last_reason_text = safe_localize("grdl_k_sell_arm_hint")
+        return { ok = true, pending = true }
+    end
+
+    local result = Market.sell(namespace.config, namespace.collection, {
+        card_id = card_id,
+        now = now or os.time()
+    })
+    namespace.last_market_result = result
+    if result.ok then
+        namespace.last_save_ok = Persistence.save(namespace)
     else
-        local state = namespace.desk_ui_state or BinderUI.open_desk(namespace, now)
-        if state then
-            state.last_reason = result.reason
-            state.last_reason_text = safe_localize(reason_key(result.reason))
-        end
+        state.pending_sell = false
+        state.last_reason_text = safe_localize(reason_key(result.reason))
     end
     return result
 end
@@ -422,35 +429,6 @@ local function queue_bar(queue_data)
     }, nodes = segments }
 end
 
-local function desk_card_row(state, row_data)
-    local fee = state.fees and state.fees[row_data.id] or nil
-    local name = center_name(row_data)
-    return row({
-        col({ ui_text(name, UICommon.fit_scale(name, 0.32, 18)) }, {
-            align = "cl",
-            minw = 2.2,
-            collideable = true,
-            func = "grdl_row_preview",
-            ref_table = { center_key = row_data.center_key, edition = row_data.edition }
-        }),
-        col({ ui_text(safe_localize("grdl_k_edition_" .. tostring(row_data.edition or "base")), 0.28) }, { align = "cl", minw = 1.0 }),
-        col({ ui_text(fee and safe_localize("grdl_k_grading_fee", { fee }) or "", 0.3, G.C.GOLD) }, { align = "cr", minw = 0.9 }),
-        col({
-            UIBox_button({
-                button = "grdl_submit_grading",
-                label = { safe_localize("grdl_b_grade") },
-                ref_table = { id = row_data.id },
-                minw = 1.1,
-                maxw = 1.1,
-                minh = 0.55,
-                scale = 0.3,
-                colour = G.C.BLUE,
-                focus_args = { nav = "wide" }
-            })
-        }, { align = "cm", minw = 1.2 })
-    }, { padding = 0.05 })
-end
-
 local function queue_row(queue_data)
     local name = center_name(queue_data)
     return row({
@@ -470,29 +448,8 @@ local function desk_tab_root(nodes)
     return { n = G.UIT.ROOT, config = { align = "tm", colour = G.C.CLEAR, minw = 6.6, minh = 5.0, padding = 0.05 }, nodes = nodes }
 end
 
-local function submit_tab_definition(state)
-    return function()
-        state.desk_tab = "submit"
-        local view = Binder.page(state.rows, state.submit_page, DESK_PAGE_SIZE)
-        state.submit_page = view.page
-        local nodes = {}
-        if view.total == 0 then
-            nodes[#nodes + 1] = row({ ui_text(safe_localize(state.text_keys.desk_empty), 0.34, G.C.UI.TEXT_INACTIVE) })
-        else
-            for _, entry in ipairs(view.items) do
-                nodes[#nodes + 1] = desk_card_row(state, entry)
-            end
-        end
-        local cycle = UICommon.page_cycle(view, "grdl_desk_submit_page")
-        if cycle then nodes[#nodes + 1] = row({ cycle }, { padding = 0.05 }) end
-        nodes[#nodes + 1] = row({ { n = G.UIT.T, config = { ref_table = state, ref_value = "last_reason_text", scale = 0.3, colour = G.C.RED } } })
-        return desk_tab_root(nodes)
-    end
-end
-
 local function queue_tab_definition(state)
     return function()
-        state.desk_tab = "queue"
         local view = Binder.page(state.queue_rows, state.queue_page, DESK_PAGE_SIZE)
         state.queue_page = view.page
         local nodes = {}
@@ -526,13 +483,8 @@ function BinderUI.create_desk_definition(namespace)
         create_tabs({
             tabs = {
                 {
-                    label = safe_localize(state.text_keys.tab_submit),
-                    chosen = state.desk_tab ~= "queue",
-                    tab_definition_function = submit_tab_definition(state)
-                },
-                {
                     label = safe_localize(state.text_keys.tab_progress),
-                    chosen = state.desk_tab == "queue",
+                    chosen = true,
                     tab_definition_function = queue_tab_definition(state)
                 }
             },
@@ -620,6 +572,68 @@ local function build_inspect_card(namespace, entry, catalog_entry)
     return area
 end
 
+local function inspect_action_button(button_key, ref_id, lines, regular_font)
+    local nodes = {}
+    for _, line in ipairs(lines) do
+        nodes[#nodes + 1] = { n = G.UIT.R, config = { align = "cm", padding = 0.01 }, nodes = {
+            inspect_text(line.text, line.scale or 0.32, line.colour or G.C.WHITE, regular_font)
+        } }
+    end
+    return { n = G.UIT.C, config = {
+        align = "cm",
+        minw = 1.6,
+        minh = 0.9,
+        padding = 0.08,
+        r = 0.06,
+        colour = G.C.CLEAR,
+        outline = 1.2,
+        outline_colour = G.C.WHITE,
+        hover = true,
+        shadow = false,
+        button = button_key,
+        ref_table = { id = ref_id },
+        focus_args = { nav = "wide" }
+    }, nodes = nodes }
+end
+
+local function inspect_action_row(namespace, state, entry, regular_font)
+    local actions = {}
+
+    if entry.status == "raw" or entry.status == "carried" then
+        local carried = entry.status == "carried"
+        actions[#actions + 1] = inspect_action_button("grdl_carry_toggle", entry.id, {
+            { text = safe_localize(carried and "grdl_b_withdraw_carry" or "grdl_b_carry") }
+        }, regular_font)
+    end
+
+    if entry.status == "raw" then
+        local ok_fee, fee = pcall(Grading.fee_for, namespace.config or {}, entry)
+        actions[#actions + 1] = inspect_action_button("grdl_inspect_submit", entry.id, {
+            { text = safe_localize("grdl_b_grade") },
+            { text = safe_localize("grdl_k_grading_fee", { ok_fee and fee or 0 }), scale = 0.28, colour = G.C.GOLD }
+        }, regular_font)
+    end
+
+    if entry.status == "raw" or entry.status == "graded" then
+        local ok_quote, quote = pcall(Market.sell_quote, namespace.config or {}, namespace.collection or {}, entry)
+        actions[#actions + 1] = inspect_action_button("grdl_inspect_sell", entry.id, {
+            { text = safe_localize("grdl_b_sell") },
+            { text = safe_localize("grdl_k_grading_fee", { ok_quote and quote or 0 }), scale = 0.28, colour = G.C.GOLD }
+        }, regular_font)
+    end
+
+    if #actions == 0 then return nil end
+
+    local action_cols = {}
+    for index, node in ipairs(actions) do
+        if index > 1 then
+            action_cols[#action_cols + 1] = { n = G.UIT.C, config = { align = "cm", minw = 0.25 }, nodes = {} }
+        end
+        action_cols[#action_cols + 1] = node
+    end
+    return action_cols
+end
+
 function BinderUI.create_inspect_definition(namespace)
     namespace = namespace or rawget(_G, "Gradelatro") or {}
     local state = namespace.inspect_ui_state
@@ -653,22 +667,13 @@ function BinderUI.create_inspect_definition(namespace)
         inspect_detail_row("grdl_k_detail_psa", inspect_psa_text(entry), regular_font)
     }
 
-    if entry.status == "raw" or entry.status == "carried" then
-        local carried = entry.status == "carried"
-        right_nodes[#right_nodes + 1] = row({}, { minh = 0.3 })
+    local action_cols = inspect_action_row(namespace, state, entry, regular_font)
+    if action_cols then
+        right_nodes[#right_nodes + 1] = row({}, { minh = 0.35 })
+        right_nodes[#right_nodes + 1] = row(action_cols, { align = "cl", padding = 0.04 })
         right_nodes[#right_nodes + 1] = row({
-            UIBox_button({
-                button = "grdl_carry_toggle",
-                label = { safe_localize(carried and "grdl_b_withdraw_carry" or "grdl_b_carry") },
-                ref_table = { id = entry.id },
-                minw = 2.6,
-                maxw = 2.6,
-                minh = 0.65,
-                scale = 0.34,
-                colour = carried and G.C.RED or G.C.GREEN,
-                focus_args = { nav = "wide" }
-            })
-        }, { align = "cl", padding = 0.05 })
+            { n = G.UIT.T, config = { ref_table = state, ref_value = "last_reason_text", scale = 0.3, colour = G.C.RED } }
+        }, { align = "cl" })
     end
 
     local close_char = "X"
@@ -745,35 +750,57 @@ function BinderUI.install_runtime(namespace, runtime, adapter)
         BinderUI.fill_card_areas(namespace)
     end
 
+    local function reopen_inspect(card_id)
+        BinderUI.open(namespace)
+        local state = BinderUI.open_inspect(namespace, card_id)
+        if state and runtime.FUNCS.overlay_menu then
+            if runtime.SETTINGS then runtime.SETTINGS.paused = true end
+            runtime.FUNCS.overlay_menu({
+                definition = BinderUI.create_inspect_definition(namespace)
+            })
+        end
+        return state
+    end
+
     runtime.FUNCS.grdl_carry_toggle = function(event)
         local card_id = event_card_id(event)
         local result = BinderUI.toggle_carry(namespace, card_id, os.time())
         if result.ok then
-            BinderUI.open(namespace)
-            local state = BinderUI.open_inspect(namespace, card_id)
-            if state and runtime.FUNCS.overlay_menu then
-                if runtime.SETTINGS then runtime.SETTINGS.paused = true end
-                runtime.FUNCS.overlay_menu({
-                    definition = BinderUI.create_inspect_definition(namespace)
-                })
-            end
+            reopen_inspect(card_id)
         elseif rawget(_G, "play_sound") then
             pcall(play_sound, "tarot2", 0.76, 0.4)
         end
     end
 
-    runtime.FUNCS.grdl_desk_submit_page = function(event)
-        if not event or not event.cycle_config then return end
-        BinderUI.set_desk_page(namespace, "submit", event.cycle_config.current_option)
-        local state = namespace.desk_ui_state
-        if not (state and UICommon.swap_tab_contents(submit_tab_definition(state))) then
-            if adapter.refresh_desk then adapter.refresh_desk(namespace, state, event) end
+    runtime.FUNCS.grdl_inspect_submit = function(event)
+        local card_id = event_card_id(event)
+        local result = BinderUI.submit_grading(namespace, card_id, os.time())
+        if result.ok then
+            reopen_inspect(card_id)
+        else
+            local state = namespace.inspect_ui_state
+            if state then
+                state.last_reason_text = safe_localize(reason_key(result.reason))
+            end
+            if rawget(_G, "play_sound") then
+                pcall(play_sound, "tarot2", 0.76, 0.4)
+            end
+        end
+    end
+
+    runtime.FUNCS.grdl_inspect_sell = function(event)
+        local card_id = event_card_id(event)
+        local result = BinderUI.sell_from_inspect(namespace, card_id, os.time())
+        if result.ok and not result.pending then
+            reopen_inspect(card_id)
+        elseif not result.ok and rawget(_G, "play_sound") then
+            pcall(play_sound, "tarot2", 0.76, 0.4)
         end
     end
 
     runtime.FUNCS.grdl_desk_queue_page = function(event)
         if not event or not event.cycle_config then return end
-        BinderUI.set_desk_page(namespace, "queue", event.cycle_config.current_option)
+        BinderUI.set_desk_page(namespace, event.cycle_config.current_option)
         local state = namespace.desk_ui_state
         if not (state and UICommon.swap_tab_contents(queue_tab_definition(state))) then
             if adapter.refresh_desk then adapter.refresh_desk(namespace, state, event) end
@@ -785,15 +812,6 @@ function BinderUI.install_runtime(namespace, runtime, adapter)
         local tooltip = element and element.config and element.config.tooltip or nil
         if not info or not tooltip or not tooltip.text then return end
         tooltip.text[1] = BinderUI.countdown_text((info.due_at or 0) - os.time())
-    end
-
-    runtime.FUNCS.grdl_submit_grading = function(event)
-        local result = BinderUI.submit_grading(namespace, event_card_id(event), os.time())
-        if result.ok then
-            if adapter.refresh_desk then adapter.refresh_desk(namespace, namespace.desk_ui_state, event) end
-        elseif adapter.notify_failure then
-            adapter.notify_failure(namespace, namespace.desk_ui_state, event)
-        end
     end
 
     return true

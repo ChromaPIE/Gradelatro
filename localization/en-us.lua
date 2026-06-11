@@ -23,6 +23,7 @@ return {
             grdl_b_market = "Market",
             grdl_b_sell = "Sell",
             grdl_b_confirm_sell = "Confirm",
+            grdl_k_sell_arm_hint = "Click Sell again to confirm.",
             grdl_b_carry = "Carry Into Run",
             grdl_b_withdraw_carry = "Withdraw",
             grdl_b_activate_carry = "Activate",
@@ -37,10 +38,8 @@ return {
             grdl_k_reason_ante_used = "Already activated this Ante.",
             grdl_k_reason_spawn_failed = "Could not bring the card into play.",
             grdl_k_market_title = "Gradelatro Market",
-            grdl_k_market_empty = "Nothing to sell.",
-            grdl_k_tab_submit = "Submit",
+            grdl_k_market_empty = "No trend data yet.",
             grdl_k_tab_progress = "In Progress",
-            grdl_k_tab_sell = "Sell",
             grdl_k_tab_trends = "Trends",
             grdl_k_queue_empty = "The grading queue is empty.",
             grdl_k_heat_hot = "Hot",
@@ -49,7 +48,6 @@ return {
             grdl_k_heat_cooling = "Cooling",
             grdl_k_reason_not_sellable = "This card cannot be sold.",
             grdl_k_desk_title = "Grading Desk",
-            grdl_k_desk_empty = "No raw cards to submit.",
             grdl_k_badge_ungraded = "Ungraded",
             grdl_k_stat_owned = "Owned",
             grdl_k_stat_raw = "Raw",
@@ -112,7 +110,6 @@ return {
             grdl_k_buyout_summary = "#1#/#2# selected  |  Total: G#3#  |  Held: G#4#",
             grdl_k_grading_fee = "G#1#",
             grdl_k_grading_revealed = "#1# grading result(s) revealed!",
-            grdl_k_market_sold = "Sold: +G#1#",
             grdl_k_binder_hidden = "#1# card(s) hidden (mod not loaded)"
         }
     }

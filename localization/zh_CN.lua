@@ -23,6 +23,7 @@ return {
             grdl_b_market = "市场",
             grdl_b_sell = "出售",
             grdl_b_confirm_sell = "确认",
+            grdl_k_sell_arm_hint = "再次点击「出售」确认。",
             grdl_b_carry = "带入赛局",
             grdl_b_withdraw_carry = "收回随行",
             grdl_b_activate_carry = "启用",
@@ -37,10 +38,8 @@ return {
             grdl_k_reason_ante_used = "本底注已启用过。",
             grdl_k_reason_spawn_failed = "无法将卡牌带入赛局。",
             grdl_k_market_title = "Gradelatro 市场",
-            grdl_k_market_empty = "没有可出售的卡牌。",
-            grdl_k_tab_submit = "选择送评",
+            grdl_k_market_empty = "暂无行情数据。",
             grdl_k_tab_progress = "评级进度",
-            grdl_k_tab_sell = "出售",
             grdl_k_tab_trends = "行情",
             grdl_k_queue_empty = "评级队列为空。",
             grdl_k_heat_hot = "火热",
@@ -49,7 +48,6 @@ return {
             grdl_k_heat_cooling = "遇冷",
             grdl_k_reason_not_sellable = "此卡当前不可出售。",
             grdl_k_desk_title = "送评服务台",
-            grdl_k_desk_empty = "没有可送评的原卡。",
             grdl_k_badge_ungraded = "未评级",
             grdl_k_stat_owned = "持有",
             grdl_k_stat_raw = "原卡",
@@ -112,7 +110,6 @@ return {
             grdl_k_buyout_summary = "已选 #1#/#2#  |  合计：Ⓖ#3#  |  持有：Ⓖ#4#",
             grdl_k_grading_fee = "Ⓖ#1#",
             grdl_k_grading_revealed = "揭晓了 #1# 张卡牌的评级结果！",
-            grdl_k_market_sold = "已售出：+Ⓖ#1#",
             grdl_k_binder_hidden = "#1# 张卡牌因模组未加载而隐藏"
         }
     }

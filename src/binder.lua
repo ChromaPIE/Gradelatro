@@ -110,24 +110,5 @@ function Binder.page(entries, page, per_page)
     }
 end
 
-function Binder.desk_rows(collection)
-    collection = collection or {}
-    local rows = {}
-
-    for _, card in ipairs(collection.cards or {}) do
-        if (card.status or "raw") == "raw" then
-            rows[#rows + 1] = {
-                id = card.id,
-                center_key = card.center_key,
-                name_key = card.local_key or card.center_key or card.id,
-                edition = card.edition or "base",
-                acquired_at = card.acquired_at or 0
-            }
-        end
-    end
-
-    table.sort(rows, newest_first)
-    return rows
-end
 
 return Binder

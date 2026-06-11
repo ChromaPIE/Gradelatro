@@ -20,16 +20,12 @@ local row = UICommon.row
 local col = UICommon.col
 local event_card_id = UICommon.event_ref_id
 
-local SELL_PAGE_SIZE = 7
 local HEAT_PAGE_SIZE = 10
 
 local TEXT_KEYS = {
     title = "grdl_k_market_title",
     empty = "grdl_k_market_empty",
-    tab_sell = "grdl_k_tab_sell",
-    tab_trends = "grdl_k_tab_trends",
-    sell = "grdl_b_sell",
-    confirm = "grdl_b_confirm_sell"
+    tab_trends = "grdl_k_tab_trends"
 }
 
 local function copy_text_keys()
@@ -77,66 +73,17 @@ function MarketUI.open(namespace, now)
     namespace.market_ui_state = {
         text_keys = copy_text_keys(),
         summary = Binder.summary(namespace.collection),
-        rows = namespace.config and Market.sell_rows(namespace.config, namespace.collection) or {},
         heat_rows = heat_rows,
-        tab = "sell",
-        sell_page = 1,
-        heat_page = 1,
-        pending_sell_id = nil,
-        last_reason = nil,
-        last_reason_text = "",
-        sold_text = ""
+        heat_page = 1
     }
     return namespace.market_ui_state
 end
 
-function MarketUI.set_page(namespace, list_key, page)
+function MarketUI.set_page(namespace, page)
     local state = namespace and namespace.market_ui_state or nil
     if not state then return nil end
-    if list_key == "heat" then
-        state.heat_page = Binder.page(state.heat_rows, page, HEAT_PAGE_SIZE).page
-    else
-        state.sell_page = Binder.page(state.rows, page, SELL_PAGE_SIZE).page
-    end
+    state.heat_page = Binder.page(state.heat_rows, page, HEAT_PAGE_SIZE).page
     return state
-end
-
-function MarketUI.request_sell(namespace, card_id, now)
-    if not namespace or not namespace.collection then
-        return { ok = false, reason = "missing_collection" }
-    end
-    if not namespace.config then
-        return { ok = false, reason = "missing_config" }
-    end
-    now = now or os.time()
-
-    local state = namespace.market_ui_state or MarketUI.open(namespace, now)
-    if not state then return { ok = false, reason = "missing_state" } end
-    if not card_id then
-        return { ok = false, reason = "card_not_found" }
-    end
-
-    if state.pending_sell_id ~= card_id then
-        state.pending_sell_id = card_id
-        state.last_reason = nil
-        state.last_reason_text = ""
-        return { ok = true, pending = true }
-    end
-
-    local result = Market.sell(namespace.config, namespace.collection, { card_id = card_id, now = now })
-    namespace.last_market_result = result
-
-    if result.ok then
-        namespace.last_save_ok = Persistence.save(namespace)
-        local sold_text = safe_localize("grdl_k_market_sold", { result.price })
-        MarketUI.open(namespace, now)
-        namespace.market_ui_state.sold_text = sold_text
-    else
-        state.pending_sell_id = nil
-        state.last_reason = result.reason
-        state.last_reason_text = safe_localize("grdl_k_reason_" .. tostring(result.reason))
-    end
-    return result
 end
 
 local HEAT_COLOURS = {
@@ -167,69 +114,12 @@ local function heat_pair_row(left, right)
     return row(nodes, { padding = 0.04, align = "cl" })
 end
 
-local function status_text(row_data)
-    if row_data.status == "graded" and row_data.grade then
-        return "PSA " .. tostring(row_data.grade)
-    end
-    return safe_localize("grdl_k_status_raw")
-end
-
-local function sell_row(state, row_data)
-    local pending = state.pending_sell_id == row_data.id
-    local name = center_name(row_data)
-    return row({
-        col({ ui_text(name, UICommon.fit_scale(name, 0.32, 18)) }, {
-            align = "cl",
-            minw = 2.2,
-            collideable = true,
-            func = "grdl_row_preview",
-            ref_table = { center_key = row_data.center_key, edition = row_data.edition }
-        }),
-        col({ ui_text(status_text(row_data), 0.28) }, { align = "cl", minw = 1.0 }),
-        col({ ui_text(safe_localize("grdl_k_grading_fee", { row_data.quote }), 0.3, G.C.GOLD) }, { align = "cr", minw = 0.9 }),
-        col({
-            UIBox_button({
-                button = "grdl_market_sell",
-                label = { safe_localize(pending and state.text_keys.confirm or state.text_keys.sell) },
-                ref_table = { id = row_data.id },
-                minw = 1.1,
-                maxw = 1.1,
-                minh = 0.55,
-                scale = 0.3,
-                colour = pending and G.C.RED or G.C.BLUE,
-                focus_args = { nav = "wide" }
-            })
-        }, { align = "cm", minw = 1.2 })
-    }, { padding = 0.05 })
-end
-
 local function market_tab_root(nodes)
     return { n = G.UIT.ROOT, config = { align = "tm", colour = G.C.CLEAR, minw = 6.6, minh = 5.0, padding = 0.05 }, nodes = nodes }
 end
 
-local function sell_tab_definition(state)
-    return function()
-        state.tab = "sell"
-        local view = Binder.page(state.rows, state.sell_page, SELL_PAGE_SIZE)
-        state.sell_page = view.page
-        local nodes = {}
-        if view.total == 0 then
-            nodes[#nodes + 1] = row({ ui_text(safe_localize(state.text_keys.empty), 0.34, G.C.UI.TEXT_INACTIVE) })
-        else
-            for _, entry in ipairs(view.items) do
-                nodes[#nodes + 1] = sell_row(state, entry)
-            end
-        end
-        local cycle = UICommon.page_cycle(view, "grdl_market_sell_page")
-        if cycle then nodes[#nodes + 1] = row({ cycle }, { padding = 0.05 }) end
-        nodes[#nodes + 1] = row({ { n = G.UIT.T, config = { ref_table = state, ref_value = "last_reason_text", scale = 0.3, colour = G.C.RED } } })
-        return market_tab_root(nodes)
-    end
-end
-
 local function trends_tab_definition(state)
     return function()
-        state.tab = "trends"
         local view = Binder.page(state.heat_rows, state.heat_page, HEAT_PAGE_SIZE)
         state.heat_page = view.page
         local nodes = {}
@@ -255,21 +145,15 @@ function MarketUI.create_overlay_definition(namespace)
 
     local rows = {
         row({ ui_text(safe_localize(state.text_keys.title), 0.55, G.C.WHITE) }),
-        UICommon.stat_chips(state.summary),
-        row({ { n = G.UIT.T, config = { ref_table = state, ref_value = "sold_text", scale = 0.32, colour = G.C.GOLD } } })
+        UICommon.stat_chips(state.summary)
     }
 
     rows[#rows + 1] = row({
         create_tabs({
             tabs = {
                 {
-                    label = safe_localize(state.text_keys.tab_sell),
-                    chosen = state.tab ~= "trends",
-                    tab_definition_function = sell_tab_definition(state)
-                },
-                {
                     label = safe_localize(state.text_keys.tab_trends),
-                    chosen = state.tab == "trends",
+                    chosen = true,
                     tab_definition_function = trends_tab_definition(state)
                 }
             },
@@ -322,27 +206,9 @@ function MarketUI.install_runtime(namespace, runtime, adapter)
         if state and adapter.open_market then adapter.open_market(namespace, state, event) end
     end
 
-    runtime.FUNCS.grdl_market_sell = function(event)
-        local result = MarketUI.request_sell(namespace, event_card_id(event), os.time())
-        if result.ok then
-            if adapter.refresh_market then adapter.refresh_market(namespace, namespace.market_ui_state, event) end
-        elseif adapter.notify_failure then
-            adapter.notify_failure(namespace, namespace.market_ui_state, event)
-        end
-    end
-
-    runtime.FUNCS.grdl_market_sell_page = function(event)
-        if not event or not event.cycle_config then return end
-        MarketUI.set_page(namespace, "sell", event.cycle_config.current_option)
-        local state = namespace.market_ui_state
-        if not (state and UICommon.swap_tab_contents(sell_tab_definition(state))) then
-            if adapter.refresh_market then adapter.refresh_market(namespace, state, event) end
-        end
-    end
-
     runtime.FUNCS.grdl_market_heat_page = function(event)
         if not event or not event.cycle_config then return end
-        MarketUI.set_page(namespace, "heat", event.cycle_config.current_option)
+        MarketUI.set_page(namespace, event.cycle_config.current_option)
         local state = namespace.market_ui_state
         if not (state and UICommon.swap_tab_contents(trends_tab_definition(state))) then
             if adapter.refresh_market then adapter.refresh_market(namespace, state, event) end

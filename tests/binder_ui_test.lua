@@ -38,7 +38,7 @@ _G.SMODS = {
 }
 
 local runtime = { FUNCS = {} }
-local adapter = { binder_opened = 0, desk_opened = 0, desk_refreshed = 0, fail_notified = 0 }
+local adapter = { binder_opened = 0, desk_opened = 0, desk_refreshed = 0 }
 function adapter.open_binder()
     adapter.binder_opened = adapter.binder_opened + 1
 end
@@ -47,9 +47,6 @@ function adapter.open_desk()
 end
 function adapter.refresh_desk()
     adapter.desk_refreshed = adapter.desk_refreshed + 1
-end
-function adapter.notify_failure()
-    adapter.fail_notified = adapter.fail_notified + 1
 end
 
 H.assert_true(BinderUI.install_runtime(namespace, runtime, adapter), "runtime callbacks installed")
@@ -92,21 +89,18 @@ runtime.FUNCS.grdl_open_desk()
 local desk_state = namespace.desk_ui_state
 H.assert_true(desk_state ~= nil, "desk state stored")
 H.assert_equal(adapter.desk_opened, 1, "desk overlay opened")
-H.assert_equal(#desk_state.rows, 13, "desk lists raw cards")
-H.assert_equal(desk_state.fees[raw_card.id], 15, "desk fee exposed")
 H.assert_equal(#desk_state.queue_rows, 0, "queue empty before submit")
-H.assert_equal(desk_state.last_reason_text, "", "no failure text initially")
+H.assert_equal(desk_state.queue_page, 1, "queue page starts at one")
 
-runtime.FUNCS.grdl_submit_grading({ config = { ref_table = { id = raw_card.id } } })
-H.assert_equal(raw_card.status, "queued", "submit callback queues card")
-H.assert_equal(namespace.collection.currency_g, 10, "submit callback charges fee")
+H.assert_true(type(runtime.FUNCS.grdl_inspect_submit) == "function", "inspect submit callback registered")
+runtime.FUNCS.grdl_inspect_submit({ config = { ref_table = { id = raw_card.id } } })
+H.assert_equal(raw_card.status, "queued", "inspect submit queues card")
+H.assert_equal(namespace.collection.currency_g, 10, "inspect submit charges fee")
 H.assert_equal(save_count, 1, "successful submit saves config")
-H.assert_equal(adapter.desk_refreshed, 1, "submit refreshes desk overlay")
 H.assert_true(namespace.desk_ui_state ~= desk_state, "success rebuilds desk state")
 desk_state = namespace.desk_ui_state
 H.assert_equal(#desk_state.queue_rows, 1, "queue row visible after submit")
 H.assert_equal(desk_state.queue_rows[1].card_id, raw_card.id, "queue row card id")
-H.assert_equal(desk_state.fees[raw_card.id], nil, "queued card no longer offers a fee")
 
 local expensive_card = Storage.add_raw_card(namespace.collection, {
     center_key = "j_rare",
@@ -117,15 +111,13 @@ local expensive_card = Storage.add_raw_card(namespace.collection, {
     acquired_at = 2001
 })
 local stable_state = namespace.desk_ui_state
-runtime.FUNCS.grdl_submit_grading({ config = { ref_table = { id = expensive_card.id } } })
+BinderUI.open_inspect(namespace, expensive_card.id)
+runtime.FUNCS.grdl_inspect_submit({ config = { ref_table = { id = expensive_card.id } } })
 H.assert_equal(expensive_card.status, "raw", "failed submit keeps card raw")
 H.assert_equal(namespace.collection.currency_g, 10, "failed submit keeps currency")
 H.assert_equal(save_count, 1, "failed submit does not save")
-H.assert_equal(adapter.desk_refreshed, 1, "failed submit does not rebuild overlay")
-H.assert_equal(adapter.fail_notified, 1, "failed submit notifies failure")
-H.assert_true(namespace.desk_ui_state == stable_state, "failed submit keeps desk state in place")
-H.assert_equal(stable_state.last_reason, "insufficient_funds", "failure reason surfaced")
-H.assert_equal(stable_state.last_reason_text, "grdl_k_reason_insufficient_funds", "failure text bound for live update")
+H.assert_true(namespace.desk_ui_state == stable_state, "failed submit leaves desk state alone")
+H.assert_equal(namespace.inspect_ui_state.last_reason_text, "grdl_k_reason_insufficient_funds", "failure text surfaced in inspect")
 
 namespace.collection.grading_queue[1].due_at = 900
 local opened = BinderUI.open(namespace, 1000)
@@ -223,22 +215,14 @@ runtime.FUNCS.grdl_queue_tick(bar_element)
 H.assert_equal(bar_element.config.tooltip.text[1], "grdl_k_grading_ready", "tick reports ready when due passed")
 
 local tab_desk = BinderUI.open_desk(namespace, 3000)
-H.assert_equal(tab_desk.desk_tab, "submit", "desk opens on the submit tab")
-H.assert_equal(tab_desk.submit_page, 1, "submit page starts at one")
 H.assert_equal(tab_desk.queue_page, 1, "queue page starts at one")
-H.assert_true(#tab_desk.rows >= 8, "fixture has more than one submit page")
-
-BinderUI.set_desk_page(namespace, "submit", 2)
-H.assert_equal(namespace.desk_ui_state.submit_page, 2, "submit page switched")
-BinderUI.set_desk_page(namespace, "submit", 99)
-H.assert_equal(namespace.desk_ui_state.submit_page, 2, "submit page clamps to max")
-BinderUI.set_desk_page(namespace, "queue", 99)
+BinderUI.set_desk_page(namespace, 99)
 H.assert_equal(namespace.desk_ui_state.queue_page, 1, "queue page clamps on empty queue")
 
 local refreshed_before = adapter.desk_refreshed
-runtime.FUNCS.grdl_desk_submit_page({ cycle_config = { current_option = 1 } })
-H.assert_equal(namespace.desk_ui_state.submit_page, 1, "page callback applies cycle option")
-H.assert_equal(adapter.desk_refreshed, refreshed_before + 1, "page callback refreshes overlay")
+runtime.FUNCS.grdl_desk_queue_page({ cycle_config = { current_option = 1 } })
+H.assert_equal(namespace.desk_ui_state.queue_page, 1, "page callback applies cycle option")
+H.assert_equal(adapter.desk_refreshed, refreshed_before + 1, "page callback falls back to overlay refresh")
 
 H.assert_true(type(runtime.FUNCS.grdl_row_preview) == "function", "row preview func registered")
 local previous_preview_g = rawget(_G, "G")
@@ -325,6 +309,21 @@ local withdrawn = BinderUI.toggle_carry(namespace, expensive_card.id, 5001)
 H.assert_equal(withdrawn.ok, true, "second toggle withdraws")
 H.assert_equal(expensive_card.status, "raw", "withdrawn card back to raw")
 H.assert_equal(namespace.collection.carry, nil, "carry cleared after withdraw")
+
+H.assert_true(type(runtime.FUNCS.grdl_inspect_sell) == "function", "inspect sell callback registered")
+H.assert_equal(BinderUI.sell_from_inspect(namespace, "grdl_unknown", 6000).reason, "missing_state", "sell requires matching inspect state")
+BinderUI.open_inspect(namespace, raw_card.id)
+local armed = BinderUI.sell_from_inspect(namespace, raw_card.id, 6000)
+H.assert_equal(armed.ok, true, "first sell click arms confirmation")
+H.assert_equal(armed.pending, true, "first sell click is pending")
+H.assert_equal(namespace.inspect_ui_state.pending_sell, true, "pending flag stored")
+H.assert_equal(namespace.inspect_ui_state.last_reason_text, "grdl_k_sell_arm_hint", "arm hint bound in place")
+local currency_before_sale = namespace.collection.currency_g
+local sold = BinderUI.sell_from_inspect(namespace, raw_card.id, 6001)
+H.assert_equal(sold.ok, true, "second sell click sells")
+H.assert_equal(sold.price, 159, "gem mint common quote paid")
+H.assert_equal(raw_card.status, "sold", "card sold from inspect")
+H.assert_equal(namespace.collection.currency_g, currency_before_sale + 159, "sale credits the quote")
 
 _G.SMODS = previous_smods_global
 

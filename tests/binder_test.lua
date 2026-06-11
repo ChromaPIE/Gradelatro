@@ -91,11 +91,6 @@ local empty_page = Binder.page({}, 1, 5)
 H.assert_equal(empty_page.pages, 1, "empty collection still one page")
 H.assert_equal(empty_page.total, 0, "empty total")
 
-local desk = Binder.desk_rows(state)
-H.assert_equal(#desk, 1, "desk lists raw cards only")
-H.assert_equal(desk[1].id, "grdl_1", "desk raw card id")
-H.assert_equal(desk[1].name_key, "joker", "desk name key")
-
 local empty = Binder.summary(Storage.normalize({}))
 H.assert_equal(empty.total_cards, 0, "empty total")
 H.assert_equal(#Binder.entries(Storage.normalize({})).entries, 0, "empty entries")
@@ -106,6 +101,5 @@ local carried_state = Storage.normalize({
     }
 })
 H.assert_equal(Binder.entries(carried_state).entries[1].status_key, "grdl_k_status_carried", "carried status key")
-H.assert_equal(#Binder.desk_rows(carried_state), 0, "carried cards are not submittable")
 
 print("binder tests ok")
