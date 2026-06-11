@@ -12,8 +12,8 @@ local Catalog = load_src("catalog.lua")
 local Persistence = load_src("persistence.lua")
 local UICommon = load_src("ui_common.lua")
 
-local SLEEVE_SCALE = 0.55
-local SLEEVE_OFFSET = { x = 0.08, y = 1.6 }
+local PEEK_VISIBLE_FRACTION = 1 / 3
+local GLIDE_DELAY = 0.35
 
 function CarryUI.on_run_start(namespace)
     local runtime = rawget(_G, "G")
@@ -21,7 +21,7 @@ function CarryUI.on_run_start(namespace)
     local run_id = Carry.run_identity(runtime.GAME)
     Carry.reconcile(namespace.collection, run_id)
     Carry.bind_run(namespace.collection, run_id)
-    CarryUI.build_sleeve(namespace)
+    CarryUI.build_peek(namespace)
 end
 
 function CarryUI.can_activate_now(namespace, runtime)
@@ -84,7 +84,7 @@ function CarryUI.activate(namespace, runtime, now)
     })
     runtime.GAME.grdl_carry_active = info.card_id
     namespace.last_save_ok = Persistence.save(namespace)
-    CarryUI.build_sleeve(namespace)
+    CarryUI.teardown_peek(namespace)
 
     return { ok = true, card = card, wear = used }
 end
@@ -108,66 +108,114 @@ function CarryUI.settle_blind(namespace, runtime)
     if found then
         if jokers.remove_card then jokers:remove_card(found) end
         if found.remove then found:remove() end
+        CarryUI.build_peek(namespace)
     else
         Carry.mark_lost(namespace.collection, { reason = "run_loss" })
         namespace.last_save_ok = Persistence.save(namespace)
+        CarryUI.teardown_peek(namespace)
     end
-    CarryUI.build_sleeve(namespace)
 end
 
-function CarryUI.build_sleeve(namespace)
-    local runtime = rawget(_G, "G")
-    if not runtime or not runtime.HUD or not rawget(_G, "UIBox") then return false end
-
-    if runtime.HUD.children.grdl_sleeve then
-        runtime.HUD.children.grdl_sleeve:remove()
-        runtime.HUD.children.grdl_sleeve = nil
+local function remove_from_list(list, item)
+    for index, value in ipairs(list or {}) do
+        if value == item then
+            table.remove(list, index)
+            return true
+        end
     end
+    return false
+end
+
+function CarryUI.teardown_peek(namespace)
+    local peek = namespace and namespace.carry_peek or nil
+    if not peek then return false end
+    namespace.carry_peek = nil
+    local runtime = rawget(_G, "G")
+    if runtime and runtime.I then
+        remove_from_list(runtime.I.POPUP, peek.area)
+    end
+    if peek.card then
+        pcall(function() peek.card:remove() end)
+    end
+    if peek.area then
+        pcall(function() peek.area:remove() end)
+    end
+    return true
+end
+
+function CarryUI.build_peek(namespace)
+    local runtime = rawget(_G, "G")
+    if not runtime or not rawget(_G, "CardArea") or not rawget(_G, "Card") or not rawget(_G, "UIBox") then return false end
+    if not runtime.ROOM or not runtime.P_CENTERS then return false end
+
+    CarryUI.teardown_peek(namespace)
 
     local info = namespace and namespace.collection and Carry.sleeve_info(namespace.collection) or nil
     if not info then return false end
-    local active = runtime.GAME and runtime.GAME.grdl_carry_active or nil
+    if runtime.GAME and runtime.GAME.grdl_carry_active then return false end
+    local center = runtime.P_CENTERS[info.center_key]
+    if not center then return false end
 
-    local nodes = {}
-    if not active and rawget(_G, "CardArea") and rawget(_G, "Card")
-        and runtime.P_CENTERS and runtime.P_CENTERS[info.center_key] then
-        local width = SLEEVE_SCALE * runtime.CARD_W
-        local height = SLEEVE_SCALE * runtime.CARD_H
-        local area = CardArea(0, 0, width, height, { card_limit = 1, type = "title", highlight_limit = 0, collection = true })
-        local card = Card(0, 0, width, height, (runtime.P_CARDS and runtime.P_CARDS.empty or nil), runtime.P_CENTERS[info.center_key])
-        local flags = Catalog.edition_flags(info.edition)
-        if flags then card:set_edition(flags, true, true) end
-        if card.states and card.states.collide then card.states.collide.can = false end
-        area:emplace(card)
-        nodes[#nodes + 1] = { n = runtime.UIT.R, config = { align = "cm", padding = 0.03 }, nodes = {
-            { n = runtime.UIT.O, config = { object = area } }
-        } }
+    local home_x = runtime.ROOM.T.x + runtime.ROOM.T.w * 0.18
+    local home_y = runtime.ROOM.T.h - PEEK_VISIBLE_FRACTION * runtime.CARD_H
+    local area = CardArea(home_x, home_y, runtime.CARD_W, runtime.CARD_H,
+        { card_limit = 1, type = "title", highlight_limit = 0, collection = false })
+    if runtime.I then
+        remove_from_list(runtime.I.CARDAREA, area)
+        table.insert(runtime.I.POPUP, area)
     end
 
-    nodes[#nodes + 1] = { n = runtime.UIT.R, config = { align = "cm", padding = 0.03 }, nodes = {
-        UIBox_button({
-            button = "grdl_carry_activate",
-            label = { UICommon.localize_text(active and "grdl_k_carry_active" or "grdl_b_activate_carry") },
-            minw = 1.2,
-            maxw = 1.2,
-            minh = 0.45,
-            scale = 0.26,
-            colour = active and runtime.C.GREY or runtime.C.GOLD,
-            focus_args = { nav = "wide" }
-        })
-    } }
+    local card = Card(home_x, home_y, runtime.CARD_W, runtime.CARD_H, (runtime.P_CARDS and runtime.P_CARDS.empty or nil), center)
+    local flags = Catalog.edition_flags(info.edition)
+    if flags then card:set_edition(flags, true, true) end
+    card.click = function(self)
+        self.highlighted = not self.highlighted
+        if self.juice_up then self:juice_up(0.3, 0.3) end
+    end
+    area:emplace(card)
 
-    runtime.HUD.children.grdl_sleeve = UIBox({
-        definition = { n = runtime.UIT.ROOT, config = { align = "cm", colour = runtime.C.CLEAR, padding = 0.04, r = 0.08 }, nodes = nodes },
-        config = {
-            align = "cr",
-            offset = { x = SLEEVE_OFFSET.x, y = SLEEVE_OFFSET.y },
-            major = runtime.HUD,
-            bond = "Strong",
-            parent = runtime.HUD
-        }
+    card.children.use_button = UIBox({
+        definition = { n = runtime.UIT.ROOT, config = { align = "cm", colour = runtime.C.CLEAR, padding = 0.03 }, nodes = {
+            UICommon.outline_button({
+                button = "grdl_carry_activate",
+                minw = 1.3,
+                minh = 0.55,
+                lines = { { text = UICommon.localize_text("grdl_b_activate_carry"), scale = 0.3 } }
+            })
+        } },
+        config = { align = "tm", offset = { x = 0, y = -0.08 }, major = card, bond = "Strong", parent = card }
     })
+
+    namespace.carry_peek = { area = area, card = card }
     return true
+end
+
+local function glide_and_activate(namespace, runtime)
+    local peek = namespace.carry_peek
+    if peek and peek.card then
+        peek.card.highlighted = false
+        if peek.card.states and peek.card.states.drag then peek.card.states.drag.can = false end
+        if runtime.jokers and runtime.jokers.T and peek.area then
+            peek.area.T.x = runtime.jokers.T.x + runtime.jokers.T.w / 2 - runtime.CARD_W / 2
+            peek.area.T.y = runtime.jokers.T.y
+        end
+    end
+    local function finish()
+        CarryUI.teardown_peek(namespace)
+        CarryUI.activate(namespace)
+    end
+    if runtime.E_MANAGER and rawget(_G, "Event") then
+        runtime.E_MANAGER:add_event(Event({
+            trigger = "after",
+            delay = GLIDE_DELAY,
+            func = function()
+                finish()
+                return true
+            end
+        }))
+    else
+        finish()
+    end
 end
 
 function CarryUI.install(namespace, env)
@@ -179,8 +227,11 @@ function CarryUI.install(namespace, env)
     if not funcs then return false end
 
     funcs.grdl_carry_activate = function(event)
-        local result = CarryUI.activate(namespace)
-        if not result.ok and rawget(_G, "play_sound") then
+        local runtime = rawget(_G, "G")
+        local ok = CarryUI.can_activate_now(namespace, runtime)
+        if ok and runtime then
+            glide_and_activate(namespace, runtime)
+        elseif rawget(_G, "play_sound") then
             pcall(play_sound, "tarot2", 0.76, 0.4)
         end
     end

@@ -300,15 +300,19 @@ _G.CardArea = previous_preview_area
 _G.UIBox = previous_preview_uibox
 
 H.assert_true(type(runtime.FUNCS.grdl_carry_toggle) == "function", "carry toggle callback registered")
+H.assert_equal(BinderUI.toggle_carry(namespace, expensive_card.id, 4999).reason, "not_in_run", "selection requires an active run")
+local previous_carry_g = rawget(_G, "G")
+_G.G = { STAGE = 1, STAGES = { RUN = 1 }, GAME = { pseudorandom = { seed = "TOGGLERUN" } } }
 local toggled = BinderUI.toggle_carry(namespace, expensive_card.id, 5000)
-H.assert_equal(toggled.ok, true, "carry toggle selects raw card")
+H.assert_equal(toggled.ok, true, "carry toggle selects raw card in a run")
 H.assert_equal(expensive_card.status, "carried", "card carried after toggle")
 H.assert_equal(namespace.collection.carry.card_id, expensive_card.id, "carry stored on collection")
-H.assert_equal(namespace.collection.carry.run_id, "pending", "binder selection stays pending")
-local withdrawn = BinderUI.toggle_carry(namespace, expensive_card.id, 5001)
-H.assert_equal(withdrawn.ok, true, "second toggle withdraws")
-H.assert_equal(expensive_card.status, "raw", "withdrawn card back to raw")
-H.assert_equal(namespace.collection.carry, nil, "carry cleared after withdraw")
+H.assert_equal(namespace.collection.carry.run_id, "TOGGLERUN", "selection binds to the current run")
+H.assert_equal(BinderUI.toggle_carry(namespace, expensive_card.id, 5001).reason, "carry_locked", "carry cannot be withdrawn mid-run")
+_G.G = previous_carry_g
+BinderUI.open(namespace, 5003)
+H.assert_equal(namespace.collection.carry, nil, "binder open releases out-of-run carry")
+H.assert_equal(expensive_card.status, "raw", "released card back to raw")
 
 H.assert_true(type(runtime.FUNCS.grdl_inspect_sell) == "function", "inspect sell callback registered")
 H.assert_equal(BinderUI.sell_from_inspect(namespace, "grdl_unknown", 6000).reason, "missing_state", "sell requires matching inspect state")

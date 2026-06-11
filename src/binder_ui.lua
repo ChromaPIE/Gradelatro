@@ -111,6 +111,15 @@ function BinderUI.open(namespace, now)
     refresh_hover_index(namespace)
     SlabUI.install(namespace)
 
+    local runtime = rawget(_G, "G")
+    if namespace.collection.carry then
+        local current = (runtime and runtime.STAGE ~= nil and runtime.STAGES ~= nil and runtime.STAGE == runtime.STAGES.RUN and runtime.GAME)
+            and Carry.run_identity(runtime.GAME) or "menu"
+        if Carry.reconcile(namespace.collection, current).released then
+            namespace.last_save_ok = Persistence.save(namespace)
+        end
+    end
+
     local view = Binder.entries(namespace.collection, { centers = runtime_centers() })
     namespace.binder_ui_state = {
         text_keys = copy_text_keys(),
@@ -230,24 +239,43 @@ function BinderUI.inspect_offer(namespace, offer)
     return namespace.inspect_ui_state
 end
 
-function BinderUI.toggle_carry(namespace, card_id, now)
+local function in_run(runtime)
+    runtime = runtime or rawget(_G, "G")
+    return runtime ~= nil
+        and runtime.STAGE ~= nil
+        and runtime.STAGES ~= nil
+        and runtime.STAGE == runtime.STAGES.RUN
+        and runtime.GAME ~= nil
+end
+
+function BinderUI.toggle_carry(namespace, card_id, now, runtime)
     if not namespace or not namespace.collection then
         return { ok = false, reason = "missing_collection" }
     end
     if not namespace.config then
         return { ok = false, reason = "missing_config" }
     end
+    runtime = runtime or rawget(_G, "G")
+    if not in_run(runtime) then
+        return { ok = false, reason = "not_in_run" }
+    end
 
     local collection = namespace.collection
-    local result
-    if collection.carry and collection.carry.card_id == card_id then
-        result = Carry.withdraw(collection)
-    else
-        result = Carry.select_for_run(namespace.config, collection, { card_id = card_id, now = now })
+    if collection.carry then
+        return { ok = false, reason = "carry_locked" }
     end
+
+    local result = Carry.select_for_run(namespace.config, collection, {
+        card_id = card_id,
+        run_id = Carry.run_identity(runtime.GAME),
+        now = now
+    })
     namespace.last_carry_result = result
     if result.ok then
         namespace.last_save_ok = Persistence.save(namespace)
+        if namespace.CarryUI and namespace.CarryUI.build_peek then
+            pcall(namespace.CarryUI.build_peek, namespace)
+        end
     end
     return result
 end
@@ -613,10 +641,15 @@ end
 local function inspect_action_row(namespace, state, entry, regular_font)
     local actions = {}
 
-    if entry.status == "raw" or entry.status == "carried" then
-        local carried = entry.status == "carried"
+    local runtime = rawget(_G, "G")
+    local in_run_now = runtime ~= nil
+        and runtime.STAGE ~= nil
+        and runtime.STAGES ~= nil
+        and runtime.STAGE == runtime.STAGES.RUN
+        and runtime.GAME ~= nil
+    if entry.status == "raw" and in_run_now and not (namespace.collection and namespace.collection.carry) then
         actions[#actions + 1] = inspect_action_button("grdl_carry_toggle", entry.id, {
-            { text = safe_localize(carried and "grdl_b_withdraw_carry" or "grdl_b_carry") }
+            { text = safe_localize("grdl_b_carry") }
         }, regular_font)
     end
 

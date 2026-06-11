@@ -126,7 +126,7 @@ H.assert_equal(raw.status, "lost", "missing joker at blind end means permanent l
 H.assert_equal(namespace.collection.carry, nil, "carry cleared after loss")
 H.assert_equal(_G.G.GAME.grdl_carry_active, nil, "active marker cleared after loss")
 
-H.assert_equal(CarryUI.build_sleeve(namespace), false, "sleeve build is a safe no-op without ui globals")
+H.assert_equal(CarryUI.build_peek(namespace), false, "peek build is a safe no-op without ui globals")
 
 _G.SMODS = previous_smods
 _G.G = previous_g
