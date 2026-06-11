@@ -238,6 +238,63 @@ function MarketUI.mystery_display_center(center)
     return copy
 end
 
+function MarketUI.intel_rows(offer)
+    local unknown = safe_localize("grdl_k_intel_unknown")
+    local intel = offer.intel or {}
+    local rarity_value = unknown
+    if intel.rarity then
+        local rarity_key = "grdl_k_rarity_" .. tostring(offer.rarity)
+        rarity_value = safe_localize(rarity_key)
+        if rarity_value == rarity_key then rarity_value = tostring(offer.rarity) end
+    end
+    return {
+        { label = safe_localize("grdl_k_intel_mod"), value = intel.mod and tostring(offer.mod_name) or unknown },
+        { label = safe_localize("grdl_k_intel_rarity"), value = rarity_value },
+        { label = safe_localize("grdl_k_intel_edition"), value = intel.edition and safe_localize(offer.edition ~= "base" and "grdl_k_intel_edition_yes" or "grdl_k_intel_edition_no") or unknown },
+        { label = safe_localize("grdl_k_intel_graded"), value = intel.graded and safe_localize(offer.graded and "grdl_k_intel_graded_yes" or "grdl_k_intel_graded_no") or unknown }
+    }
+end
+
+local function mystery_popup(offer)
+    local labels = {}
+    local values = {}
+    for _, entry in ipairs(MarketUI.intel_rows(offer)) do
+        labels[#labels + 1] = trend_line_cell(entry.label, "cl")
+        values[#values + 1] = trend_line_cell(entry.value, "cr", attention_colour())
+    end
+    return { n = G.UIT.ROOT, config = { align = "cm", colour = G.C.CLEAR }, nodes = {
+        { n = G.UIT.R, config = { align = "cm", padding = 0.05, r = 0.12, colour = rawget(_G, "lighten") and lighten(G.C.JOKER_GREY, 0.5) or G.C.JOKER_GREY, emboss = 0.07 }, nodes = {
+            { n = G.UIT.R, config = { align = "cm", padding = 0.07, r = 0.1, colour = G.C.L_BLACK }, nodes = {
+                row({ ui_text(safe_localize("grdl_k_intel_unknown"), 0.44, G.C.WHITE) }, { padding = 0.02 }),
+                { n = G.UIT.R, config = { align = "cm", padding = 0.06, r = 0.06, colour = G.C.WHITE }, nodes = {
+                    { n = G.UIT.C, config = { align = "cl", padding = 0.01 }, nodes = labels },
+                    { n = G.UIT.C, config = { align = "cm", minw = 0.35 }, nodes = {} },
+                    { n = G.UIT.C, config = { align = "cr", padding = 0.01 }, nodes = values }
+                } }
+            } }
+        } }
+    } }
+end
+
+local function attach_buy_button(card, offer)
+    if not rawget(_G, "UIBox") then return end
+    card.children.grdl_buy_button = UIBox({
+        definition = { n = G.UIT.ROOT, config = { align = "cm", colour = G.C.CLEAR, padding = 0.03 }, nodes = {
+            UICommon.outline_button({
+                button = "grdl_bm_buy",
+                ref = { id = offer.slot },
+                minw = 1.15,
+                minh = 0.6,
+                lines = {
+                    { text = safe_localize(TEXT_KEYS.buy), scale = 0.3 },
+                    { text = safe_localize("grdl_k_grading_fee", { offer.price }), scale = 0.26, colour = G.C.GOLD }
+                }
+            })
+        } },
+        config = { align = "tm", offset = { x = 0, y = -0.06 }, major = card, bond = "Strong", parent = card }
+    })
+end
+
 local function build_offer_card(area, offer)
     local centers = G.P_CENTERS or {}
     local center = centers[offer.center_key]
@@ -252,6 +309,8 @@ local function build_offer_card(area, offer)
     UICommon.suppress_selection(card)
     if offer.mystery then
         card.hover = function(self)
+            self.config.h_popup = mystery_popup(offer)
+            self.config.h_popup_config = self:align_h_popup()
             if rawget(_G, "Node") then Node.hover(self) end
         end
         card.stop_hover = function(self)
@@ -263,7 +322,87 @@ local function build_offer_card(area, offer)
         card.grdl_offer = offer
     end
     area:emplace(card)
+    attach_buy_button(card, offer)
     return card
+end
+
+local function dealer_jiggle(sprite, ticks)
+    if not sprite or sprite.REMOVED or ticks <= 0 then return end
+    if sprite.juice_up then pcall(sprite.juice_up, sprite) end
+    if rawget(_G, "play_sound") then
+        local speed = (rawget(_G, "G") and G.SPEEDFACTOR or 1) * (math.random() * 0.2 + 1)
+        pcall(play_sound, "voice" .. math.random(1, 11), speed, 0.5)
+    end
+    local runtime = rawget(_G, "G")
+    if runtime and runtime.E_MANAGER and rawget(_G, "Event") then
+        runtime.E_MANAGER:add_event(Event({
+            trigger = "after",
+            delay = 0.13,
+            blockable = false,
+            blocking = false,
+            func = function()
+                dealer_jiggle(sprite, ticks - 1)
+                return true
+            end
+        }))
+    end
+end
+
+local function attach_dealer_bubble(sprite, quip)
+    if not rawget(_G, "UIBox") or not rawget(_G, "DynaText") then return end
+    local ok_quip, quip_object = pcall(DynaText, {
+        string = { quip },
+        colours = { G.C.UI.TEXT_DARK },
+        scale = 0.32,
+        float = true,
+        bump = true,
+        silent = true,
+        pop_in = 0.2,
+        maxw = 2.6
+    })
+    if not ok_quip or not quip_object then return end
+
+    -- vanilla speech bubble shell: grey ring around a white core (G.UIDEF.speech_bubble)
+    local ok_bubble, bubble = pcall(UIBox, {
+        definition = { n = G.UIT.ROOT, config = { align = "cm", minh = 1, r = 0.3, padding = 0.07, minw = 1, colour = G.C.JOKER_GREY, shadow = true }, nodes = {
+            { n = G.UIT.C, config = { align = "cm", minh = 1, r = 0.2, padding = 0.1, minw = 1, colour = G.C.WHITE }, nodes = {
+                { n = G.UIT.R, config = { align = "cl" }, nodes = {
+                    { n = G.UIT.O, config = { object = quip_object } }
+                } }
+            } }
+        } },
+        config = {
+            instance_type = "POPUP",
+            align = "bm",
+            offset = { x = 0, y = 0.06 },
+            major = sprite,
+            parent = sprite
+        }
+    })
+    if not ok_bubble or not bubble then return end
+    if bubble.set_role then
+        pcall(bubble.set_role, bubble, { role_type = "Minor", xy_bond = "Weak", r_bond = "Strong", major = sprite })
+    end
+    if bubble.states and bubble.states.collide then bubble.states.collide.can = false end
+    sprite.children = sprite.children or {}
+    sprite.children.speech_bubble = bubble
+
+    local runtime = rawget(_G, "G")
+    local ticks = math.max(6, math.min(14, math.floor(#quip / 6)))
+    if runtime and runtime.E_MANAGER and rawget(_G, "Event") then
+        bubble.states.visible = false
+        runtime.E_MANAGER:add_event(Event({
+            trigger = "after",
+            delay = 0.1,
+            blockable = false,
+            blocking = false,
+            func = function()
+                bubble.states.visible = true
+                dealer_jiggle(sprite, ticks)
+                return true
+            end
+        }))
+    end
 end
 
 local function blackmarket_tab_definition(namespace, state)
@@ -281,26 +420,17 @@ local function blackmarket_tab_definition(namespace, state)
         if blind and rawget(_G, "SMODS") and SMODS.create_sprite then
             local ok_sprite, sprite = pcall(SMODS.create_sprite, 0, 0, 1.3, 1.3, blind.atlas or "blind_chips", blind.pos)
             if ok_sprite and sprite then
+                -- fidget flags copied from the in-run blind chip
+                if sprite.states then
+                    if sprite.states.drag then sprite.states.drag.can = true end
+                    if sprite.states.collide then sprite.states.collide.can = true end
+                end
                 dealer_nodes[#dealer_nodes + 1] = row({ { n = G.UIT.O, config = { object = sprite } } }, { padding = 0.06 })
-            end
-        end
-        if state.bm_quip ~= "" and rawget(_G, "DynaText") then
-            local ok_quip, quip_object = pcall(DynaText, {
-                string = { state.bm_quip },
-                colours = { G.C.UI.TEXT_DARK },
-                scale = 0.3,
-                float = true,
-                bump = true,
-                silent = true,
-                pop_in = 0.2,
-                maxw = 2.3
-            })
-            if ok_quip and quip_object then
-                dealer_nodes[#dealer_nodes + 1] = row({
-                    { n = G.UIT.R, config = { align = "cm", padding = 0.08, r = 0.2, colour = G.C.WHITE, shadow = true }, nodes = {
-                        { n = G.UIT.O, config = { object = quip_object } }
-                    } }
-                }, { padding = 0.05 })
+                if state.bm_quip ~= "" then
+                    pcall(attach_dealer_bubble, sprite, state.bm_quip)
+                    -- reserve room below the chip for the hanging bubble
+                    dealer_nodes[#dealer_nodes + 1] = row({}, { minh = 1.5, padding = 0 })
+                end
             end
         end
 
@@ -311,30 +441,14 @@ local function blackmarket_tab_definition(namespace, state)
                 3.25 * runtime.CARD_W,
                 0.95 * runtime.CARD_H,
                 { card_limit = 3, type = "title", highlight_limit = 0, collection = true })
-            local buttons = {}
             for _, offer in ipairs(state.bm_offers or {}) do
                 if not offer.sold then
                     build_offer_card(area, offer)
                 end
-                local cell
-                if offer.sold then
-                    cell = ui_text(safe_localize("grdl_k_status_sold"), 0.3, G.C.UI.TEXT_INACTIVE)
-                else
-                    cell = UICommon.outline_button({
-                        button = "grdl_bm_buy",
-                        ref = { id = offer.slot },
-                        minw = 1.4,
-                        minh = 0.8,
-                        lines = {
-                            { text = safe_localize(state.text_keys.buy) },
-                            { text = safe_localize("grdl_k_grading_fee", { offer.price }), scale = 0.26, colour = G.C.GOLD }
-                        }
-                    })
-                end
-                buttons[#buttons + 1] = col({ cell }, { align = "cm", minw = 1.55 })
             end
+            -- buy buttons hang above each card, so push the strip down to clear the tab header
+            offer_nodes[#offer_nodes + 1] = row({}, { minh = 0.45, padding = 0 })
             offer_nodes[#offer_nodes + 1] = row({ { n = G.UIT.O, config = { object = area } } }, { padding = 0.05, no_fill = true })
-            offer_nodes[#offer_nodes + 1] = row(buttons, { padding = 0.04 })
         end
         offer_nodes[#offer_nodes + 1] = row({
             { n = G.UIT.T, config = { ref_table = state, ref_value = "bm_text", scale = 0.3, colour = G.C.GOLD } }
@@ -432,21 +546,9 @@ function MarketUI.install_runtime(namespace, runtime, adapter)
                     local centers = rawget(_G, "G") and G.P_CENTERS or {}
                     local next_center = centers[carousel.keys[carousel.index]]
                     if next_center then
-                        -- soul sprite creation and its draw gate read config.center, so the
-                        -- swap must retarget it; SMODS only clears the floating layer when
-                        -- the incoming center has one of its own
-                        card.config.center = next_center
-                        card.config.center_key = next_center.key
-                        if card.children then
-                            for _, child_key in ipairs({ "floating_sprite", "floating_sprite2" }) do
-                                local sprite = card.children[child_key]
-                                if sprite then
-                                    if sprite.remove then pcall(sprite.remove, sprite) end
-                                    card.children[child_key] = nil
-                                end
-                            end
-                        end
-                        pcall(card.set_sprites, card, next_center)
+                        -- full morph: per-frame center hooks (center.update) and the soul
+                        -- draw gate both expect ability and config.center to match the face
+                        pcall(card.set_ability, card, next_center, true)
                     end
                 end
             end

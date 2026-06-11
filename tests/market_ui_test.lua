@@ -125,23 +125,47 @@ local previous_tick_g = rawget(_G, "G")
 local plain_center = { key = "j_one", set = "Joker" }
 local soul_center = { key = "j_two", set = "Joker", soul_pos = { x = 1, y = 0 } }
 _G.G = { P_CENTERS = { j_one = plain_center, j_two = soul_center } }
-local float_removed = 0
-local swaps = {}
+local morphs = {}
 local trend_card = {
     config = { center = plain_center, center_key = "j_one" },
-    children = { floating_sprite = { remove = function() float_removed = float_removed + 1 end } },
+    children = {},
     grdl_carousel = { keys = { "j_one", "j_two" }, index = 1, last = -1e9 },
-    set_sprites = function(self, center) swaps[#swaps + 1] = center end
+    set_ability = function(self, center, initial) morphs[#morphs + 1] = { center = center, initial = initial } end
 }
 runtime.FUNCS.grdl_trend_tick({ config = { ref_table = { cards = { trend_card } } } })
-H.assert_equal(#swaps, 1, "due carousel swaps once")
-H.assert_equal(swaps[1], soul_center, "swap targets the next center")
-H.assert_equal(trend_card.config.center, soul_center, "config center synced for the soul draw gate")
-H.assert_equal(trend_card.config.center_key, "j_two", "config center key synced")
-H.assert_equal(float_removed, 1, "stale floating sprite cleared before the swap")
+H.assert_equal(#morphs, 1, "due carousel morphs once")
+H.assert_equal(morphs[1].center, soul_center, "morph targets the next center")
+H.assert_equal(morphs[1].initial, true, "morph skips deck bookkeeping")
 H.assert_equal(trend_card.grdl_carousel.index, 2, "carousel index advanced")
 runtime.FUNCS.grdl_trend_tick({ config = { ref_table = { cards = { trend_card } } } })
-H.assert_equal(#swaps, 1, "fresh swap waits for the interval")
+H.assert_equal(#morphs, 1, "fresh morph waits for the interval")
 _G.G = previous_tick_g
+
+local revealed_rows = MarketUI.intel_rows({
+    mystery = true,
+    mod_name = "Alpha",
+    rarity = "cry_epic",
+    edition = "foil",
+    graded = false,
+    intel = { mod = true, rarity = true, edition = true, graded = true }
+})
+H.assert_equal(#revealed_rows, 4, "four intel rows")
+H.assert_equal(revealed_rows[1].label, "grdl_k_intel_mod", "mod label key")
+H.assert_equal(revealed_rows[1].value, "Alpha", "revealed mod shows the mod name")
+H.assert_equal(revealed_rows[2].value, "cry_epic", "unlocalized rarity falls back to the raw value")
+H.assert_equal(revealed_rows[3].value, "grdl_k_intel_edition_yes", "revealed edition only discloses presence")
+H.assert_equal(revealed_rows[4].value, "grdl_k_intel_graded_no", "revealed grading discloses raw status")
+
+local hidden_rows = MarketUI.intel_rows({
+    mystery = true,
+    mod_name = "Alpha",
+    rarity = "common",
+    edition = "base",
+    graded = true,
+    intel = { mod = false, rarity = false, edition = false, graded = false }
+})
+for index = 1, 4 do
+    H.assert_equal(hidden_rows[index].value, "grdl_k_intel_unknown", "hidden intel row " .. index .. " masked")
+end
 
 print("market ui tests ok")
