@@ -198,6 +198,12 @@ function UICommon.swap_tab_contents(definition_fn)
     return true
 end
 
+function UICommon.suppress_selection(card)
+    card.click = function(self)
+        if self.juice_up then self:juice_up(0.3, 0.3) end
+    end
+end
+
 function UICommon.event_ref_id(event)
     return event
         and event.config

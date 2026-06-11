@@ -67,9 +67,7 @@ local function runtime_centers()
 end
 
 local function suppress_selection(card)
-    card.click = function(self)
-        if self.juice_up then self:juice_up(0.3, 0.3) end
-    end
+    return UICommon.suppress_selection(card)
 end
 
 function BinderUI.countdown_text(seconds)

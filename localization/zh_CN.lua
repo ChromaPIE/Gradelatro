@@ -46,6 +46,11 @@ return {
             grdl_k_heat_rising = "上行",
             grdl_k_heat_stable = "平稳",
             grdl_k_heat_cooling = "遇冷",
+            grdl_k_trend_heat = "热度",
+            grdl_k_trend_owned = "在册",
+            grdl_k_trend_pool = "卡池",
+            grdl_k_trend_event = "事件",
+            grdl_k_trend_event_on = "波动加剧",
             grdl_k_reason_not_sellable = "此卡当前不可出售。",
             grdl_k_desk_title = "送评服务台",
             grdl_k_badge_ungraded = "未评级",
@@ -110,6 +115,8 @@ return {
             grdl_k_buyout_summary = "已选 #1#/#2#  |  合计：Ⓖ#3#  |  持有：Ⓖ#4#",
             grdl_k_grading_fee = "Ⓖ#1#",
             grdl_k_grading_revealed = "揭晓了 #1# 张卡牌的评级结果！",
+            grdl_k_trend_owned_v = "#1# 张（已评级 #2#）",
+            grdl_k_trend_pool_v = "共 #1# 款",
             grdl_k_binder_hidden = "#1# 张卡牌因模组未加载而隐藏"
         }
     }

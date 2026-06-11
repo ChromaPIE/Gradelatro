@@ -101,6 +101,53 @@ function Market.refresh(config, state, args)
     return { ok = true, refreshed = true }
 end
 
+function Market.trend_slots(state, catalog)
+    local groups = {}
+    local order = {}
+    for _, entry in ipairs(catalog or {}) do
+        local group = groups[entry.series_id]
+        if not group then
+            group = {
+                series_id = entry.series_id,
+                mod_name = entry.mod_name or entry.mod_id,
+                series_key = entry.series_key,
+                center_keys = {},
+                pool_size = 0
+            }
+            groups[entry.series_id] = group
+            order[#order + 1] = group
+        end
+        group.center_keys[#group.center_keys + 1] = entry.center_key
+        group.pool_size = group.pool_size + 1
+    end
+
+    local owned = {}
+    local graded = {}
+    for _, card in ipairs((state and state.cards) or {}) do
+        if card.status ~= "lost" and card.status ~= "sold" then
+            owned[card.mod_id] = (owned[card.mod_id] or 0) + 1
+            if card.status == "graded" then
+                graded[card.mod_id] = (graded[card.mod_id] or 0) + 1
+            end
+        end
+    end
+
+    local heat_entries = state and state.market and state.market.series_heat or {}
+    for _, group in ipairs(order) do
+        group.owned = owned[group.series_id] or 0
+        group.graded = graded[group.series_id] or 0
+        group.trend = Market.trend_label(Market.heat_for(state, group.series_id))
+        group.label_key = "grdl_k_heat_" .. group.trend
+        local heat_entry = heat_entries[group.series_id]
+        group.event_active = (type(heat_entry) == "table" and heat_entry.event ~= nil) or false
+    end
+
+    table.sort(order, function(a, b)
+        return tostring(a.series_key) < tostring(b.series_key)
+    end)
+    return order
+end
+
 local function is_sellable(card)
     local status = card.status or "raw"
     return status == "raw" or status == "graded"

@@ -46,6 +46,11 @@ return {
             grdl_k_heat_rising = "Rising",
             grdl_k_heat_stable = "Stable",
             grdl_k_heat_cooling = "Cooling",
+            grdl_k_trend_heat = "Heat",
+            grdl_k_trend_owned = "Collected",
+            grdl_k_trend_pool = "Pool",
+            grdl_k_trend_event = "Event",
+            grdl_k_trend_event_on = "Volatile",
             grdl_k_reason_not_sellable = "This card cannot be sold.",
             grdl_k_desk_title = "Grading Desk",
             grdl_k_badge_ungraded = "Ungraded",
@@ -110,6 +115,8 @@ return {
             grdl_k_buyout_summary = "#1#/#2# selected  |  Total: G#3#  |  Held: G#4#",
             grdl_k_grading_fee = "G#1#",
             grdl_k_grading_revealed = "#1# grading result(s) revealed!",
+            grdl_k_trend_owned_v = "#1# (graded #2#)",
+            grdl_k_trend_pool_v = "#1# jokers",
             grdl_k_binder_hidden = "#1# card(s) hidden (mod not loaded)"
         }
     }

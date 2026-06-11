@@ -20,7 +20,9 @@ local row = UICommon.row
 local col = UICommon.col
 local event_card_id = UICommon.event_ref_id
 
-local HEAT_PAGE_SIZE = 10
+local TREND_PAGE_SIZE = 10
+local TREND_ROWS = { 5, 5 }
+local CAROUSEL_INTERVAL = 2
 
 local TEXT_KEYS = {
     title = "grdl_k_market_title",
@@ -36,24 +38,28 @@ local function copy_text_keys()
     return out
 end
 
-local function runtime_series(namespace)
+local function runtime_catalog(namespace)
     local runtime = rawget(_G, "G")
     if not runtime or not runtime.P_CENTERS or not namespace.config then return {} end
     local smods = rawget(_G, "SMODS")
     local ok, catalog = pcall(Catalog.discover, namespace.config, runtime.P_CENTERS, smods and smods.Mods or nil)
     if not ok then return {} end
-    return Catalog.series(catalog)
+    return catalog
 end
 
 function MarketUI.open(namespace, now)
     if not namespace or not namespace.collection then return nil end
     now = now or os.time()
 
-    local series = runtime_series(namespace)
-    if namespace.config and #series > 0 then
+    local catalog = runtime_catalog(namespace)
+    if namespace.config and #catalog > 0 then
         local series_ids = {}
-        for _, entry in ipairs(series) do
-            series_ids[#series_ids + 1] = entry.series_id
+        local seen = {}
+        for _, entry in ipairs(catalog) do
+            if not seen[entry.series_id] then
+                seen[entry.series_id] = true
+                series_ids[#series_ids + 1] = entry.series_id
+            end
         end
         local refresh = Market.refresh(namespace.config, namespace.collection, { series_ids = series_ids, now = now })
         if refresh.refreshed then
@@ -61,19 +67,10 @@ function MarketUI.open(namespace, now)
         end
     end
 
-    local heat_rows = {}
-    for _, entry in ipairs(series) do
-        heat_rows[#heat_rows + 1] = {
-            series_key = entry.series_key,
-            label = Market.trend_label(Market.heat_for(namespace.collection, entry.series_id)),
-            label_key = "grdl_k_heat_" .. Market.trend_label(Market.heat_for(namespace.collection, entry.series_id))
-        }
-    end
-
     namespace.market_ui_state = {
         text_keys = copy_text_keys(),
         summary = Binder.summary(namespace.collection),
-        heat_rows = heat_rows,
+        trend_slots = Market.trend_slots(namespace.collection, catalog),
         heat_page = 1
     }
     return namespace.market_ui_state
@@ -82,36 +79,82 @@ end
 function MarketUI.set_page(namespace, page)
     local state = namespace and namespace.market_ui_state or nil
     if not state then return nil end
-    state.heat_page = Binder.page(state.heat_rows, page, HEAT_PAGE_SIZE).page
+    state.heat_page = Binder.page(state.trend_slots, page, TREND_PAGE_SIZE).page
     return state
 end
 
-local HEAT_COLOURS = {
-    hot = "RED",
-    rising = "GOLD",
-    stable = "WHITE",
-    cooling = "BLUE"
-}
-
-local function heat_colour(label)
-    return G.C[HEAT_COLOURS[label] or "WHITE"] or G.C.WHITE
+local function attention_colour()
+    local runtime = rawget(_G, "G")
+    if runtime and runtime.ARGS and runtime.ARGS.LOC_COLOURS and runtime.ARGS.LOC_COLOURS.attention then
+        return runtime.ARGS.LOC_COLOURS.attention
+    end
+    return G.C.GOLD
 end
 
-local function heat_cells(entry)
-    return {
-        col({ ui_text(entry.series_key, UICommon.fit_scale(entry.series_key, 0.26, 20)) }, { align = "cl", minw = 2.2 }),
-        col({ ui_text(safe_localize(entry.label_key), 0.26, heat_colour(entry.label)) }, { align = "cl", minw = 0.9 })
+local function trend_info_line(label_text, value_text, value_colour)
+    return row({
+        col({ ui_text(label_text, 0.28, G.C.UI.TEXT_DARK) }, { align = "cl", minw = 1.2 }),
+        col({ ui_text(value_text, 0.28, value_colour or G.C.UI.TEXT_DARK) }, { align = "cr", minw = 1.3 })
+    }, { padding = 0.02 })
+end
+
+local function trends_popup(slot)
+    local desc_lines = {
+        trend_info_line(safe_localize("grdl_k_trend_heat"), safe_localize(slot.label_key), attention_colour()),
+        trend_info_line(safe_localize("grdl_k_trend_owned"), safe_localize("grdl_k_trend_owned_v", { slot.owned, slot.graded })),
+        trend_info_line(safe_localize("grdl_k_trend_pool"), safe_localize("grdl_k_trend_pool_v", { slot.pool_size }))
     }
+    if slot.event_active then
+        desc_lines[#desc_lines + 1] = trend_info_line(safe_localize("grdl_k_trend_event"), safe_localize("grdl_k_trend_event_on"), G.C.RED)
+    end
+
+    return { n = G.UIT.ROOT, config = { align = "cm", colour = G.C.CLEAR }, nodes = {
+        { n = G.UIT.R, config = { align = "cm", padding = 0.05, r = 0.12, colour = rawget(_G, "lighten") and lighten(G.C.JOKER_GREY, 0.5) or G.C.JOKER_GREY, emboss = 0.07 }, nodes = {
+            { n = G.UIT.R, config = { align = "cm", padding = 0.07, r = 0.1, colour = G.C.L_BLACK }, nodes = {
+                row({ ui_text(slot.mod_name, 0.4, G.C.WHITE) }, { padding = 0.02 }),
+                row({ ui_text(slot.series_key, 0.3, G.C.UI.TEXT_LIGHT) }, { padding = 0.02 }),
+                { n = G.UIT.R, config = { align = "cm", padding = 0.06, r = 0.06, colour = G.C.WHITE }, nodes = desc_lines }
+            } }
+        } }
+    } }
 end
 
-local function heat_pair_row(left, right)
-    local nodes = heat_cells(left)
-    if right then
-        for _, cell in ipairs(heat_cells(right)) do
-            nodes[#nodes + 1] = cell
+local function build_trend_card(area, slot)
+    local centers = G.P_CENTERS or {}
+    local center = centers[slot.center_keys[1]]
+    if not center then return nil end
+
+    local card = Card(area.T.x + area.T.w / 2, area.T.y, G.CARD_W, G.CARD_H, (G.P_CARDS and G.P_CARDS.empty or nil), center)
+    UICommon.suppress_selection(card)
+
+    card.grdl_carousel = { keys = slot.center_keys, index = 1, timer = 0 }
+    local original_update = card.update
+    card.update = function(self, dt)
+        original_update(self, dt)
+        local carousel = self.grdl_carousel
+        if not carousel or #carousel.keys < 2 then return end
+        carousel.timer = (carousel.timer or 0) + (dt or 0)
+        if carousel.timer >= CAROUSEL_INTERVAL then
+            carousel.timer = carousel.timer - CAROUSEL_INTERVAL
+            carousel.index = carousel.index % #carousel.keys + 1
+            local next_center = centers[carousel.keys[carousel.index]]
+            if next_center then
+                pcall(self.set_sprites, self, next_center)
+            end
         end
     end
-    return row(nodes, { padding = 0.04, align = "cl" })
+
+    card.hover = function(self)
+        self.config.h_popup = trends_popup(slot)
+        self.config.h_popup_config = self:align_h_popup()
+        if rawget(_G, "Node") then Node.hover(self) end
+    end
+    card.stop_hover = function(self)
+        if rawget(_G, "Node") then Node.stop_hover(self) end
+    end
+
+    area:emplace(card)
+    return card
 end
 
 local function market_tab_root(nodes)
@@ -120,15 +163,29 @@ end
 
 local function trends_tab_definition(state)
     return function()
-        local view = Binder.page(state.heat_rows, state.heat_page, HEAT_PAGE_SIZE)
+        local view = Binder.page(state.trend_slots, state.heat_page, TREND_PAGE_SIZE)
         state.heat_page = view.page
         local nodes = {}
         if view.total == 0 then
             nodes[#nodes + 1] = row({ ui_text(safe_localize(state.text_keys.empty), 0.34, G.C.UI.TEXT_INACTIVE) })
-        else
-            for index = 1, #view.items, 2 do
-                nodes[#nodes + 1] = heat_pair_row(view.items[index], view.items[index + 1])
+        elseif rawget(_G, "CardArea") and rawget(_G, "Card") and rawget(_G, "G") and G.P_CENTERS then
+            local deck_tables = {}
+            local slot_index = 0
+            for row_index = 1, #TREND_ROWS do
+                local count = TREND_ROWS[row_index]
+                local area = CardArea(
+                    G.ROOM.T.x + 0.2 * G.ROOM.T.w / 2, G.ROOM.T.h,
+                    (count + 0.25) * G.CARD_W,
+                    0.95 * G.CARD_H,
+                    { card_limit = count, type = "title", highlight_limit = 0, collection = true })
+                for _ = 1, count do
+                    slot_index = slot_index + 1
+                    local slot = view.items[slot_index]
+                    if slot then build_trend_card(area, slot) end
+                end
+                deck_tables[#deck_tables + 1] = row({ { n = G.UIT.O, config = { object = area } } }, { padding = 0.05, no_fill = true })
             end
+            nodes[#nodes + 1] = { n = G.UIT.R, config = { align = "cm", r = 0.1, colour = G.C.BLACK, emboss = 0.05 }, nodes = deck_tables }
         end
         local cycle = UICommon.page_cycle(view, "grdl_market_heat_page")
         if cycle then nodes[#nodes + 1] = row({ cycle }, { padding = 0.05 }) end

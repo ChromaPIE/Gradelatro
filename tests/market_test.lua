@@ -101,4 +101,31 @@ H.assert_equal(queued_sell.ok, false, "queued card cannot sell")
 H.assert_equal(queued_sell.reason, "not_sellable", "queued sell reason")
 H.assert_equal(#Market.sell_rows(config, sell_state), 0, "no sellable rows remain")
 
+local slot_catalog = {
+    { center_key = "j_a1", local_key = "a1", series_id = "Alpha", mod_id = "Alpha", mod_name = "Alpha", series_key = "Alpha Series", rarity = "common" },
+    { center_key = "j_a2", local_key = "a2", series_id = "Alpha", mod_id = "Alpha", mod_name = "Alpha", series_key = "Alpha Series", rarity = "rare" },
+    { center_key = "j_b1", local_key = "b1", series_id = "Beta", mod_id = "Beta", mod_name = "Beta", series_key = "Beta Series", rarity = "common" }
+}
+local slot_state = Storage.normalize({})
+Storage.add_raw_card(slot_state, { center_key = "j_a1", local_key = "a1", mod_id = "Alpha", rarity = "common", edition = "base", condition = { centering = 9, print_quality = 9, corners = 9, edges = 9, surface = 9 }, acquired_at = 1 })
+local slot_graded = Storage.add_raw_card(slot_state, { center_key = "j_a2", local_key = "a2", mod_id = "Alpha", rarity = "rare", edition = "base", condition = { centering = 9, print_quality = 9, corners = 9, edges = 9, surface = 9 }, acquired_at = 2 })
+slot_graded.status = "graded"
+slot_state.market.series_heat["Alpha"] = { heat = 1.2, event = { bump = 0.1, expires_at = 999999 } }
+
+local slots = Market.trend_slots(slot_state, slot_catalog)
+H.assert_equal(#slots, 2, "one slot per mod")
+H.assert_equal(slots[1].series_id, "Alpha", "slots sorted by series name")
+H.assert_equal(slots[1].mod_name, "Alpha", "slot mod name")
+H.assert_equal(slots[1].series_key, "Alpha Series", "slot series key")
+H.assert_equal(slots[1].pool_size, 2, "slot pool size")
+H.assert_equal(#slots[1].center_keys, 2, "slot carousel keys")
+H.assert_equal(slots[1].owned, 2, "slot owned count")
+H.assert_equal(slots[1].graded, 1, "slot graded count")
+H.assert_equal(slots[1].trend, "hot", "slot trend label from heat")
+H.assert_equal(slots[1].label_key, "grdl_k_heat_hot", "slot trend localization key")
+H.assert_equal(slots[1].event_active, true, "slot event flag")
+H.assert_equal(slots[2].owned, 0, "unowned series counts zero")
+H.assert_equal(slots[2].trend, "stable", "neutral heat is stable")
+H.assert_equal(slots[2].event_active, false, "no event flag without event")
+
 print("market tests ok")

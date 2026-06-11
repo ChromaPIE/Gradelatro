@@ -29,14 +29,21 @@ H.assert_true(state ~= nil, "market state stored")
 H.assert_equal(adapter.opened, 1, "market overlay opened")
 H.assert_equal(state.text_keys.title, "grdl_k_market_title", "market title key")
 H.assert_equal(state.text_keys.tab_trends, "grdl_k_tab_trends", "trends tab key")
-H.assert_equal(#state.heat_rows, 0, "no heat rows without runtime centers")
+H.assert_equal(#state.trend_slots, 0, "no trend slots without runtime centers")
 H.assert_equal(state.heat_page, 1, "heat page starts at one")
 
 for index = 1, 25 do
-    state.heat_rows[index] = {
+    state.trend_slots[index] = {
+        series_id = "Mod" .. tostring(index),
+        mod_name = "Mod " .. tostring(index),
         series_key = "Series " .. tostring(index),
-        label = "stable",
-        label_key = "grdl_k_heat_stable"
+        center_keys = { "j_x" },
+        pool_size = 1,
+        owned = 0,
+        graded = 0,
+        trend = "stable",
+        label_key = "grdl_k_heat_stable",
+        event_active = false
     }
 end
 MarketUI.set_page(namespace, 2)
