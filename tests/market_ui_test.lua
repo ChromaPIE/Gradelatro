@@ -56,4 +56,53 @@ runtime.FUNCS.grdl_market_heat_page({ cycle_config = { current_option = 1 } })
 H.assert_equal(state.heat_page, 1, "heat page callback applies cycle option")
 H.assert_equal(adapter.refreshed, refreshed_before + 1, "heat page callback falls back to overlay refresh")
 
+H.assert_equal(state.market_tab, "blackmarket", "market opens on the black market tab")
+H.assert_equal(state.bm_locked, true, "black market locked before any win")
+H.assert_equal(state.bm_text, "", "no purchase feedback initially")
+
+local previous_smods = rawget(_G, "SMODS")
+local save_count = 0
+_G.SMODS = {
+    save_mod_config = function() save_count = save_count + 1 return true end
+}
+
+local mint = { centering = 9.8, print_quality = 9.8, corners = 9.8, edges = 9.8, surface = 9.8 }
+namespace.collection.currency_g = 100
+namespace.collection.market = namespace.collection.market or {}
+namespace.collection.market.black_market = {
+    run_id = "R1",
+    boss_key = "bl_hook",
+    generated_at = 1000,
+    offers = {
+        { slot = 1, center_key = "j_a", local_key = "a", series_key = "A Series", mod_id = "A", mod_name = "A", rarity = "common", edition = "base", condition = mint, graded = true, grade = 10, mystery = false, sold = false, price = 40 },
+        { slot = 2, center_key = "j_b", local_key = "b", series_key = "A Series", mod_id = "A", mod_name = "A", rarity = "common", edition = "foil", condition = mint, graded = false, mystery = false, sold = false, price = 99999 },
+        { slot = 3, center_key = "j_c", local_key = "c", series_key = "A Series", mod_id = "A", mod_name = "A", rarity = "common", edition = "base", condition = mint, graded = false, mystery = true, sold = false, price = 70 }
+    }
+}
+runtime.FUNCS.grdl_open_market()
+local bm_state = namespace.market_ui_state
+H.assert_equal(bm_state.bm_locked, false, "offers unlock the black market")
+H.assert_equal(#bm_state.bm_offers, 3, "offers exposed to the ui")
+H.assert_equal(bm_state.bm_boss_key, "bl_hook", "dealer boss key exposed")
+
+H.assert_true(type(runtime.FUNCS.grdl_bm_buy) == "function", "buy callback registered")
+local bought = MarketUI.buy(namespace, 1, 2000)
+H.assert_equal(bought.ok, true, "purchase succeeds")
+H.assert_equal(namespace.collection.currency_g, 60, "price charged")
+H.assert_equal(save_count, 1, "purchase saves config")
+H.assert_true(bm_state.bm_text ~= "", "purchase feedback set")
+H.assert_equal(namespace.collection.market.black_market.offers[1].sold, true, "offer sold")
+H.assert_equal(namespace.collection.cards[#namespace.collection.cards].status, "graded", "graded offer arrives graded")
+
+local resale = MarketUI.buy(namespace, 1, 2001)
+H.assert_equal(resale.ok, false, "sold slot rejected")
+H.assert_equal(bm_state.bm_text, "grdl_k_reason_already_sold", "failure reason bound")
+
+local broke = MarketUI.buy(namespace, 2, 2002)
+H.assert_equal(broke.ok, false, "insufficient funds rejected")
+H.assert_equal(bm_state.bm_text, "grdl_k_reason_insufficient_funds", "insufficient reason bound")
+H.assert_equal(save_count, 1, "failed purchases do not save")
+
+_G.SMODS = previous_smods
+
 print("market ui tests ok")

@@ -198,6 +198,31 @@ function UICommon.swap_tab_contents(definition_fn)
     return true
 end
 
+function UICommon.outline_button(args)
+    args = args or {}
+    local nodes = {}
+    for _, line in ipairs(args.lines or {}) do
+        nodes[#nodes + 1] = { n = G.UIT.R, config = { align = "cm", padding = 0.01 }, nodes = {
+            { n = G.UIT.T, config = { text = line.text, scale = line.scale or 0.32, colour = line.colour or G.C.WHITE, font = args.font } }
+        } }
+    end
+    return { n = G.UIT.C, config = {
+        align = "cm",
+        minw = args.minw or 1.6,
+        minh = args.minh or 0.9,
+        padding = 0.08,
+        r = 0.06,
+        colour = G.C.CLEAR,
+        outline = 1.2,
+        outline_colour = args.outline_colour or G.C.WHITE,
+        hover = true,
+        shadow = false,
+        button = args.button,
+        ref_table = args.ref,
+        focus_args = { nav = "wide" }
+    }, nodes = nodes }
+end
+
 function UICommon.suppress_selection(card)
     card.click = function(self)
         if self.juice_up then self:juice_up(0.3, 0.3) end

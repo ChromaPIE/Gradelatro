@@ -199,6 +199,40 @@ function BinderUI.inspect_from_card(namespace, card)
     return state
 end
 
+function BinderUI.inspect_offer(namespace, offer)
+    if not namespace or not offer or offer.mystery then return nil end
+    local entry = {
+        id = "grdl_offer_" .. tostring(offer.slot),
+        offer_slot = offer.slot,
+        center_key = offer.center_key,
+        name_key = offer.local_key or offer.center_key,
+        local_key = offer.local_key,
+        edition = offer.edition or "base",
+        rarity = offer.rarity,
+        mod_id = offer.mod_id,
+        mod_name = offer.mod_name,
+        status = offer.graded and "graded" or "raw",
+        grade = offer.grade,
+        price = offer.price
+    }
+    namespace.inspect_ui_state = {
+        entry = entry,
+        text_keys = copy_text_keys(),
+        offer_mode = true,
+        pending_sell = false,
+        last_reason_text = ""
+    }
+
+    local runtime = rawget(_G, "G")
+    if runtime and runtime.FUNCS and runtime.FUNCS.overlay_menu then
+        if runtime.SETTINGS then runtime.SETTINGS.paused = true end
+        runtime.FUNCS.overlay_menu({
+            definition = BinderUI.create_inspect_definition(namespace)
+        })
+    end
+    return namespace.inspect_ui_state
+end
+
 function BinderUI.toggle_carry(namespace, card_id, now)
     if not namespace or not namespace.collection then
         return { ok = false, reason = "missing_collection" }
@@ -563,7 +597,7 @@ local function build_inspect_card(namespace, entry, catalog_entry)
     end
     suppress_selection(card)
     area:emplace(card)
-    if entry.status == "graded" then
+    if entry.status == "graded" and not entry.offer_slot then
         pcall(SlabUI.attach_above, card, entry, catalog_entry, { scale = CARD_INSPECT_SCALE * 0.52 })
     end
     namespace.inspect_area = area
@@ -571,27 +605,12 @@ local function build_inspect_card(namespace, entry, catalog_entry)
 end
 
 local function inspect_action_button(button_key, ref_id, lines, regular_font)
-    local nodes = {}
-    for _, line in ipairs(lines) do
-        nodes[#nodes + 1] = { n = G.UIT.R, config = { align = "cm", padding = 0.01 }, nodes = {
-            inspect_text(line.text, line.scale or 0.32, line.colour or G.C.WHITE, regular_font)
-        } }
-    end
-    return { n = G.UIT.C, config = {
-        align = "cm",
-        minw = 1.6,
-        minh = 0.9,
-        padding = 0.08,
-        r = 0.06,
-        colour = G.C.CLEAR,
-        outline = 1.2,
-        outline_colour = G.C.WHITE,
-        hover = true,
-        shadow = false,
+    return UICommon.outline_button({
         button = button_key,
-        ref_table = { id = ref_id },
-        focus_args = { nav = "wide" }
-    }, nodes = nodes }
+        ref = { id = ref_id },
+        lines = lines,
+        font = regular_font
+    })
 end
 
 local function inspect_action_row(namespace, state, entry, regular_font)
@@ -644,7 +663,7 @@ function BinderUI.create_inspect_definition(namespace)
     local regular_font = UICommon.noto_regular()
     local hover_index = namespace.binder_hover_index or {}
     local catalog_entry = entry.center_key and hover_index[entry.center_key] or nil
-    local mod_display = (catalog_entry and catalog_entry.mod_name) or entry.mod_id or ""
+    local mod_display = (catalog_entry and catalog_entry.mod_name) or entry.mod_name or entry.mod_id or ""
 
     local left_nodes = {}
     left_nodes[#left_nodes + 1] = row({}, { minh = entry.status == "graded" and 1.5 or 0.2 })
@@ -659,13 +678,25 @@ function BinderUI.create_inspect_definition(namespace)
         row({}, { minh = 0.4 }),
         inspect_detail_row("grdl_k_detail_source", mod_display, regular_font),
         inspect_detail_row("grdl_k_detail_rarity", safe_localize("grdl_k_rarity_" .. tostring(entry.rarity or "common")), regular_font),
-        inspect_detail_row("grdl_k_detail_edition", inspect_edition_text(entry), regular_font),
-        inspect_detail_row("grdl_k_detail_date", inspect_date_text(entry), regular_font),
-        inspect_detail_row("grdl_k_detail_price", safe_localize("grdl_k_stat_g", { entry.acquired_price or 0 }), regular_font),
-        inspect_detail_row("grdl_k_detail_psa", inspect_psa_text(entry), regular_font)
+        inspect_detail_row("grdl_k_detail_edition", inspect_edition_text(entry), regular_font)
     }
+    if not state.offer_mode then
+        right_nodes[#right_nodes + 1] = inspect_detail_row("grdl_k_detail_date", inspect_date_text(entry), regular_font)
+        right_nodes[#right_nodes + 1] = inspect_detail_row("grdl_k_detail_price", safe_localize("grdl_k_stat_g", { entry.acquired_price or 0 }), regular_font)
+    end
+    right_nodes[#right_nodes + 1] = inspect_detail_row("grdl_k_detail_psa", inspect_psa_text(entry), regular_font)
 
-    local action_cols = inspect_action_row(namespace, state, entry, regular_font)
+    local action_cols
+    if state.offer_mode then
+        action_cols = {
+            inspect_action_button("grdl_bm_buy", entry.offer_slot, {
+                { text = safe_localize("grdl_b_buy") },
+                { text = safe_localize("grdl_k_grading_fee", { entry.price or 0 }), scale = 0.28, colour = G.C.GOLD }
+            }, regular_font)
+        }
+    else
+        action_cols = inspect_action_row(namespace, state, entry, regular_font)
+    end
     if action_cols then
         right_nodes[#right_nodes + 1] = row({}, { minh = 0.35 })
         right_nodes[#right_nodes + 1] = row(action_cols, { align = "cl", padding = 0.04 })
@@ -685,7 +716,7 @@ function BinderUI.create_inspect_definition(namespace)
         nodes = {
             { n = G.UIT.C, config = { align = "cm", minw = G.ROOM.T.w * 0.96, minh = G.ROOM.T.h * 0.92, padding = 0.1 }, nodes = {
                 { n = G.UIT.R, config = { align = "cr", padding = 0.04 }, nodes = {
-                    { n = G.UIT.C, config = { align = "cm", minw = 0.8, minh = 0.8, r = 0.1, hover = true, colour = G.C.CLEAR, button = "grdl_open_binder", focus_args = { nav = "wide", snap_to = true } }, nodes = {
+                    { n = G.UIT.C, config = { align = "cm", minw = 0.8, minh = 0.8, r = 0.1, hover = true, colour = G.C.CLEAR, button = state.offer_mode and "grdl_open_market" or "grdl_open_binder", focus_args = { nav = "wide", snap_to = true } }, nodes = {
                         { n = G.UIT.T, config = { text = close_char, scale = 0.55, colour = G.C.WHITE, font = regular_font } }
                     } }
                 } },

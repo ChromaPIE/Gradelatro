@@ -325,6 +325,28 @@ H.assert_equal(sold.price, 159, "gem mint common quote paid")
 H.assert_equal(raw_card.status, "sold", "card sold from inspect")
 H.assert_equal(namespace.collection.currency_g, currency_before_sale + 159, "sale credits the quote")
 
+local offer_state = BinderUI.inspect_offer(namespace, {
+    slot = 2,
+    center_key = "j_offer",
+    local_key = "offer_joker",
+    mod_id = "Alpha",
+    mod_name = "Alpha",
+    series_key = "Alpha Series",
+    rarity = "rare",
+    edition = "negative",
+    graded = true,
+    grade = 9,
+    mystery = false,
+    price = 321
+})
+H.assert_true(offer_state ~= nil, "offer inspect opens")
+H.assert_equal(offer_state.offer_mode, true, "offer mode flagged")
+H.assert_equal(offer_state.entry.offer_slot, 2, "offer slot carried")
+H.assert_equal(offer_state.entry.status, "graded", "graded offer status mapped")
+H.assert_equal(offer_state.entry.grade, 9, "offer grade mapped")
+H.assert_equal(offer_state.entry.price, 321, "offer price mapped")
+H.assert_equal(BinderUI.inspect_offer(namespace, { slot = 3, mystery = true }), nil, "mystery offer cannot be inspected")
+
 _G.SMODS = previous_smods_global
 
 print("binder ui tests ok")

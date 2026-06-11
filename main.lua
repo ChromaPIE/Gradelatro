@@ -83,6 +83,8 @@ if SMODS and SMODS.Keybind then
             local target = runtime and runtime.CONTROLLER and runtime.CONTROLLER.hovering and runtime.CONTROLLER.hovering.target or nil
             if target and target.grdl_record then
                 BinderUI.inspect_from_card(Gradelatro, target)
+            elseif target and target.grdl_offer then
+                BinderUI.inspect_offer(Gradelatro, target.grdl_offer)
             end
         end
     })

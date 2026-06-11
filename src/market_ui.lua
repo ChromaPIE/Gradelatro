@@ -8,6 +8,7 @@ local function load_src(path)
 end
 
 local Binder = load_src("binder.lua")
+local BlackMarket = load_src("black_market.lua")
 local Catalog = load_src("catalog.lua")
 local Market = load_src("market.lua")
 local Persistence = load_src("persistence.lua")
@@ -27,8 +28,23 @@ local CAROUSEL_INTERVAL = 2
 local TEXT_KEYS = {
     title = "grdl_k_market_title",
     empty = "grdl_k_market_empty",
-    tab_trends = "grdl_k_tab_trends"
+    tab_blackmarket = "grdl_k_tab_blackmarket",
+    tab_trends = "grdl_k_tab_trends",
+    bm_locked = "grdl_k_bm_locked",
+    buy = "grdl_b_buy"
 }
+
+local function pick_quip(seed)
+    local quips = {}
+    for index = 1, 30 do
+        local key = "grdl_quip_bm_" .. tostring(index)
+        local text = safe_localize(key)
+        if text == key then break end
+        quips[#quips + 1] = text
+    end
+    if #quips == 0 then return "" end
+    return quips[(math.floor(seed or 0) % #quips) + 1]
+end
 
 local function copy_text_keys()
     local out = {}
@@ -67,13 +83,40 @@ function MarketUI.open(namespace, now)
         end
     end
 
+    local offers = BlackMarket.offers(namespace.collection)
     namespace.market_ui_state = {
         text_keys = copy_text_keys(),
         summary = Binder.summary(namespace.collection),
         trend_slots = Market.trend_slots(namespace.collection, catalog),
-        heat_page = 1
+        heat_page = 1,
+        market_tab = "blackmarket",
+        bm_locked = offers == nil,
+        bm_offers = offers,
+        bm_boss_key = BlackMarket.boss_key(namespace.collection),
+        bm_quip = pick_quip(now),
+        bm_text = ""
     }
     return namespace.market_ui_state
+end
+
+function MarketUI.buy(namespace, slot, now)
+    if not namespace or not namespace.collection then
+        return { ok = false, reason = "missing_collection" }
+    end
+    if not namespace.config then
+        return { ok = false, reason = "missing_config" }
+    end
+
+    local result = BlackMarket.purchase(namespace.config, namespace.collection, { slot = slot, now = now or os.time() })
+    namespace.last_bm_result = result
+    local state = namespace.market_ui_state
+    if result.ok then
+        namespace.last_save_ok = Persistence.save(namespace)
+        if state then state.bm_text = safe_localize("grdl_k_bm_bought") end
+    elseif state then
+        state.bm_text = safe_localize("grdl_k_reason_" .. tostring(result.reason))
+    end
+    return result
 end
 
 function MarketUI.set_page(namespace, page)
@@ -163,6 +206,7 @@ end
 
 local function trends_tab_definition(state)
     return function()
+        state.market_tab = "trends"
         local view = Binder.page(state.trend_slots, state.heat_page, TREND_PAGE_SIZE)
         state.heat_page = view.page
         local nodes = {}
@@ -193,6 +237,118 @@ local function trends_tab_definition(state)
     end
 end
 
+local function build_offer_card(area, offer)
+    local centers = G.P_CENTERS or {}
+    local center = centers[offer.center_key]
+    if not center then return nil end
+
+    local display_center = center
+    if offer.mystery then
+        display_center = {}
+        for key, value in pairs(center) do display_center[key] = value end
+        display_center.discovered = false
+    end
+
+    local card = Card(area.T.x + area.T.w / 2, area.T.y, G.CARD_W, G.CARD_H, (G.P_CARDS and G.P_CARDS.empty or nil), display_center)
+    UICommon.suppress_selection(card)
+    if offer.mystery then
+        card.hover = function(self)
+            if rawget(_G, "Node") then Node.hover(self) end
+        end
+        card.stop_hover = function(self)
+            if rawget(_G, "Node") then Node.stop_hover(self) end
+        end
+    else
+        local flags = Catalog.edition_flags(offer.edition)
+        if flags then card:set_edition(flags, true, true) end
+        card.grdl_offer = offer
+    end
+    area:emplace(card)
+    return card
+end
+
+local function blackmarket_tab_definition(namespace, state)
+    return function()
+        state.market_tab = "blackmarket"
+        local nodes = {}
+        if state.bm_locked then
+            nodes[#nodes + 1] = row({ ui_text(safe_localize(state.text_keys.bm_locked), 0.4, G.C.UI.TEXT_INACTIVE) }, { padding = 0.5 })
+            return market_tab_root(nodes)
+        end
+
+        local runtime = rawget(_G, "G")
+        local dealer_nodes = {}
+        local blind = runtime and runtime.P_BLINDS and state.bm_boss_key and runtime.P_BLINDS[state.bm_boss_key] or nil
+        if blind and rawget(_G, "SMODS") and SMODS.create_sprite then
+            local ok_sprite, sprite = pcall(SMODS.create_sprite, 0, 0, 1.3, 1.3, blind.atlas or "blind_chips", blind.pos)
+            if ok_sprite and sprite then
+                dealer_nodes[#dealer_nodes + 1] = row({ { n = G.UIT.O, config = { object = sprite } } }, { padding = 0.06 })
+            end
+        end
+        if state.bm_quip ~= "" and rawget(_G, "DynaText") then
+            local ok_quip, quip_object = pcall(DynaText, {
+                string = { state.bm_quip },
+                colours = { G.C.UI.TEXT_DARK },
+                scale = 0.3,
+                float = true,
+                bump = true,
+                silent = true,
+                pop_in = 0.2,
+                maxw = 2.3
+            })
+            if ok_quip and quip_object then
+                dealer_nodes[#dealer_nodes + 1] = row({
+                    { n = G.UIT.R, config = { align = "cm", padding = 0.08, r = 0.2, colour = G.C.WHITE, shadow = true }, nodes = {
+                        { n = G.UIT.O, config = { object = quip_object } }
+                    } }
+                }, { padding = 0.05 })
+            end
+        end
+
+        local offer_nodes = {}
+        if rawget(_G, "CardArea") and rawget(_G, "Card") and runtime and runtime.P_CENTERS then
+            local area = CardArea(
+                runtime.ROOM.T.x + 0.2 * runtime.ROOM.T.w / 2, runtime.ROOM.T.h,
+                3.25 * runtime.CARD_W,
+                0.95 * runtime.CARD_H,
+                { card_limit = 3, type = "title", highlight_limit = 0, collection = true })
+            local buttons = {}
+            for _, offer in ipairs(state.bm_offers or {}) do
+                if not offer.sold then
+                    build_offer_card(area, offer)
+                end
+                local cell
+                if offer.sold then
+                    cell = ui_text(safe_localize("grdl_k_status_sold"), 0.3, G.C.UI.TEXT_INACTIVE)
+                else
+                    cell = UICommon.outline_button({
+                        button = "grdl_bm_buy",
+                        ref = { id = offer.slot },
+                        minw = 1.4,
+                        minh = 0.8,
+                        lines = {
+                            { text = safe_localize(state.text_keys.buy) },
+                            { text = safe_localize("grdl_k_grading_fee", { offer.price }), scale = 0.26, colour = G.C.GOLD }
+                        }
+                    })
+                end
+                buttons[#buttons + 1] = col({ cell }, { align = "cm", minw = 1.55 })
+            end
+            offer_nodes[#offer_nodes + 1] = row({ { n = G.UIT.O, config = { object = area } } }, { padding = 0.05, no_fill = true })
+            offer_nodes[#offer_nodes + 1] = row(buttons, { padding = 0.04 })
+        end
+        offer_nodes[#offer_nodes + 1] = row({
+            { n = G.UIT.T, config = { ref_table = state, ref_value = "bm_text", scale = 0.3, colour = G.C.GOLD } }
+        })
+
+        nodes[#nodes + 1] = row({
+            col(dealer_nodes, { align = "cm", minw = 2.4 }),
+            col(offer_nodes, { align = "cm", minw = 4.8 })
+        }, { padding = 0.05 })
+        return market_tab_root(nodes)
+    end
+end
+
 function MarketUI.create_overlay_definition(namespace)
     namespace = namespace or rawget(_G, "Gradelatro") or {}
     local state = namespace.market_ui_state or MarketUI.open(namespace)
@@ -209,8 +365,13 @@ function MarketUI.create_overlay_definition(namespace)
         create_tabs({
             tabs = {
                 {
+                    label = safe_localize(state.text_keys.tab_blackmarket),
+                    chosen = state.market_tab ~= "trends",
+                    tab_definition_function = blackmarket_tab_definition(namespace, state)
+                },
+                {
                     label = safe_localize(state.text_keys.tab_trends),
-                    chosen = true,
+                    chosen = state.market_tab == "trends",
                     tab_definition_function = trends_tab_definition(state)
                 }
             },
@@ -261,6 +422,30 @@ function MarketUI.install_runtime(namespace, runtime, adapter)
     runtime.FUNCS.grdl_open_market = function(event)
         local state = MarketUI.open(namespace)
         if state and adapter.open_market then adapter.open_market(namespace, state, event) end
+    end
+
+    runtime.FUNCS.grdl_bm_buy = function(event)
+        local slot = event_card_id(event)
+        local result = MarketUI.buy(namespace, slot, os.time())
+        if result.ok then
+            local inspect_state = namespace.inspect_ui_state
+            if inspect_state and inspect_state.offer_mode and namespace.BinderUI then
+                namespace.inspect_ui_state = nil
+                namespace.BinderUI.open(namespace)
+                local card_state = namespace.BinderUI.open_inspect(namespace, result.card.id)
+                if card_state and runtime.FUNCS.overlay_menu then
+                    if runtime.SETTINGS then runtime.SETTINGS.paused = true end
+                    runtime.FUNCS.overlay_menu({ definition = namespace.BinderUI.create_inspect_definition(namespace) })
+                end
+            else
+                local state = namespace.market_ui_state
+                if not (state and UICommon.swap_tab_contents(blackmarket_tab_definition(namespace, state))) then
+                    if adapter.refresh_market then adapter.refresh_market(namespace, state, event) end
+                end
+            end
+        elseif rawget(_G, "play_sound") then
+            pcall(play_sound, "tarot2", 0.76, 0.4)
+        end
     end
 
     runtime.FUNCS.grdl_market_heat_page = function(event)
