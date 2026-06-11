@@ -229,6 +229,15 @@ local function trends_tab_definition(state)
     end
 end
 
+function MarketUI.mystery_display_center(center)
+    local copy = {}
+    for key, value in pairs(center) do copy[key] = value end
+    setmetatable(copy, getmetatable(center))
+    copy.discovered = false
+    copy.unlocked = true
+    return copy
+end
+
 local function build_offer_card(area, offer)
     local centers = G.P_CENTERS or {}
     local center = centers[offer.center_key]
@@ -236,9 +245,7 @@ local function build_offer_card(area, offer)
 
     local display_center = center
     if offer.mystery then
-        display_center = {}
-        for key, value in pairs(center) do display_center[key] = value end
-        display_center.discovered = false
+        display_center = MarketUI.mystery_display_center(center)
     end
 
     local card = Card(area.T.x + area.T.w / 2, area.T.y, G.CARD_W, G.CARD_H, (G.P_CARDS and G.P_CARDS.empty or nil), display_center)
@@ -425,6 +432,20 @@ function MarketUI.install_runtime(namespace, runtime, adapter)
                     local centers = rawget(_G, "G") and G.P_CENTERS or {}
                     local next_center = centers[carousel.keys[carousel.index]]
                     if next_center then
+                        -- soul sprite creation and its draw gate read config.center, so the
+                        -- swap must retarget it; SMODS only clears the floating layer when
+                        -- the incoming center has one of its own
+                        card.config.center = next_center
+                        card.config.center_key = next_center.key
+                        if card.children then
+                            for _, child_key in ipairs({ "floating_sprite", "floating_sprite2" }) do
+                                local sprite = card.children[child_key]
+                                if sprite then
+                                    if sprite.remove then pcall(sprite.remove, sprite) end
+                                    card.children[child_key] = nil
+                                end
+                            end
+                        end
                         pcall(card.set_sprites, card, next_center)
                     end
                 end

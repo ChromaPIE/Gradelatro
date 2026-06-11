@@ -105,4 +105,43 @@ H.assert_equal(save_count, 1, "failed purchases do not save")
 
 _G.SMODS = previous_smods
 
+local center_class = { set = "Joker", unlocked = true }
+center_class.__index = center_class
+local modded_center = setmetatable({
+    key = "j_mod_legend",
+    pos = { x = 0, y = 0 },
+    discovered = true,
+    atlas = "ModAtlas"
+}, center_class)
+local display = MarketUI.mystery_display_center(modded_center)
+H.assert_true(display ~= modded_center, "mystery display is a copy")
+H.assert_equal(display.set, "Joker", "metatable fields survive the copy")
+H.assert_equal(display.discovered, false, "mystery copy stays hidden")
+H.assert_equal(display.unlocked, true, "mystery copy bypasses lock art")
+H.assert_equal(display.key, "j_mod_legend", "instance fields copied")
+H.assert_equal(modded_center.discovered, true, "real center untouched")
+
+local previous_tick_g = rawget(_G, "G")
+local plain_center = { key = "j_one", set = "Joker" }
+local soul_center = { key = "j_two", set = "Joker", soul_pos = { x = 1, y = 0 } }
+_G.G = { P_CENTERS = { j_one = plain_center, j_two = soul_center } }
+local float_removed = 0
+local swaps = {}
+local trend_card = {
+    config = { center = plain_center, center_key = "j_one" },
+    children = { floating_sprite = { remove = function() float_removed = float_removed + 1 end } },
+    grdl_carousel = { keys = { "j_one", "j_two" }, index = 1, last = -1e9 },
+    set_sprites = function(self, center) swaps[#swaps + 1] = center end
+}
+runtime.FUNCS.grdl_trend_tick({ config = { ref_table = { cards = { trend_card } } } })
+H.assert_equal(#swaps, 1, "due carousel swaps once")
+H.assert_equal(swaps[1], soul_center, "swap targets the next center")
+H.assert_equal(trend_card.config.center, soul_center, "config center synced for the soul draw gate")
+H.assert_equal(trend_card.config.center_key, "j_two", "config center key synced")
+H.assert_equal(float_removed, 1, "stale floating sprite cleared before the swap")
+H.assert_equal(trend_card.grdl_carousel.index, 2, "carousel index advanced")
+runtime.FUNCS.grdl_trend_tick({ config = { ref_table = { cards = { trend_card } } } })
+H.assert_equal(#swaps, 1, "fresh swap waits for the interval")
+_G.G = previous_tick_g
+
 print("market ui tests ok")
