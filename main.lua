@@ -44,6 +44,9 @@ Bootstrap.attach(Gradelatro, "Grading", Grading)
 local Market = load_src("market.lua")
 Bootstrap.attach(Gradelatro, "Market", Market)
 
+local Carry = load_src("carry.lua")
+Bootstrap.attach(Gradelatro, "Carry", Carry)
+
 local Label = load_src("label.lua")
 Bootstrap.attach(Gradelatro, "Label", Label)
 

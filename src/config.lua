@@ -90,6 +90,17 @@ Config.DEFAULTS = {
     catalog = {
         series_format = "#1# Series"
     },
+    carry = {
+        minor_chance = 0.70,
+        minor_min = 0.05,
+        minor_max = 0.15,
+        moderate_chance = 0.25,
+        moderate_min = 0.20,
+        moderate_max = 0.40,
+        severe_chance = 0.05,
+        severe_min = 0.80,
+        severe_max = 1.50
+    },
     authenticated_editions = {
         base = true,
         foil = true,
