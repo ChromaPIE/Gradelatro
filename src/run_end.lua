@@ -7,6 +7,7 @@ local function load_src(path)
     return dofile("src/" .. path)
 end
 
+local BlackMarket = load_src("black_market.lua")
 local Buyout = load_src("buyout.lua")
 local Carry = load_src("carry.lua")
 local Catalog = load_src("catalog.lua")
@@ -111,9 +112,6 @@ function RunEnd.capture_win_buyout_offer(namespace, runtime, smods, now)
         dollars = runtime.GAME.dollars,
         settled_at = now or os.time()
     })
-    if namespace.last_settlement_result.ok and not namespace.last_settlement_result.duplicate then
-        namespace.last_save_ok = Persistence.save(namespace)
-    end
 
     local series_ids = {}
     local seen_series = {}
@@ -124,6 +122,21 @@ function RunEnd.capture_win_buyout_offer(namespace, runtime, smods, now)
         end
     end
     Market.refresh(config, collection, { series_ids = series_ids, now = now or os.time() })
+
+    if namespace.last_settlement_result.ok and not namespace.last_settlement_result.duplicate then
+        local boss_key = runtime.GAME.blind
+            and runtime.GAME.blind.config
+            and runtime.GAME.blind.config.blind
+            and runtime.GAME.blind.config.blind.key
+            or nil
+        BlackMarket.generate(config, collection, {
+            catalog = catalog,
+            run_id = current_run_id,
+            boss_key = boss_key,
+            now = now or os.time()
+        })
+        namespace.last_save_ok = Persistence.save(namespace)
+    end
 
     local offer = Buyout.prepare_offer(config, collection, {
         catalog = catalog,

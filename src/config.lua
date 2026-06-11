@@ -101,6 +101,21 @@ Config.DEFAULTS = {
         severe_min = 0.80,
         severe_max = 1.50
     },
+    black_market = {
+        graded_chance = 0.35,
+        open_float_min = 0.85,
+        open_float_max = 1.15,
+        mystery_float_min = 0.50,
+        mystery_float_max = 2.00,
+        mystery_wild_chance = 0.60,
+        edition_weights = {
+            base = 0.70,
+            foil = 0.12,
+            holographic = 0.08,
+            polychrome = 0.06,
+            negative = 0.04
+        }
+    },
     authenticated_editions = {
         base = true,
         foil = true,
