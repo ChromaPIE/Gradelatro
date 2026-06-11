@@ -47,6 +47,10 @@ Bootstrap.attach(Gradelatro, "Market", Market)
 local Carry = load_src("carry.lua")
 Bootstrap.attach(Gradelatro, "Carry", Carry)
 
+local CarryUI = load_src("carry_ui.lua")
+Bootstrap.attach(Gradelatro, "CarryUI", CarryUI)
+pcall(CarryUI.install, Gradelatro)
+
 local Label = load_src("label.lua")
 Bootstrap.attach(Gradelatro, "Label", Label)
 
