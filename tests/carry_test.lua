@@ -122,4 +122,28 @@ H.assert_equal(Carry.reconcile(rec_state, "R2").released, true, "stale run relea
 H.assert_equal(rec_raw.status, "raw", "reconciled card back to raw")
 H.assert_equal(Carry.reconcile(rec_state, "R2").released, false, "reconcile without carry is a no-op")
 
+local pending_state, pending_raw = fresh_state()
+local pending = Carry.select_for_run(config, pending_state, { card_id = pending_raw.id })
+H.assert_equal(pending.ok, true, "selection without a run is allowed")
+H.assert_equal(pending_state.carry.run_id, "pending", "selection defaults to pending")
+H.assert_equal(Carry.reconcile(pending_state, "R9").released, false, "pending carry survives reconcile")
+H.assert_equal(Carry.can_activate(pending_state, { run_id = "R9", ante = 1 }).reason, "wrong_run", "pending carry cannot activate")
+
+local bound = Carry.bind_run(pending_state, "R9")
+H.assert_equal(bound.ok, true, "pending carry binds to the run")
+H.assert_equal(pending_state.carry.run_id, "R9", "bind stores run id")
+H.assert_equal(Carry.bind_run(pending_state, "R9").ok, true, "rebinding the same run is a no-op")
+H.assert_equal(Carry.bind_run(pending_state, "R10").reason, "wrong_run", "binding a different run is rejected")
+H.assert_equal(Carry.can_activate(pending_state, { run_id = "R9", ante = 1 }).ok, true, "bound carry can activate")
+Carry.apply_use(config, pending_state, { run_id = "R9", ante = 1, rng_seed = 11 })
+Carry.release(pending_state)
+Carry.select_for_run(config, pending_state, { card_id = pending_raw.id })
+Carry.bind_run(pending_state, "R10")
+H.assert_equal(Carry.can_activate(pending_state, { run_id = "R10", ante = 1 }).ok, true, "fresh bind resets activations")
+H.assert_equal(Carry.bind_run(Storage.normalize({}), "R1").reason, "no_carry", "bind without carry rejected")
+
+H.assert_equal(Carry.run_identity({ run_id = "RX" }), "RX", "explicit run id wins")
+H.assert_equal(Carry.run_identity({ pseudorandom = { seed = "SEED77" } }), "SEED77", "seed fallback")
+H.assert_equal(Carry.run_identity({}), "unknown", "missing identity falls back")
+
 print("carry tests ok")

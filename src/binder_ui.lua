@@ -8,6 +8,7 @@ local function load_src(path)
 end
 
 local Binder = load_src("binder.lua")
+local Carry = load_src("carry.lua")
 local Catalog = load_src("catalog.lua")
 local Grading = load_src("grading.lua")
 local Label = load_src("label.lua")
@@ -217,6 +218,28 @@ function BinderUI.inspect_from_card(namespace, card)
         })
     end
     return state
+end
+
+function BinderUI.toggle_carry(namespace, card_id, now)
+    if not namespace or not namespace.collection then
+        return { ok = false, reason = "missing_collection" }
+    end
+    if not namespace.config then
+        return { ok = false, reason = "missing_config" }
+    end
+
+    local collection = namespace.collection
+    local result
+    if collection.carry and collection.carry.card_id == card_id then
+        result = Carry.withdraw(collection)
+    else
+        result = Carry.select_for_run(namespace.config, collection, { card_id = card_id, now = now })
+    end
+    namespace.last_carry_result = result
+    if result.ok then
+        namespace.last_save_ok = Persistence.save(namespace)
+    end
+    return result
 end
 
 function BinderUI.submit_grading(namespace, card_id, now)
@@ -630,6 +653,24 @@ function BinderUI.create_inspect_definition(namespace)
         inspect_detail_row("grdl_k_detail_psa", inspect_psa_text(entry), regular_font)
     }
 
+    if entry.status == "raw" or entry.status == "carried" then
+        local carried = entry.status == "carried"
+        right_nodes[#right_nodes + 1] = row({}, { minh = 0.3 })
+        right_nodes[#right_nodes + 1] = row({
+            UIBox_button({
+                button = "grdl_carry_toggle",
+                label = { safe_localize(carried and "grdl_b_withdraw_carry" or "grdl_b_carry") },
+                ref_table = { id = entry.id },
+                minw = 2.6,
+                maxw = 2.6,
+                minh = 0.65,
+                scale = 0.34,
+                colour = carried and G.C.RED or G.C.GREEN,
+                focus_args = { nav = "wide" }
+            })
+        }, { align = "cl", padding = 0.05 })
+    end
+
     local close_char = "X"
     if regular_font and regular_font.FONT and regular_font.FONT.hasGlyphs and regular_font.FONT:hasGlyphs("✕") then
         close_char = "✕"
@@ -702,6 +743,23 @@ function BinderUI.install_runtime(namespace, runtime, adapter)
         if not event or not event.cycle_config then return end
         BinderUI.set_page(namespace, event.cycle_config.current_option)
         BinderUI.fill_card_areas(namespace)
+    end
+
+    runtime.FUNCS.grdl_carry_toggle = function(event)
+        local card_id = event_card_id(event)
+        local result = BinderUI.toggle_carry(namespace, card_id, os.time())
+        if result.ok then
+            BinderUI.open(namespace)
+            local state = BinderUI.open_inspect(namespace, card_id)
+            if state and runtime.FUNCS.overlay_menu then
+                if runtime.SETTINGS then runtime.SETTINGS.paused = true end
+                runtime.FUNCS.overlay_menu({
+                    definition = BinderUI.create_inspect_definition(namespace)
+                })
+            end
+        elseif rawget(_G, "play_sound") then
+            pcall(play_sound, "tarot2", 0.76, 0.4)
+        end
     end
 
     runtime.FUNCS.grdl_desk_submit_page = function(event)

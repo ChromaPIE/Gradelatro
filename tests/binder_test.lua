@@ -100,4 +100,12 @@ local empty = Binder.summary(Storage.normalize({}))
 H.assert_equal(empty.total_cards, 0, "empty total")
 H.assert_equal(#Binder.entries(Storage.normalize({})).entries, 0, "empty entries")
 
+local carried_state = Storage.normalize({
+    cards = {
+        { id = "c1", status = "carried", center_key = "j_c", local_key = "c", edition = "base", acquired_at = 1 }
+    }
+})
+H.assert_equal(Binder.entries(carried_state).entries[1].status_key, "grdl_k_status_carried", "carried status key")
+H.assert_equal(#Binder.desk_rows(carried_state), 0, "carried cards are not submittable")
+
 print("binder tests ok")

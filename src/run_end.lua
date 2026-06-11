@@ -8,6 +8,7 @@ local function load_src(path)
 end
 
 local Buyout = load_src("buyout.lua")
+local Carry = load_src("carry.lua")
 local Catalog = load_src("catalog.lua")
 local Market = load_src("market.lua")
 local Persistence = load_src("persistence.lua")
@@ -42,15 +43,7 @@ local function stake_level(stake)
     return stake.stake_level or stake.order
 end
 
-local function run_id(game_state)
-    game_state = game_state or {}
-    if game_state.run_id then return tostring(game_state.run_id) end
-    if game_state.pseudorandom and game_state.pseudorandom.seed then
-        return tostring(game_state.pseudorandom.seed)
-    end
-    if game_state.seed then return tostring(game_state.seed) end
-    return "unknown"
-end
+local run_id = Carry.run_identity
 
 function RunEnd.year_from_timestamp(timestamp)
     return tonumber(os.date("%Y", timestamp or os.time()))

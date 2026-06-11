@@ -315,6 +315,17 @@ _G.Card = previous_preview_card
 _G.CardArea = previous_preview_area
 _G.UIBox = previous_preview_uibox
 
+H.assert_true(type(runtime.FUNCS.grdl_carry_toggle) == "function", "carry toggle callback registered")
+local toggled = BinderUI.toggle_carry(namespace, expensive_card.id, 5000)
+H.assert_equal(toggled.ok, true, "carry toggle selects raw card")
+H.assert_equal(expensive_card.status, "carried", "card carried after toggle")
+H.assert_equal(namespace.collection.carry.card_id, expensive_card.id, "carry stored on collection")
+H.assert_equal(namespace.collection.carry.run_id, "pending", "binder selection stays pending")
+local withdrawn = BinderUI.toggle_carry(namespace, expensive_card.id, 5001)
+H.assert_equal(withdrawn.ok, true, "second toggle withdraws")
+H.assert_equal(expensive_card.status, "raw", "withdrawn card back to raw")
+H.assert_equal(namespace.collection.carry, nil, "carry cleared after withdraw")
+
 _G.SMODS = previous_smods_global
 
 print("binder ui tests ok")

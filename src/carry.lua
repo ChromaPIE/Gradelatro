@@ -29,12 +29,32 @@ function Carry.select_for_run(config, state, args)
     card.status = "carried"
     state.carry = {
         card_id = card.id,
-        run_id = tostring(args.run_id or "unknown"),
+        run_id = tostring(args.run_id or "pending"),
         selected_at = args.now or os.time(),
         activations = {},
         uses = 0
     }
     return { ok = true, carry = state.carry, card = card }
+end
+
+function Carry.bind_run(state, run_id)
+    if not state or not state.carry then return { ok = false, reason = "no_carry" } end
+    run_id = tostring(run_id or "unknown")
+    if state.carry.run_id == run_id then return { ok = true, carry = state.carry } end
+    if state.carry.run_id ~= "pending" then return { ok = false, reason = "wrong_run" } end
+    state.carry.run_id = run_id
+    state.carry.activations = {}
+    return { ok = true, carry = state.carry }
+end
+
+function Carry.run_identity(game_state)
+    game_state = game_state or {}
+    if game_state.run_id then return tostring(game_state.run_id) end
+    if game_state.pseudorandom and game_state.pseudorandom.seed then
+        return tostring(game_state.pseudorandom.seed)
+    end
+    if game_state.seed then return tostring(game_state.seed) end
+    return "unknown"
 end
 
 function Carry.release(state)
@@ -53,7 +73,7 @@ end
 
 function Carry.reconcile(state, current_run_id)
     if not state or not state.carry then return { ok = true, released = false } end
-    if tostring(current_run_id) == state.carry.run_id then
+    if state.carry.run_id == "pending" or tostring(current_run_id) == state.carry.run_id then
         return { ok = true, released = false }
     end
     Carry.release(state)
