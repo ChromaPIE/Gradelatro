@@ -180,6 +180,24 @@ function UICommon.install_preview(funcs)
     return true
 end
 
+function UICommon.swap_tab_contents(definition_fn)
+    local runtime = rawget(_G, "G")
+    if not runtime or not runtime.OVERLAY_MENU or not rawget(_G, "UIBox") then return false end
+    if type(runtime.OVERLAY_MENU.get_UIE_by_ID) ~= "function" then return false end
+    local tab_contents = runtime.OVERLAY_MENU:get_UIE_by_ID("tab_contents")
+    if not tab_contents or not tab_contents.config or not tab_contents.config.object then return false end
+
+    tab_contents.config.object:remove()
+    tab_contents.config.object = UIBox({
+        definition = definition_fn(),
+        config = { offset = { x = 0, y = 0 }, parent = tab_contents, type = "cm" }
+    })
+    if tab_contents.UIBox and tab_contents.UIBox.recalculate then
+        tab_contents.UIBox:recalculate()
+    end
+    return true
+end
+
 function UICommon.event_ref_id(event)
     return event
         and event.config

@@ -334,13 +334,19 @@ function MarketUI.install_runtime(namespace, runtime, adapter)
     runtime.FUNCS.grdl_market_sell_page = function(event)
         if not event or not event.cycle_config then return end
         MarketUI.set_page(namespace, "sell", event.cycle_config.current_option)
-        if adapter.refresh_market then adapter.refresh_market(namespace, namespace.market_ui_state, event) end
+        local state = namespace.market_ui_state
+        if not (state and UICommon.swap_tab_contents(sell_tab_definition(state))) then
+            if adapter.refresh_market then adapter.refresh_market(namespace, state, event) end
+        end
     end
 
     runtime.FUNCS.grdl_market_heat_page = function(event)
         if not event or not event.cycle_config then return end
         MarketUI.set_page(namespace, "heat", event.cycle_config.current_option)
-        if adapter.refresh_market then adapter.refresh_market(namespace, namespace.market_ui_state, event) end
+        local state = namespace.market_ui_state
+        if not (state and UICommon.swap_tab_contents(trends_tab_definition(state))) then
+            if adapter.refresh_market then adapter.refresh_market(namespace, state, event) end
+        end
     end
 
     return true

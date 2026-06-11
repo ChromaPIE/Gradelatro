@@ -765,13 +765,19 @@ function BinderUI.install_runtime(namespace, runtime, adapter)
     runtime.FUNCS.grdl_desk_submit_page = function(event)
         if not event or not event.cycle_config then return end
         BinderUI.set_desk_page(namespace, "submit", event.cycle_config.current_option)
-        if adapter.refresh_desk then adapter.refresh_desk(namespace, namespace.desk_ui_state, event) end
+        local state = namespace.desk_ui_state
+        if not (state and UICommon.swap_tab_contents(submit_tab_definition(state))) then
+            if adapter.refresh_desk then adapter.refresh_desk(namespace, state, event) end
+        end
     end
 
     runtime.FUNCS.grdl_desk_queue_page = function(event)
         if not event or not event.cycle_config then return end
         BinderUI.set_desk_page(namespace, "queue", event.cycle_config.current_option)
-        if adapter.refresh_desk then adapter.refresh_desk(namespace, namespace.desk_ui_state, event) end
+        local state = namespace.desk_ui_state
+        if not (state and UICommon.swap_tab_contents(queue_tab_definition(state))) then
+            if adapter.refresh_desk then adapter.refresh_desk(namespace, state, event) end
+        end
     end
 
     runtime.FUNCS.grdl_queue_tick = function(element)
