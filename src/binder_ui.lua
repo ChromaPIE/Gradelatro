@@ -94,11 +94,8 @@ local function process_due(namespace, now)
 end
 
 local function refresh_hover_index(namespace)
-    local centers = runtime_centers()
-    if not centers or not namespace.config then return end
-    local smods = rawget(_G, "SMODS")
-    local ok, catalog = pcall(Catalog.discover, namespace.config, centers, smods and smods.Mods or nil)
-    if not ok then return end
+    local catalog = UICommon.discover_catalog(namespace)
+    if #catalog == 0 then return end
     local index = {}
     for _, entry in ipairs(catalog) do
         index[entry.center_key] = entry

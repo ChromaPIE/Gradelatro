@@ -103,6 +103,17 @@ function UICommon.stat_chips(summary)
     }, { padding = 0.09 })
 end
 
+function UICommon.discover_catalog(namespace)
+    local runtime = rawget(_G, "G")
+    if not runtime or not runtime.P_CENTERS or not namespace or not namespace.config then return {} end
+    local smods = rawget(_G, "SMODS")
+    local ok, catalog = pcall(Catalog.discover, namespace.config, runtime.P_CENTERS, smods and smods.Mods or nil, {
+        series_format = UICommon.localize_text("grdl_k_series_format")
+    })
+    if not ok then return {} end
+    return catalog
+end
+
 function UICommon.page_cycle(view, callback)
     if not view or (view.pages or 1) <= 1 then return nil end
     local options = {}

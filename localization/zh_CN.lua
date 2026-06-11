@@ -41,6 +41,7 @@ return {
             grdl_k_market_empty = "暂无行情数据。",
             grdl_k_tab_progress = "评级进度",
             grdl_k_tab_blackmarket = "黑市",
+            grdl_k_series_format = "#1# 系列",
             grdl_k_bm_locked = "赢下一局以解锁。",
             grdl_k_bm_bought = "交易成功。",
             grdl_b_buy = "购买",

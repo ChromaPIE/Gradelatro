@@ -41,6 +41,7 @@ return {
             grdl_k_market_empty = "No trend data yet.",
             grdl_k_tab_progress = "In Progress",
             grdl_k_tab_blackmarket = "Black Market",
+            grdl_k_series_format = "#1# Series",
             grdl_k_bm_locked = "Win a run to unlock.",
             grdl_k_bm_bought = "Deal done.",
             grdl_b_buy = "Buy",

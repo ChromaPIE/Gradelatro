@@ -55,12 +55,7 @@ local function copy_text_keys()
 end
 
 local function runtime_catalog(namespace)
-    local runtime = rawget(_G, "G")
-    if not runtime or not runtime.P_CENTERS or not namespace.config then return {} end
-    local smods = rawget(_G, "SMODS")
-    local ok, catalog = pcall(Catalog.discover, namespace.config, runtime.P_CENTERS, smods and smods.Mods or nil)
-    if not ok then return {} end
-    return catalog
+    return UICommon.discover_catalog(namespace)
 end
 
 function MarketUI.open(namespace, now)
@@ -134,35 +129,44 @@ local function attention_colour()
     return G.C.GOLD
 end
 
-local function trend_info_line(label_text, value_text, value_colour)
-    return row({
-        col({ ui_text(label_text, 0.28, G.C.UI.TEXT_DARK) }, { align = "cl", minw = 1.2 }),
-        col({ ui_text(value_text, 0.28, value_colour or G.C.UI.TEXT_DARK) }, { align = "cr", minw = 1.3 })
-    }, { padding = 0.02 })
+local function trend_line_cell(text, side, colour)
+    return { n = G.UIT.R, config = { align = side, minh = 0.36, padding = 0.01 }, nodes = {
+        ui_text(text, 0.32, colour or G.C.UI.TEXT_DARK)
+    } }
 end
 
 local function trends_popup(slot)
-    local desc_lines = {
-        trend_info_line(safe_localize("grdl_k_trend_heat"), safe_localize(slot.label_key), attention_colour()),
-        trend_info_line(safe_localize("grdl_k_trend_owned"), safe_localize("grdl_k_trend_owned_v", { slot.owned, slot.graded })),
-        trend_info_line(safe_localize("grdl_k_trend_pool"), safe_localize("grdl_k_trend_pool_v", { slot.pool_size }))
+    local labels = {
+        trend_line_cell(safe_localize("grdl_k_trend_heat"), "cl"),
+        trend_line_cell(safe_localize("grdl_k_trend_owned"), "cl"),
+        trend_line_cell(safe_localize("grdl_k_trend_pool"), "cl")
+    }
+    local values = {
+        trend_line_cell(safe_localize(slot.label_key), "cr", attention_colour()),
+        trend_line_cell(safe_localize("grdl_k_trend_owned_v", { slot.owned, slot.graded }), "cr"),
+        trend_line_cell(safe_localize("grdl_k_trend_pool_v", { slot.pool_size }), "cr")
     }
     if slot.event_active then
-        desc_lines[#desc_lines + 1] = trend_info_line(safe_localize("grdl_k_trend_event"), safe_localize("grdl_k_trend_event_on"), G.C.RED)
+        labels[#labels + 1] = trend_line_cell(safe_localize("grdl_k_trend_event"), "cl")
+        values[#values + 1] = trend_line_cell(safe_localize("grdl_k_trend_event_on"), "cr", G.C.RED)
     end
 
     return { n = G.UIT.ROOT, config = { align = "cm", colour = G.C.CLEAR }, nodes = {
         { n = G.UIT.R, config = { align = "cm", padding = 0.05, r = 0.12, colour = rawget(_G, "lighten") and lighten(G.C.JOKER_GREY, 0.5) or G.C.JOKER_GREY, emboss = 0.07 }, nodes = {
             { n = G.UIT.R, config = { align = "cm", padding = 0.07, r = 0.1, colour = G.C.L_BLACK }, nodes = {
-                row({ ui_text(slot.mod_name, 0.4, G.C.WHITE) }, { padding = 0.02 }),
-                row({ ui_text(slot.series_key, 0.3, G.C.UI.TEXT_LIGHT) }, { padding = 0.02 }),
-                { n = G.UIT.R, config = { align = "cm", padding = 0.06, r = 0.06, colour = G.C.WHITE }, nodes = desc_lines }
+                row({ ui_text(slot.mod_name, 0.44, G.C.WHITE) }, { padding = 0.02 }),
+                row({ ui_text(slot.series_key, 0.34, G.C.UI.TEXT_LIGHT) }, { padding = 0.02 }),
+                { n = G.UIT.R, config = { align = "cm", padding = 0.06, r = 0.06, colour = G.C.WHITE }, nodes = {
+                    { n = G.UIT.C, config = { align = "cl", padding = 0.01 }, nodes = labels },
+                    { n = G.UIT.C, config = { align = "cm", minw = 0.35 }, nodes = {} },
+                    { n = G.UIT.C, config = { align = "cr", padding = 0.01 }, nodes = values }
+                } }
             } }
         } }
     } }
 end
 
-local function build_trend_card(area, slot)
+local function build_trend_card(area, slot, delay_flag)
     local centers = G.P_CENTERS or {}
     local center = centers[slot.center_keys[1]]
     if not center then return nil end
@@ -170,22 +174,7 @@ local function build_trend_card(area, slot)
     local card = Card(area.T.x + area.T.w / 2, area.T.y, G.CARD_W, G.CARD_H, (G.P_CARDS and G.P_CARDS.empty or nil), center)
     UICommon.suppress_selection(card)
 
-    card.grdl_carousel = { keys = slot.center_keys, index = 1, timer = 0 }
-    local original_update = card.update
-    card.update = function(self, dt)
-        original_update(self, dt)
-        local carousel = self.grdl_carousel
-        if not carousel or #carousel.keys < 2 then return end
-        carousel.timer = (carousel.timer or 0) + (dt or 0)
-        if carousel.timer >= CAROUSEL_INTERVAL then
-            carousel.timer = carousel.timer - CAROUSEL_INTERVAL
-            carousel.index = carousel.index % #carousel.keys + 1
-            local next_center = centers[carousel.keys[carousel.index]]
-            if next_center then
-                pcall(self.set_sprites, self, next_center)
-            end
-        end
-    end
+    card.grdl_carousel = { keys = slot.center_keys, index = 1 }
 
     card.hover = function(self)
         self.config.h_popup = trends_popup(slot)
@@ -197,6 +186,9 @@ local function build_trend_card(area, slot)
     end
 
     area:emplace(card)
+    if card.start_materialize then
+        pcall(card.start_materialize, card, nil, delay_flag)
+    end
     return card
 end
 
@@ -225,9 +217,9 @@ local function trends_tab_definition(state)
                 for _ = 1, count do
                     slot_index = slot_index + 1
                     local slot = view.items[slot_index]
-                    if slot then build_trend_card(area, slot) end
+                    if slot then build_trend_card(area, slot, slot_index > 1) end
                 end
-                deck_tables[#deck_tables + 1] = row({ { n = G.UIT.O, config = { object = area } } }, { padding = 0.05, no_fill = true })
+                deck_tables[#deck_tables + 1] = row({ { n = G.UIT.O, config = { object = area, func = "grdl_trend_tick", ref_table = area } } }, { padding = 0.05, no_fill = true })
             end
             nodes[#nodes + 1] = { n = G.UIT.R, config = { align = "cm", r = 0.1, colour = G.C.BLACK, emboss = 0.05 }, nodes = deck_tables }
         end
@@ -418,6 +410,27 @@ function MarketUI.install_runtime(namespace, runtime, adapter)
     adapter = adapter or default_adapter(runtime)
 
     UICommon.install_preview(runtime.FUNCS)
+
+    runtime.FUNCS.grdl_trend_tick = function(element)
+        local area = element and element.config and element.config.ref_table or nil
+        if not area or not area.cards then return end
+        local clock = (rawget(_G, "love") and love.timer and love.timer.getTime and love.timer.getTime()) or os.clock()
+        for _, card in ipairs(area.cards) do
+            local carousel = card.grdl_carousel
+            if carousel and #carousel.keys > 1 then
+                carousel.last = carousel.last or clock
+                if clock - carousel.last >= CAROUSEL_INTERVAL then
+                    carousel.last = clock
+                    carousel.index = carousel.index % #carousel.keys + 1
+                    local centers = rawget(_G, "G") and G.P_CENTERS or {}
+                    local next_center = centers[carousel.keys[carousel.index]]
+                    if next_center then
+                        pcall(card.set_sprites, card, next_center)
+                    end
+                end
+            end
+        end
+    end
 
     runtime.FUNCS.grdl_open_market = function(event)
         local state = MarketUI.open(namespace)
