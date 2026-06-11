@@ -37,42 +37,68 @@ local catalog = {
 local seed_state = Storage.normalize({})
 local Config = dofile("src/config.lua")
 local seed_config = Config.normalize({})
-local seeded = DebugTools.seed_cards(seed_state, catalog, { count = 4, now = 1767225600, config = seed_config })
+local seeded = DebugTools.seed_cards(seed_state, catalog, { count = 4, now = 1767225600, rng_seed = 42, config = seed_config })
 H.assert_equal(seeded.ok, true, "seeding succeeds")
 H.assert_equal(#seeded.cards, 4, "requested count created")
 H.assert_equal(#seed_state.cards, 4, "cards stored in collection")
 
-local first = seeded.cards[1]
-H.assert_equal(first.status, "graded", "seeded card graded")
-H.assert_equal(first.grade, 10, "first seeded grade")
-H.assert_equal(first.edition, "base", "first seeded edition")
-H.assert_equal(first.cert_number, "000001", "first cert number")
-H.assert_equal(first.acquired_year, 2026, "seeded acquired year")
-H.assert_equal(first.acquired_month, 1, "seeded acquired month")
-H.assert_equal(first.acquired_day, 1, "seeded acquired day")
-H.assert_equal(first.acquired_price, 35, "seeded price from anchor value")
-H.assert_equal(first.source, "debug_seed", "seeded source marker")
-H.assert_true(first.condition ~= nil and first.condition.surface ~= nil, "seeded condition stored")
+local GRADE_SET = { [10] = true, [9] = true, [8] = true, [7] = true, [6] = true }
+local EDITION_SET = { base = true, foil = true, holographic = true, polychrome = true, negative = true }
+local distinct_grades = {}
+local distinct_editions = {}
+for _, card in ipairs(seeded.cards) do
+    H.assert_equal(card.status, "graded", "seeded card graded")
+    H.assert_true(GRADE_SET[card.grade] == true, "seeded grade within cycle set")
+    H.assert_true(EDITION_SET[card.edition] == true, "seeded edition within authenticated set")
+    H.assert_equal(card.acquired_year, 2026, "seeded acquired year")
+    H.assert_equal(card.acquired_month, 1, "seeded acquired month")
+    H.assert_equal(card.acquired_day, 1, "seeded acquired day")
+    H.assert_equal(card.source, "debug_seed", "seeded source marker")
+    H.assert_true(card.condition ~= nil and card.condition.surface ~= nil, "seeded condition stored")
+    local expected_price = math.floor(seed_config.economy.rarity_base[card.rarity] * seed_config.economy.edition_mult[card.edition])
+    H.assert_equal(card.acquired_price, expected_price, "seeded price follows anchor value")
+    distinct_grades[card.grade] = true
+    distinct_editions[card.edition] = true
+end
+local grade_count, edition_count = 0, 0
+for _ in pairs(distinct_grades) do grade_count = grade_count + 1 end
+for _ in pairs(distinct_editions) do edition_count = edition_count + 1 end
+H.assert_true(grade_count >= 2, "grades vary within a batch")
+H.assert_true(edition_count >= 2, "editions vary within a batch")
 
-H.assert_equal(seeded.cards[2].grade, 9, "grades cycle downward")
-H.assert_equal(seeded.cards[2].edition, "foil", "editions cycle")
+H.assert_equal(seeded.cards[1].cert_number, "000001", "first cert number")
 H.assert_equal(seeded.cards[4].cert_number, "000004", "cert numbers increment")
 H.assert_true(seeded.cards[1].mod_id ~= seeded.cards[2].mod_id, "mods alternate round robin")
 
+local function batch_signature(cards)
+    local parts = {}
+    for _, card in ipairs(cards) do
+        parts[#parts + 1] = tostring(card.center_key) .. ":" .. tostring(card.grade) .. ":" .. tostring(card.edition)
+    end
+    return table.concat(parts, "|")
+end
+
+local replay = DebugTools.seed_cards(Storage.normalize({}), catalog, { count = 4, now = 1767225600, rng_seed = 42, config = seed_config })
+H.assert_equal(batch_signature(replay.cards), batch_signature(seeded.cards), "same seed reproduces the batch")
+
+local different = false
+for seed = 43, 47 do
+    local other = DebugTools.seed_cards(Storage.normalize({}), catalog, { count = 4, now = 1767225600, rng_seed = seed, config = seed_config })
+    if batch_signature(other.cards) ~= batch_signature(seeded.cards) then
+        different = true
+        break
+    end
+end
+H.assert_true(different, "different seeds change the batch")
+
+local grown_state = Storage.normalize({})
+DebugTools.seed_cards(grown_state, catalog, { count = 2, now = 1767225600, config = seed_config })
+local second_run = DebugTools.seed_cards(grown_state, catalog, { count = 2, now = 1767225600, config = seed_config })
+H.assert_equal(#grown_state.cards, 4, "consecutive runs accumulate")
+H.assert_equal(second_run.ok, true, "second unseeded run succeeds")
+
 local exhausted = DebugTools.seed_cards(Storage.normalize({}), catalog, { count = 99, now = 1767225600 })
 H.assert_equal(#exhausted.cards, 4, "seeding stops when catalog exhausted")
-
-local pairing = DebugTools.seed_cards(Storage.normalize({}), {
-    { center_key = "j_1", local_key = "k1", series_key = "S", mod_id = "M", rarity = "common" },
-    { center_key = "j_2", local_key = "k2", series_key = "S", mod_id = "M", rarity = "common" },
-    { center_key = "j_3", local_key = "k3", series_key = "S", mod_id = "M", rarity = "common" },
-    { center_key = "j_4", local_key = "k4", series_key = "S", mod_id = "M", rarity = "common" },
-    { center_key = "j_5", local_key = "k5", series_key = "S", mod_id = "M", rarity = "common" },
-    { center_key = "j_6", local_key = "k6", series_key = "S", mod_id = "M", rarity = "common" }
-}, { count = 6, now = 1767225600 })
-H.assert_equal(pairing.cards[1].edition, "base", "cycle one starts at base")
-H.assert_equal(pairing.cards[6].grade, 10, "sixth card wraps grade cycle")
-H.assert_true(pairing.cards[6].edition ~= pairing.cards[1].edition, "grade-edition pairing shifts between cycles")
 
 H.assert_equal(DebugTools.seed_cards(Storage.normalize({}), {}, { count = 3 }).ok, false, "empty catalog rejected")
 

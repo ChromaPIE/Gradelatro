@@ -10,6 +10,7 @@ end
 local Catalog = load_src("catalog.lua")
 local Economy = load_src("economy.lua")
 local Persistence = load_src("persistence.lua")
+local Rng = load_src("rng.lua")
 local Storage = load_src("storage.lua")
 
 local GRADE_CONDITION = {
@@ -73,6 +74,7 @@ function DebugTools.seed_cards(state, catalog, args)
     local graded = args.graded ~= false
     local count = math.max(1, math.floor(args.count or 10))
     local now = args.now or os.time()
+    local rand = Rng.lcg(args.rng_seed or (now + #(state.cards or {}) * 7919))
 
     local by_mod = {}
     local mod_order = {}
@@ -86,6 +88,13 @@ function DebugTools.seed_cards(state, catalog, args)
     end
     if #mod_order == 0 then return { ok = false, reason = "empty_catalog" } end
 
+    Rng.shuffle(mod_order, rand)
+    for _, bucket in pairs(by_mod) do
+        Rng.shuffle(bucket, rand)
+    end
+    local grade_phase = math.floor(rand() * #SEED_GRADES)
+    local edition_phase = math.floor(rand() * #SEED_EDITIONS)
+
     local created = {}
     local cursor = {}
     local mod_index = 0
@@ -97,8 +106,8 @@ function DebugTools.seed_cards(state, catalog, args)
         local entry = by_mod[mod_id][cursor[mod_id]]
         if entry then
             local n = #created + 1
-            local grade = SEED_GRADES[(n - 1) % #SEED_GRADES + 1]
-            local edition_index = ((n - 1) + math.floor((n - 1) / #SEED_EDITIONS)) % #SEED_EDITIONS + 1
+            local grade = SEED_GRADES[(n - 1 + grade_phase) % #SEED_GRADES + 1]
+            local edition_index = ((n - 1 + edition_phase) + math.floor((n - 1) / #SEED_EDITIONS)) % #SEED_EDITIONS + 1
             local edition = SEED_EDITIONS[edition_index]
             local price = 0
             if args.config then

@@ -9,21 +9,13 @@ end
 
 local Condition = load_src("condition.lua")
 local Economy = load_src("economy.lua")
+local Rng = load_src("rng.lua")
 local Storage = load_src("storage.lua")
 
 local function clamp(value, min_value, max_value)
     if value < min_value then return min_value end
     if value > max_value then return max_value end
     return value
-end
-
-local function lcg(seed)
-    local state = math.floor(seed or os.time()) % 2147483647
-    if state <= 0 then state = state + 2147483646 end
-    return function()
-        state = (state * 48271) % 2147483647
-        return state / 2147483647
-    end
 end
 
 local function series_phase(series_id)
@@ -77,7 +69,7 @@ function Market.refresh(config, state, args)
         return { ok = true, refreshed = false }
     end
 
-    local rand = lcg(args.rng_seed or now)
+    local rand = Rng.lcg(args.rng_seed or now)
     local day = math.floor(now / 86400)
 
     for _, series_id in ipairs(args.series_ids or {}) do
