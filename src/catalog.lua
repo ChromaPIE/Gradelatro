@@ -53,6 +53,17 @@ function Catalog.normalize_edition(config, edition)
     return "base"
 end
 
+local EDITION_FLAGS = {
+    foil = { foil = true },
+    holographic = { holo = true },
+    polychrome = { polychrome = true },
+    negative = { negative = true }
+}
+
+function Catalog.edition_flags(edition)
+    return EDITION_FLAGS[edition or "base"]
+end
+
 function Catalog.center_key_from_card(card)
     if not card then return nil end
     if card.center_key then return card.center_key end

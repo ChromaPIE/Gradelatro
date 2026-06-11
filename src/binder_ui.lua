@@ -28,13 +28,6 @@ local DESK_PAGE_SIZE = 7
 
 local CARD_INSPECT_SCALE = 2.2
 
-local EDITION_FLAGS = {
-    foil = { foil = true },
-    holographic = { holo = true },
-    polychrome = { polychrome = true },
-    negative = { negative = true }
-}
-
 local TEXT_KEYS = {
     title = "grdl_k_binder_title",
     empty = "grdl_k_binder_empty",
@@ -278,7 +271,7 @@ function BinderUI.fill_card_areas(namespace)
                 local center = G.P_CENTERS and G.P_CENTERS[entry.center_key] or nil
                 if center then
                     local card = Card(area.T.x + area.T.w / 2, area.T.y, G.CARD_W, G.CARD_H, (G.P_CARDS and G.P_CARDS.empty or nil), center)
-                    local edition_flag = EDITION_FLAGS[entry.edition]
+                    local edition_flag = Catalog.edition_flags(entry.edition)
                     if edition_flag then card:set_edition(edition_flag, true, true) end
                     card.grdl_record = entry
                     suppress_selection(card)
@@ -410,7 +403,13 @@ local function desk_card_row(state, row_data)
     local fee = state.fees and state.fees[row_data.id] or nil
     local name = center_name(row_data)
     return row({
-        col({ ui_text(name, UICommon.fit_scale(name, 0.32, 18)) }, { align = "cl", minw = 2.2 }),
+        col({ ui_text(name, UICommon.fit_scale(name, 0.32, 18)) }, {
+            align = "cl",
+            minw = 2.2,
+            collideable = true,
+            func = "grdl_row_preview",
+            ref_table = { center_key = row_data.center_key, edition = row_data.edition }
+        }),
         col({ ui_text(safe_localize("grdl_k_edition_" .. tostring(row_data.edition or "base")), 0.28) }, { align = "cl", minw = 1.0 }),
         col({ ui_text(fee and safe_localize("grdl_k_grading_fee", { fee }) or "", 0.3, G.C.GOLD) }, { align = "cr", minw = 0.9 }),
         col({
@@ -432,7 +431,13 @@ end
 local function queue_row(queue_data)
     local name = center_name(queue_data)
     return row({
-        col({ ui_text(name, UICommon.fit_scale(name, 0.32, 18)) }, { align = "cl", minw = 2.2 }),
+        col({ ui_text(name, UICommon.fit_scale(name, 0.32, 18)) }, {
+            align = "cl",
+            minw = 2.2,
+            collideable = true,
+            func = "grdl_row_preview",
+            ref_table = { center_key = queue_data.center_key, edition = queue_data.edition }
+        }),
         col({ ui_text(safe_localize("grdl_k_service_" .. tostring(queue_data.service or "standard")), 0.28) }, { align = "cl", minw = 1.0 }),
         col({ queue_bar(queue_data) }, { align = "cr", minw = 2.5 })
     }, { padding = 0.05 })
@@ -575,7 +580,7 @@ local function build_inspect_card(namespace, entry, catalog_entry)
         CARD_INSPECT_SCALE * G.CARD_H,
         { card_limit = 1, type = "title", highlight_limit = 0, collection = true })
     local card = Card(area.T.x, area.T.y, CARD_INSPECT_SCALE * G.CARD_W, CARD_INSPECT_SCALE * G.CARD_H, (G.P_CARDS and G.P_CARDS.empty or nil), center)
-    local edition_flag = EDITION_FLAGS[entry.edition]
+    local edition_flag = Catalog.edition_flags(entry.edition)
     if edition_flag then card:set_edition(edition_flag, true, true) end
     card.hover = function(self)
         if rawget(_G, "Node") then Node.hover(self) end
@@ -680,6 +685,8 @@ function BinderUI.install_runtime(namespace, runtime, adapter)
     runtime = runtime or rawget(_G, "G")
     if not namespace or not runtime or not runtime.FUNCS then return false end
     adapter = adapter or default_adapter(runtime)
+
+    UICommon.install_preview(runtime.FUNCS)
 
     runtime.FUNCS.grdl_open_binder = function(event)
         local state = BinderUI.open(namespace)

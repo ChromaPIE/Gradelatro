@@ -178,7 +178,13 @@ local function sell_row(state, row_data)
     local pending = state.pending_sell_id == row_data.id
     local name = center_name(row_data)
     return row({
-        col({ ui_text(name, UICommon.fit_scale(name, 0.32, 18)) }, { align = "cl", minw = 2.2 }),
+        col({ ui_text(name, UICommon.fit_scale(name, 0.32, 18)) }, {
+            align = "cl",
+            minw = 2.2,
+            collideable = true,
+            func = "grdl_row_preview",
+            ref_table = { center_key = row_data.center_key, edition = row_data.edition }
+        }),
         col({ ui_text(status_text(row_data), 0.28) }, { align = "cl", minw = 1.0 }),
         col({ ui_text(safe_localize("grdl_k_grading_fee", { row_data.quote }), 0.3, G.C.GOLD) }, { align = "cr", minw = 0.9 }),
         col({
@@ -308,6 +314,8 @@ function MarketUI.install_runtime(namespace, runtime, adapter)
     runtime = runtime or rawget(_G, "G")
     if not namespace or not runtime or not runtime.FUNCS then return false end
     adapter = adapter or default_adapter(runtime)
+
+    UICommon.install_preview(runtime.FUNCS)
 
     runtime.FUNCS.grdl_open_market = function(event)
         local state = MarketUI.open(namespace)

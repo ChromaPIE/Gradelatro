@@ -240,6 +240,81 @@ runtime.FUNCS.grdl_desk_submit_page({ cycle_config = { current_option = 1 } })
 H.assert_equal(namespace.desk_ui_state.submit_page, 1, "page callback applies cycle option")
 H.assert_equal(adapter.desk_refreshed, refreshed_before + 1, "page callback refreshes overlay")
 
+H.assert_true(type(runtime.FUNCS.grdl_row_preview) == "function", "row preview func registered")
+local previous_preview_g = rawget(_G, "G")
+local previous_preview_card = rawget(_G, "Card")
+local previous_preview_area = rawget(_G, "CardArea")
+local previous_preview_uibox = rawget(_G, "UIBox")
+_G.G = {
+    P_CENTERS = { j_joker = { key = "j_joker", set = "Joker" } },
+    CARD_W = 1.44,
+    CARD_H = 1.9,
+    UIT = { R = "R", C = "C", T = "T", O = "O", ROOT = "ROOT" },
+    C = { CLEAR = { 0, 0, 0, 0 } }
+}
+local captured_card = nil
+_G.Card = function(x, y, w, h, front, center)
+    captured_card = {
+        w = w,
+        h = h,
+        center = center,
+        states = { collide = { can = true } },
+        set_edition = function(self, flags) self.edition_flags = flags end
+    }
+    return captured_card
+end
+_G.CardArea = function(x, y, w, h, args)
+    return {
+        T = { x = x, y = y, w = w, h = h },
+        cards = {},
+        emplace = function(self, card) self.cards[#self.cards + 1] = card end
+    }
+end
+local preview_box_removed = 0
+local preview_box_args = nil
+_G.UIBox = function(args)
+    preview_box_args = args
+    return {
+        states = { collide = { can = true } },
+        remove = function() preview_box_removed = preview_box_removed + 1 end
+    }
+end
+
+local preview_element = {
+    config = { ref_table = { center_key = "j_joker", edition = "negative" } },
+    states = { hover = { is = true } },
+    children = {}
+}
+runtime.FUNCS.grdl_row_preview(preview_element)
+H.assert_true(preview_element.children.grdl_preview ~= nil, "hover attaches card preview")
+H.assert_near(captured_card.w, 0.8 * 1.44, 0.000001, "preview card at point eight scale")
+H.assert_true(captured_card.edition_flags ~= nil and captured_card.edition_flags.negative == true, "preview applies edition")
+H.assert_equal(captured_card.states.collide.can, false, "preview card does not catch the cursor")
+H.assert_equal(preview_box_args.config.instance_type, "POPUP", "preview draws on popup layer")
+H.assert_equal(preview_box_args.config.align, "cl", "preview floats beside the row")
+H.assert_equal(preview_box_args.config.parent, preview_element, "preview parented for cascade cleanup")
+
+runtime.FUNCS.grdl_row_preview(preview_element)
+H.assert_equal(preview_box_removed, 0, "steady hover keeps the preview")
+
+preview_element.states.hover.is = false
+runtime.FUNCS.grdl_row_preview(preview_element)
+H.assert_equal(preview_box_removed, 1, "unhover removes the preview")
+H.assert_equal(preview_element.children.grdl_preview, nil, "preview reference cleared")
+
+local missing_element = {
+    config = { ref_table = { center_key = "j_unknown", edition = "base" } },
+    states = { hover = { is = true } },
+    children = {}
+}
+runtime.FUNCS.grdl_row_preview(missing_element)
+H.assert_equal(missing_element.children.grdl_preview, nil, "missing center attaches nothing")
+
+_G.G = previous_preview_g
+_G.Card = previous_preview_card
+_G.CardArea = previous_preview_area
+_G.UIBox = previous_preview_uibox
+
 _G.SMODS = previous_smods_global
 
 print("binder ui tests ok")

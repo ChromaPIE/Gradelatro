@@ -1,6 +1,17 @@
 local UICommon = {}
 
+local function load_src(path)
+    if rawget(_G, "SMODS") and SMODS.load_file then
+        return assert(SMODS.load_file("src/" .. path))()
+    end
+    return dofile("src/" .. path)
+end
+
+local Catalog = load_src("catalog.lua")
+
 local ERROR_TEXT = "ERROR"
+
+local PREVIEW_SCALE = 0.8
 
 function UICommon.localize_text(key, vars)
     if not rawget(_G, "localize") then return key end
@@ -108,6 +119,65 @@ function UICommon.page_cycle(view, callback)
         no_pips = true,
         focus_args = { snap_to = true, nav = "wide" }
     })
+end
+
+function UICommon.attach_card_preview(element, info)
+    if not rawget(_G, "UIBox") or not rawget(_G, "CardArea") or not rawget(_G, "Card") then return false end
+    if not element or not element.children or element.children.grdl_preview then return false end
+    local runtime = rawget(_G, "G")
+    local center = runtime and runtime.P_CENTERS and info and info.center_key and runtime.P_CENTERS[info.center_key] or nil
+    if not center then return false end
+
+    local width = PREVIEW_SCALE * runtime.CARD_W
+    local height = PREVIEW_SCALE * runtime.CARD_H
+    local area = CardArea(0, 0, width, height, { card_limit = 1, type = "title", highlight_limit = 0, collection = true })
+    local card = Card(area.T.x, area.T.y, width, height, (runtime.P_CARDS and runtime.P_CARDS.empty or nil), center)
+    local flags = Catalog.edition_flags(info.edition)
+    if flags then card:set_edition(flags, true, true) end
+    if card.states and card.states.collide then card.states.collide.can = false end
+    area:emplace(card)
+
+    element.children.grdl_preview = UIBox({
+        definition = { n = runtime.UIT.ROOT, config = { align = "cm", colour = runtime.C.CLEAR, padding = 0.05 }, nodes = {
+            { n = runtime.UIT.O, config = { object = area } }
+        } },
+        config = {
+            instance_type = "POPUP",
+            align = "cl",
+            offset = { x = -0.08, y = 0 },
+            major = element,
+            bond = "Strong",
+            parent = element
+        }
+    })
+    if element.children.grdl_preview.states and element.children.grdl_preview.states.collide then
+        element.children.grdl_preview.states.collide.can = false
+    end
+    return true
+end
+
+function UICommon.detach_card_preview(element)
+    local box = element and element.children and element.children.grdl_preview or nil
+    if not box then return false end
+    box:remove()
+    element.children.grdl_preview = nil
+    return true
+end
+
+function UICommon.install_preview(funcs)
+    funcs = funcs or (rawget(_G, "G") and G.FUNCS) or nil
+    if not funcs then return false end
+    funcs.grdl_row_preview = function(element)
+        if not element or not element.config then return end
+        if element.states and element.states.hover and element.states.hover.is then
+            if not (element.children and element.children.grdl_preview) then
+                pcall(UICommon.attach_card_preview, element, element.config.ref_table)
+            end
+        elseif element.children and element.children.grdl_preview then
+            pcall(UICommon.detach_card_preview, element)
+        end
+    end
+    return true
 end
 
 function UICommon.event_ref_id(event)

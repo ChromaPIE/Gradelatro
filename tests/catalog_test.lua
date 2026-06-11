@@ -85,4 +85,11 @@ H.assert_equal(Catalog.edition_from_card({ edition = { key = "e_cry_oversat" } }
 H.assert_equal(Catalog.edition_from_card({ edition = "foil" }), "foil", "string edition accepted")
 H.assert_equal(Catalog.edition_from_card({}), "base", "missing edition defaults to base")
 
+H.assert_equal(Catalog.edition_flags("foil").foil, true, "foil flag")
+H.assert_equal(Catalog.edition_flags("holographic").holo, true, "holographic maps to holo flag")
+H.assert_equal(Catalog.edition_flags("polychrome").polychrome, true, "polychrome flag")
+H.assert_equal(Catalog.edition_flags("negative").negative, true, "negative flag")
+H.assert_equal(Catalog.edition_flags("base"), nil, "base has no edition flag")
+H.assert_equal(Catalog.edition_flags(nil), nil, "nil edition has no flag")
+
 print("catalog tests ok")

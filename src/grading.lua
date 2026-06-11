@@ -111,6 +111,7 @@ function Grading.queue_rows(state, now)
             card_id = entry.card_id,
             center_key = card and card.center_key or nil,
             name_key = card and (card.local_key or card.center_key) or entry.card_id,
+            edition = card and (card.edition or "base") or nil,
             service = entry.service,
             submitted_at = entry.submitted_at,
             due_at = entry.due_at,
