@@ -48,10 +48,35 @@ H.assert_equal(offers[1].mystery, false, "slot one is open")
 H.assert_equal(offers[2].mystery, false, "slot two is open")
 H.assert_equal(offers[3].mystery, true, "slot three is the mystery")
 
+H.assert_true(config.black_market.intel_reveal_chance > 0 and config.black_market.intel_reveal_chance < 1, "intel reveal chance is a probability")
+H.assert_equal(offers[1].intel, nil, "open offers carry no intel")
+H.assert_equal(offers[2].intel, nil, "second open offer carries no intel")
+H.assert_true(offers[3].intel ~= nil, "mystery offer rolls intel")
+for _, field in ipairs({ "mod", "rarity", "edition", "graded" }) do
+    H.assert_true(type(offers[3].intel[field]) == "boolean", "intel field " .. field .. " is a boolean")
+end
+
+local intel_config = Config.normalize({})
+intel_config.black_market.intel_reveal_chance = 1
+local open_state = Storage.normalize({})
+BlackMarket.generate(intel_config, open_state, { catalog = catalog, run_id = "R1", now = 1767225600, rng_seed = 5 })
+for _, field in ipairs({ "mod", "rarity", "edition", "graded" }) do
+    H.assert_equal(open_state.market.black_market.offers[3].intel[field], true, "chance one reveals " .. field)
+end
+intel_config.black_market.intel_reveal_chance = 0
+local closed_state = Storage.normalize({})
+BlackMarket.generate(intel_config, closed_state, { catalog = catalog, run_id = "R1", now = 1767225600, rng_seed = 5 })
+for _, field in ipairs({ "mod", "rarity", "edition", "graded" }) do
+    H.assert_equal(closed_state.market.black_market.offers[3].intel[field], false, "chance zero hides " .. field)
+end
+
 local replay_state = Storage.normalize({})
 BlackMarket.generate(config, replay_state, { catalog = catalog, run_id = "R1", boss_key = "bl_hook", now = 1767225600, rng_seed = 42 })
 H.assert_equal(replay_state.market.black_market.offers[1].center_key, offers[1].center_key, "same seed reproduces offers")
 H.assert_equal(replay_state.market.black_market.offers[1].price, offers[1].price, "same seed reproduces prices")
+for _, field in ipairs({ "mod", "rarity", "edition", "graded" }) do
+    H.assert_equal(replay_state.market.black_market.offers[3].intel[field], offers[3].intel[field], "same seed reproduces intel " .. field)
+end
 
 local guard = BlackMarket.generate(config, state, { catalog = catalog, run_id = "R1", now = 1767225700, rng_seed = 99 })
 H.assert_equal(guard.ok, true, "same run regeneration is safe")

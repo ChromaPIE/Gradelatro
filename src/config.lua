@@ -108,6 +108,7 @@ Config.DEFAULTS = {
         mystery_float_min = 0.50,
         mystery_float_max = 2.00,
         mystery_wild_chance = 0.60,
+        intel_reveal_chance = 0.40,
         edition_weights = {
             base = 0.70,
             foil = 0.12,

@@ -77,6 +77,17 @@ function BlackMarket.generate(config, state, args)
         local float = float_low + rand() * (float_high - float_low)
         local premium = sell_min + rand() * (sell_max - sell_min)
 
+        local intel = nil
+        if mystery then
+            local reveal = settings.intel_reveal_chance or 0
+            intel = {
+                mod = rand() < reveal,
+                rarity = rand() < reveal,
+                edition = rand() < reveal,
+                graded = rand() < reveal
+            }
+        end
+
         local offer = {
             slot = slot,
             center_key = entry.center_key,
@@ -90,6 +101,7 @@ function BlackMarket.generate(config, state, args)
             graded = graded,
             grade = graded and Condition.grade(condition) or nil,
             mystery = mystery,
+            intel = intel,
             sold = false
         }
         offer.price = math.max(1, math.floor(BlackMarket.offer_value(config, state, offer) * premium * float))
