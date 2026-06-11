@@ -222,6 +222,24 @@ bar_element.config.ref_table.due_at = os.time() - 1
 runtime.FUNCS.grdl_queue_tick(bar_element)
 H.assert_equal(bar_element.config.tooltip.text[1], "grdl_k_grading_ready", "tick reports ready when due passed")
 
+local tab_desk = BinderUI.open_desk(namespace, 3000)
+H.assert_equal(tab_desk.desk_tab, "submit", "desk opens on the submit tab")
+H.assert_equal(tab_desk.submit_page, 1, "submit page starts at one")
+H.assert_equal(tab_desk.queue_page, 1, "queue page starts at one")
+H.assert_true(#tab_desk.rows >= 8, "fixture has more than one submit page")
+
+BinderUI.set_desk_page(namespace, "submit", 2)
+H.assert_equal(namespace.desk_ui_state.submit_page, 2, "submit page switched")
+BinderUI.set_desk_page(namespace, "submit", 99)
+H.assert_equal(namespace.desk_ui_state.submit_page, 2, "submit page clamps to max")
+BinderUI.set_desk_page(namespace, "queue", 99)
+H.assert_equal(namespace.desk_ui_state.queue_page, 1, "queue page clamps on empty queue")
+
+local refreshed_before = adapter.desk_refreshed
+runtime.FUNCS.grdl_desk_submit_page({ cycle_config = { current_option = 1 } })
+H.assert_equal(namespace.desk_ui_state.submit_page, 1, "page callback applies cycle option")
+H.assert_equal(adapter.desk_refreshed, refreshed_before + 1, "page callback refreshes overlay")
+
 _G.SMODS = previous_smods_global
 
 print("binder ui tests ok")

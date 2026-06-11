@@ -24,6 +24,8 @@ local event_card_id = UICommon.event_ref_id
 
 local PAGE_ROWS = { 5, 5 }
 
+local DESK_PAGE_SIZE = 7
+
 local CARD_INSPECT_SCALE = 2.2
 
 local EDITION_FLAGS = {
@@ -40,7 +42,9 @@ local TEXT_KEYS = {
     desk = "grdl_b_desk",
     desk_title = "grdl_k_desk_title",
     desk_empty = "grdl_k_desk_empty",
-    queue_title = "grdl_k_queue_title",
+    queue_empty = "grdl_k_queue_empty",
+    tab_submit = "grdl_k_tab_submit",
+    tab_progress = "grdl_k_tab_progress",
     revealed = "grdl_k_grading_revealed"
 }
 
@@ -162,10 +166,24 @@ function BinderUI.open_desk(namespace, now)
         fees = namespace.config and grading_fee_map(namespace.config, namespace.collection) or {},
         queue_rows = Grading.queue_rows(namespace.collection, now),
         revealed_count = revealed_count,
+        desk_tab = "submit",
+        submit_page = 1,
+        queue_page = 1,
         last_reason = nil,
         last_reason_text = ""
     }
     return namespace.desk_ui_state
+end
+
+function BinderUI.set_desk_page(namespace, list_key, page)
+    local state = namespace and namespace.desk_ui_state or nil
+    if not state then return nil end
+    if list_key == "queue" then
+        state.queue_page = Binder.page(state.queue_rows, page, DESK_PAGE_SIZE).page
+    else
+        state.submit_page = Binder.page(state.rows, page, DESK_PAGE_SIZE).page
+    end
+    return state
 end
 
 function BinderUI.open_inspect(namespace, card_id, now)
@@ -321,23 +339,9 @@ function BinderUI.create_overlay_definition(namespace)
     end
 
     local controls = {}
-    if state.page_view.pages > 1 then
-        local options = {}
-        for i = 1, state.page_view.pages do
-            options[#options + 1] = safe_localize("k_page") .. " " .. tostring(i) .. "/" .. tostring(state.page_view.pages)
-        end
-        controls[#controls + 1] = col({
-            create_option_cycle({
-                options = options,
-                w = 4.5,
-                cycle_shoulders = true,
-                opt_callback = "grdl_binder_page",
-                current_option = state.page,
-                colour = G.C.RED,
-                no_pips = true,
-                focus_args = { snap_to = true, nav = "wide" }
-            })
-        })
+    local grid_cycle = UICommon.page_cycle(state.page_view, "grdl_binder_page")
+    if grid_cycle then
+        controls[#controls + 1] = col({ grid_cycle })
     end
     controls[#controls + 1] = col({
         UIBox_button({
@@ -434,6 +438,49 @@ local function queue_row(queue_data)
     }, { padding = 0.05 })
 end
 
+local function desk_tab_root(nodes)
+    return { n = G.UIT.ROOT, config = { align = "tm", colour = G.C.CLEAR, minw = 6.6, minh = 5.0, padding = 0.05 }, nodes = nodes }
+end
+
+local function submit_tab_definition(state)
+    return function()
+        state.desk_tab = "submit"
+        local view = Binder.page(state.rows, state.submit_page, DESK_PAGE_SIZE)
+        state.submit_page = view.page
+        local nodes = {}
+        if view.total == 0 then
+            nodes[#nodes + 1] = row({ ui_text(safe_localize(state.text_keys.desk_empty), 0.34, G.C.UI.TEXT_INACTIVE) })
+        else
+            for _, entry in ipairs(view.items) do
+                nodes[#nodes + 1] = desk_card_row(state, entry)
+            end
+        end
+        local cycle = UICommon.page_cycle(view, "grdl_desk_submit_page")
+        if cycle then nodes[#nodes + 1] = row({ cycle }, { padding = 0.05 }) end
+        nodes[#nodes + 1] = row({ { n = G.UIT.T, config = { ref_table = state, ref_value = "last_reason_text", scale = 0.3, colour = G.C.RED } } })
+        return desk_tab_root(nodes)
+    end
+end
+
+local function queue_tab_definition(state)
+    return function()
+        state.desk_tab = "queue"
+        local view = Binder.page(state.queue_rows, state.queue_page, DESK_PAGE_SIZE)
+        state.queue_page = view.page
+        local nodes = {}
+        if view.total == 0 then
+            nodes[#nodes + 1] = row({ ui_text(safe_localize(state.text_keys.queue_empty), 0.34, G.C.UI.TEXT_INACTIVE) })
+        else
+            for _, entry in ipairs(view.items) do
+                nodes[#nodes + 1] = queue_row(entry)
+            end
+        end
+        local cycle = UICommon.page_cycle(view, "grdl_desk_queue_page")
+        if cycle then nodes[#nodes + 1] = row({ cycle }, { padding = 0.05 }) end
+        return desk_tab_root(nodes)
+    end
+end
+
 function BinderUI.create_desk_definition(namespace)
     namespace = namespace or rawget(_G, "Gradelatro") or {}
     local state = namespace.desk_ui_state or BinderUI.open_desk(namespace)
@@ -447,22 +494,23 @@ function BinderUI.create_desk_definition(namespace)
         revealed_row(state)
     }
 
-    if #state.rows == 0 then
-        rows[#rows + 1] = row({ ui_text(safe_localize(state.text_keys.desk_empty), 0.34, G.C.UI.TEXT_INACTIVE) })
-    else
-        for _, entry in ipairs(state.rows) do
-            rows[#rows + 1] = desk_card_row(state, entry)
-        end
-    end
-
-    if #(state.queue_rows or {}) > 0 then
-        rows[#rows + 1] = row({ ui_text(safe_localize(state.text_keys.queue_title), 0.4, G.C.WHITE) })
-        for _, entry in ipairs(state.queue_rows) do
-            rows[#rows + 1] = queue_row(entry)
-        end
-    end
-
-    rows[#rows + 1] = row({ { n = G.UIT.T, config = { ref_table = state, ref_value = "last_reason_text", scale = 0.3, colour = G.C.RED } } })
+    rows[#rows + 1] = row({
+        create_tabs({
+            tabs = {
+                {
+                    label = safe_localize(state.text_keys.tab_submit),
+                    chosen = state.desk_tab ~= "queue",
+                    tab_definition_function = submit_tab_definition(state)
+                },
+                {
+                    label = safe_localize(state.text_keys.tab_progress),
+                    chosen = state.desk_tab == "queue",
+                    tab_definition_function = queue_tab_definition(state)
+                }
+            },
+            text_scale = 0.4
+        })
+    }, { padding = 0.05 })
 
     return create_UIBox_generic_options({
         back_func = "grdl_open_binder",
@@ -647,6 +695,18 @@ function BinderUI.install_runtime(namespace, runtime, adapter)
         if not event or not event.cycle_config then return end
         BinderUI.set_page(namespace, event.cycle_config.current_option)
         BinderUI.fill_card_areas(namespace)
+    end
+
+    runtime.FUNCS.grdl_desk_submit_page = function(event)
+        if not event or not event.cycle_config then return end
+        BinderUI.set_desk_page(namespace, "submit", event.cycle_config.current_option)
+        if adapter.refresh_desk then adapter.refresh_desk(namespace, namespace.desk_ui_state, event) end
+    end
+
+    runtime.FUNCS.grdl_desk_queue_page = function(event)
+        if not event or not event.cycle_config then return end
+        BinderUI.set_desk_page(namespace, "queue", event.cycle_config.current_option)
+        if adapter.refresh_desk then adapter.refresh_desk(namespace, namespace.desk_ui_state, event) end
     end
 
     runtime.FUNCS.grdl_queue_tick = function(element)

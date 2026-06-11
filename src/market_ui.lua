@@ -20,10 +20,14 @@ local row = UICommon.row
 local col = UICommon.col
 local event_card_id = UICommon.event_ref_id
 
+local SELL_PAGE_SIZE = 7
+local HEAT_PAGE_SIZE = 10
+
 local TEXT_KEYS = {
     title = "grdl_k_market_title",
     empty = "grdl_k_market_empty",
-    heat_title = "grdl_k_market_heat_title",
+    tab_sell = "grdl_k_tab_sell",
+    tab_trends = "grdl_k_tab_trends",
     sell = "grdl_b_sell",
     confirm = "grdl_b_confirm_sell"
 }
@@ -75,12 +79,26 @@ function MarketUI.open(namespace, now)
         summary = Binder.summary(namespace.collection),
         rows = namespace.config and Market.sell_rows(namespace.config, namespace.collection) or {},
         heat_rows = heat_rows,
+        tab = "sell",
+        sell_page = 1,
+        heat_page = 1,
         pending_sell_id = nil,
         last_reason = nil,
         last_reason_text = "",
         sold_text = ""
     }
     return namespace.market_ui_state
+end
+
+function MarketUI.set_page(namespace, list_key, page)
+    local state = namespace and namespace.market_ui_state or nil
+    if not state then return nil end
+    if list_key == "heat" then
+        state.heat_page = Binder.page(state.heat_rows, page, HEAT_PAGE_SIZE).page
+    else
+        state.sell_page = Binder.page(state.rows, page, SELL_PAGE_SIZE).page
+    end
+    return state
 end
 
 function MarketUI.request_sell(namespace, card_id, now)
@@ -132,11 +150,21 @@ local function heat_colour(label)
     return G.C[HEAT_COLOURS[label] or "WHITE"] or G.C.WHITE
 end
 
-local function heat_row(entry)
-    return row({
-        col({ ui_text(entry.series_key, 0.3) }, { align = "cl", minw = 3.2 }),
-        col({ ui_text(safe_localize(entry.label_key), 0.3, heat_colour(entry.label)) }, { align = "cr", minw = 1.4 })
-    }, { padding = 0.04 })
+local function heat_cells(entry)
+    return {
+        col({ ui_text(entry.series_key, UICommon.fit_scale(entry.series_key, 0.26, 20)) }, { align = "cl", minw = 2.2 }),
+        col({ ui_text(safe_localize(entry.label_key), 0.26, heat_colour(entry.label)) }, { align = "cl", minw = 0.9 })
+    }
+end
+
+local function heat_pair_row(left, right)
+    local nodes = heat_cells(left)
+    if right then
+        for _, cell in ipairs(heat_cells(right)) do
+            nodes[#nodes + 1] = cell
+        end
+    end
+    return row(nodes, { padding = 0.04, align = "cl" })
 end
 
 local function status_text(row_data)
@@ -169,6 +197,49 @@ local function sell_row(state, row_data)
     }, { padding = 0.05 })
 end
 
+local function market_tab_root(nodes)
+    return { n = G.UIT.ROOT, config = { align = "tm", colour = G.C.CLEAR, minw = 6.6, minh = 5.0, padding = 0.05 }, nodes = nodes }
+end
+
+local function sell_tab_definition(state)
+    return function()
+        state.tab = "sell"
+        local view = Binder.page(state.rows, state.sell_page, SELL_PAGE_SIZE)
+        state.sell_page = view.page
+        local nodes = {}
+        if view.total == 0 then
+            nodes[#nodes + 1] = row({ ui_text(safe_localize(state.text_keys.empty), 0.34, G.C.UI.TEXT_INACTIVE) })
+        else
+            for _, entry in ipairs(view.items) do
+                nodes[#nodes + 1] = sell_row(state, entry)
+            end
+        end
+        local cycle = UICommon.page_cycle(view, "grdl_market_sell_page")
+        if cycle then nodes[#nodes + 1] = row({ cycle }, { padding = 0.05 }) end
+        nodes[#nodes + 1] = row({ { n = G.UIT.T, config = { ref_table = state, ref_value = "last_reason_text", scale = 0.3, colour = G.C.RED } } })
+        return market_tab_root(nodes)
+    end
+end
+
+local function trends_tab_definition(state)
+    return function()
+        state.tab = "trends"
+        local view = Binder.page(state.heat_rows, state.heat_page, HEAT_PAGE_SIZE)
+        state.heat_page = view.page
+        local nodes = {}
+        if view.total == 0 then
+            nodes[#nodes + 1] = row({ ui_text(safe_localize(state.text_keys.empty), 0.34, G.C.UI.TEXT_INACTIVE) })
+        else
+            for index = 1, #view.items, 2 do
+                nodes[#nodes + 1] = heat_pair_row(view.items[index], view.items[index + 1])
+            end
+        end
+        local cycle = UICommon.page_cycle(view, "grdl_market_heat_page")
+        if cycle then nodes[#nodes + 1] = row({ cycle }, { padding = 0.05 }) end
+        return market_tab_root(nodes)
+    end
+end
+
 function MarketUI.create_overlay_definition(namespace)
     namespace = namespace or rawget(_G, "Gradelatro") or {}
     local state = namespace.market_ui_state or MarketUI.open(namespace)
@@ -182,22 +253,23 @@ function MarketUI.create_overlay_definition(namespace)
         row({ { n = G.UIT.T, config = { ref_table = state, ref_value = "sold_text", scale = 0.32, colour = G.C.GOLD } } })
     }
 
-    if #state.rows == 0 then
-        rows[#rows + 1] = row({ ui_text(safe_localize(state.text_keys.empty), 0.34, G.C.UI.TEXT_INACTIVE) })
-    else
-        for _, entry in ipairs(state.rows) do
-            rows[#rows + 1] = sell_row(state, entry)
-        end
-    end
-
-    if #state.heat_rows > 0 then
-        rows[#rows + 1] = row({ ui_text(safe_localize(state.text_keys.heat_title), 0.4, G.C.WHITE) }, { padding = 0.08 })
-        for _, entry in ipairs(state.heat_rows) do
-            rows[#rows + 1] = heat_row(entry)
-        end
-    end
-
-    rows[#rows + 1] = row({ { n = G.UIT.T, config = { ref_table = state, ref_value = "last_reason_text", scale = 0.3, colour = G.C.RED } } })
+    rows[#rows + 1] = row({
+        create_tabs({
+            tabs = {
+                {
+                    label = safe_localize(state.text_keys.tab_sell),
+                    chosen = state.tab ~= "trends",
+                    tab_definition_function = sell_tab_definition(state)
+                },
+                {
+                    label = safe_localize(state.text_keys.tab_trends),
+                    chosen = state.tab == "trends",
+                    tab_definition_function = trends_tab_definition(state)
+                }
+            },
+            text_scale = 0.4
+        })
+    }, { padding = 0.05 })
 
     return create_UIBox_generic_options({
         back_func = "grdl_open_binder",
@@ -249,6 +321,18 @@ function MarketUI.install_runtime(namespace, runtime, adapter)
         elseif adapter.notify_failure then
             adapter.notify_failure(namespace, namespace.market_ui_state, event)
         end
+    end
+
+    runtime.FUNCS.grdl_market_sell_page = function(event)
+        if not event or not event.cycle_config then return end
+        MarketUI.set_page(namespace, "sell", event.cycle_config.current_option)
+        if adapter.refresh_market then adapter.refresh_market(namespace, namespace.market_ui_state, event) end
+    end
+
+    runtime.FUNCS.grdl_market_heat_page = function(event)
+        if not event or not event.cycle_config then return end
+        MarketUI.set_page(namespace, "heat", event.cycle_config.current_option)
+        if adapter.refresh_market then adapter.refresh_market(namespace, namespace.market_ui_state, event) end
     end
 
     return true

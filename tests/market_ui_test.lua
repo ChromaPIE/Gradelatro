@@ -103,6 +103,35 @@ H.assert_equal(stable_state.pending_sell_id, nil, "failure clears pending")
 H.assert_equal(adapter.fail_notified, 1, "failure notifies")
 H.assert_equal(save_count, 1, "failure does not save")
 
+for index = 1, 9 do
+    Storage.add_raw_card(namespace.collection, {
+        center_key = "j_bulk_" .. tostring(index),
+        local_key = "bulk_" .. tostring(index),
+        mod_id = "Balatro",
+        rarity = "common",
+        edition = "base",
+        condition = { centering = 9.0, print_quality = 9.0, corners = 9.0, edges = 9.0, surface = 9.0 },
+        acquired_at = 3000 + index
+    })
+end
+local paged = MarketUI.open(namespace, 4000)
+H.assert_equal(paged.tab, "sell", "market opens on the sell tab")
+H.assert_equal(paged.sell_page, 1, "sell page starts at one")
+H.assert_equal(paged.heat_page, 1, "heat page starts at one")
+H.assert_equal(#paged.rows, 9, "bulk rows listed")
+
+MarketUI.set_page(namespace, "sell", 2)
+H.assert_equal(namespace.market_ui_state.sell_page, 2, "sell page switched")
+MarketUI.set_page(namespace, "sell", 99)
+H.assert_equal(namespace.market_ui_state.sell_page, 2, "sell page clamps to max")
+MarketUI.set_page(namespace, "heat", 99)
+H.assert_equal(namespace.market_ui_state.heat_page, 1, "heat page clamps on empty board")
+
+local refreshed_before = adapter.refreshed
+runtime.FUNCS.grdl_market_sell_page({ cycle_config = { current_option = 1 } })
+H.assert_equal(namespace.market_ui_state.sell_page, 1, "sell page callback applies cycle option")
+H.assert_equal(adapter.refreshed, refreshed_before + 1, "sell page callback refreshes overlay")
+
 _G.SMODS = previous_smods_global
 
 print("market ui tests ok")

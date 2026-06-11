@@ -92,6 +92,24 @@ function UICommon.stat_chips(summary)
     }, { padding = 0.09 })
 end
 
+function UICommon.page_cycle(view, callback)
+    if not view or (view.pages or 1) <= 1 then return nil end
+    local options = {}
+    for index = 1, view.pages do
+        options[#options + 1] = UICommon.localize_text("k_page") .. " " .. tostring(index) .. "/" .. tostring(view.pages)
+    end
+    return create_option_cycle({
+        options = options,
+        w = 4.5,
+        cycle_shoulders = true,
+        opt_callback = callback,
+        current_option = view.page,
+        colour = G.C.RED,
+        no_pips = true,
+        focus_args = { snap_to = true, nav = "wide" }
+    })
+end
+
 function UICommon.event_ref_id(event)
     return event
         and event.config
