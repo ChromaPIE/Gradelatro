@@ -50,6 +50,9 @@ Bootstrap.attach(Gradelatro, "BlackMarket", BlackMarket)
 local Loadout = load_src("loadout.lua")
 Bootstrap.attach(Gradelatro, "Loadout", Loadout)
 
+local Proficiency = load_src("proficiency.lua")
+Bootstrap.attach(Gradelatro, "Proficiency", Proficiency)
+
 local Label = load_src("label.lua")
 Bootstrap.attach(Gradelatro, "Label", Label)
 
