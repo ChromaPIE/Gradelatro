@@ -8,8 +8,10 @@ local function load_src(path)
 end
 
 local Catalog = load_src("catalog.lua")
+local BlackMarket = load_src("black_market.lua")
 local Economy = load_src("economy.lua")
 local Persistence = load_src("persistence.lua")
+local Proficiency = load_src("proficiency.lua")
 local Rng = load_src("rng.lua")
 local Storage = load_src("storage.lua")
 
@@ -157,6 +159,187 @@ function DebugTools.clear_collection(state)
     return { ok = true, cards_removed = cards_removed, queue_removed = queue_removed }
 end
 
+function DebugTools.set_license(state, level)
+    if not state then return { ok = false, reason = "missing_collection" } end
+    level = tonumber(level)
+    if not level then return { ok = false, reason = "invalid_level" } end
+    level = math.max(0, math.min(12, math.floor(level)))
+    state.loadout = type(state.loadout) == "table" and state.loadout or {}
+    state.loadout.license = level
+    return { ok = true, level = level }
+end
+
+function DebugTools.grant_transports(config, state, key)
+    if not state then return { ok = false, reason = "missing_collection" } end
+    local transports = config and config.loadout and config.loadout.transports or {}
+    state.loadout = type(state.loadout) == "table" and state.loadout or {}
+    state.loadout.transports = type(state.loadout.transports) == "table" and state.loadout.transports or {}
+    local granted = {}
+    if key == "all" or key == nil then
+        for name in pairs(transports) do
+            state.loadout.transports[name] = true
+            granted[#granted + 1] = name
+        end
+    else
+        if not transports[key] then return { ok = false, reason = "unknown_transport" } end
+        state.loadout.transports[key] = true
+        granted[#granted + 1] = key
+    end
+    if not state.loadout.active_transport and granted[1] then
+        state.loadout.active_transport = granted[1]
+    end
+    return { ok = true, granted = granted }
+end
+
+function DebugTools.set_proficiency(state, antes)
+    if not state then return { ok = false, reason = "missing_collection" } end
+    antes = tonumber(antes)
+    if not antes then return { ok = false, reason = "invalid_antes" } end
+    antes = math.max(0, math.floor(antes))
+    local updated = 0
+    for _, card in ipairs(state.cards or {}) do
+        if card.status == "graded" then
+            Proficiency.ensure(card).antes = antes
+            updated = updated + 1
+        end
+    end
+    return { ok = true, updated = updated, antes = antes }
+end
+
+function DebugTools.finish_queue(state, now)
+    if not state then return { ok = false, reason = "missing_collection" } end
+    now = now or os.time()
+    local finished = 0
+    for _, entry in ipairs(state.grading_queue or {}) do
+        if (entry.due_at or 0) > now then
+            entry.due_at = now - 1
+            finished = finished + 1
+        end
+    end
+    return { ok = true, finished = finished }
+end
+
+function DebugTools.regen_black_market(namespace, now)
+    local runtime = rawget(_G, "G")
+    if not namespace or not namespace.collection or not namespace.config then
+        return { ok = false, reason = "missing_collection" }
+    end
+    if not runtime or not runtime.P_CENTERS then
+        return { ok = false, reason = "no_runtime" }
+    end
+    now = now or os.time()
+    local smods = rawget(_G, "SMODS")
+    local catalog = Catalog.discover(namespace.config, runtime.P_CENTERS, smods and smods.Mods or nil)
+    local bosses = {}
+    for key, blind in pairs(runtime.P_BLINDS or {}) do
+        if blind.boss then bosses[#bosses + 1] = key end
+    end
+    table.sort(bosses)
+    local boss_key = bosses[1] and bosses[(now % #bosses) + 1] or nil
+    return BlackMarket.generate(namespace.config, namespace.collection, {
+        catalog = catalog,
+        run_id = "debug_" .. tostring(now),
+        boss_key = boss_key,
+        now = now
+    })
+end
+
+local HELP_TEXT = table.concat({
+    "grdl <subcommand> - Gradelatro debug toolkit",
+    "grdl g [set|add|sub <n>] - show or adjust the G balance",
+    "grdl seed [g|ug] [count] - seed graded/raw test cards",
+    "grdl clear - wipe cards and grading queue",
+    "grdl license <0-12> - set the loadout license level",
+    "grdl transport all|blue|green|red|purple|gold - grant shipping services",
+    "grdl prof <antes> - set proficiency antes on every graded card",
+    "grdl queue - finish all pending gradings now",
+    "grdl bm - regenerate the black market offers"
+}, "\n")
+
+function DebugTools.dispatch(namespace, args)
+    args = args or {}
+    local collection = namespace and namespace.collection or nil
+    local config = namespace and namespace.config or nil
+    if not collection or not config then return "Gradelatro state unavailable.", "ERROR" end
+    local sub = args[1]
+
+    if sub == nil or sub == "help" then
+        return HELP_TEXT
+    end
+
+    if sub == "g" then
+        if not args[2] then
+            return "G balance: " .. tostring(collection.currency_g or 0)
+        end
+        local result = DebugTools.adjust_currency(collection, args[2], args[3])
+        if not result.ok then
+            return "Usage: grdl g set|add|sub <amount> (" .. tostring(result.reason) .. ")", "ERROR"
+        end
+        Persistence.save(namespace)
+        return "G balance: " .. tostring(result.currency_g)
+    end
+
+    if sub == "seed" then
+        local runtime = rawget(_G, "G")
+        if not runtime or not runtime.P_CENTERS then return "Game centers not loaded yet.", "ERROR" end
+        local parsed = DebugTools.parse_seed_args({ args[2], args[3] })
+        if not parsed.ok then
+            return "Usage: grdl seed [g|ug] [count]", "ERROR"
+        end
+        local smods = rawget(_G, "SMODS")
+        local catalog = Catalog.discover(config, runtime.P_CENTERS, smods and smods.Mods or nil)
+        local result = DebugTools.seed_cards(collection, catalog, { count = parsed.count, graded = parsed.graded, config = config })
+        if not result.ok then
+            return "Seeding failed: " .. tostring(result.reason), "ERROR"
+        end
+        Persistence.save(namespace)
+        return "Seeded " .. tostring(#result.cards) .. (parsed.graded and " graded" or " ungraded") .. " cards into the binder."
+    end
+
+    if sub == "clear" then
+        local result = DebugTools.clear_collection(collection)
+        if not result.ok then return "Clear failed: " .. tostring(result.reason), "ERROR" end
+        Persistence.save(namespace)
+        return "Cleared " .. tostring(result.cards_removed) .. " cards and " .. tostring(result.queue_removed) .. " queue entries."
+    end
+
+    if sub == "license" then
+        local result = DebugTools.set_license(collection, args[2])
+        if not result.ok then return "Usage: grdl license <0-12> (" .. tostring(result.reason) .. ")", "ERROR" end
+        Persistence.save(namespace)
+        return "Loadout license level: " .. tostring(result.level)
+    end
+
+    if sub == "transport" then
+        local result = DebugTools.grant_transports(config, collection, args[2] or "all")
+        if not result.ok then return "Usage: grdl transport all|blue|green|red|purple|gold (" .. tostring(result.reason) .. ")", "ERROR" end
+        Persistence.save(namespace)
+        return "Granted transports: " .. table.concat(result.granted, ", ")
+    end
+
+    if sub == "prof" then
+        local result = DebugTools.set_proficiency(collection, args[2])
+        if not result.ok then return "Usage: grdl prof <antes> (" .. tostring(result.reason) .. ")", "ERROR" end
+        Persistence.save(namespace)
+        return "Set " .. tostring(result.antes) .. " antes on " .. tostring(result.updated) .. " graded cards."
+    end
+
+    if sub == "queue" then
+        local result = DebugTools.finish_queue(collection)
+        Persistence.save(namespace)
+        return "Fast-forwarded " .. tostring(result.finished) .. " grading entries; open the binder to reveal."
+    end
+
+    if sub == "bm" then
+        local result = DebugTools.regen_black_market(namespace)
+        if not result.ok then return "Black market regen failed: " .. tostring(result.reason), "ERROR" end
+        Persistence.save(namespace)
+        return "Black market regenerated (" .. tostring(#(result.black_market.offers or {})) .. " offers)."
+    end
+
+    return "Unknown subcommand. " .. HELP_TEXT, "ERROR"
+end
+
 function DebugTools.install(namespace)
     local ok, dpAPI = pcall(require, "debugplus-api")
     if not ok or type(dpAPI) ~= "table" then return false end
@@ -165,62 +348,11 @@ function DebugTools.install(namespace)
     if not dp then return false end
 
     pcall(dp.addCommand, {
-        name = "grdlg",
-        shortDesc = "Adjust Gradelatro G balance",
-        desc = "Show or adjust the Gradelatro G balance. Usage:\ngrdlg - show current balance\ngrdlg set [amount]\ngrdlg add [amount]\ngrdlg sub [amount]",
+        name = "grdl",
+        shortDesc = "Gradelatro debug toolkit",
+        desc = HELP_TEXT,
         exec = function(args)
-            local collection = namespace and namespace.collection or nil
-            if not collection then return "Gradelatro collection unavailable.", "ERROR" end
-            if not args[1] then
-                return "G balance: " .. tostring(collection.currency_g or 0)
-            end
-            local result = DebugTools.adjust_currency(collection, args[1], args[2])
-            if not result.ok then
-                return "Usage: grdlg set|add|sub [amount] (" .. tostring(result.reason) .. ")", "ERROR"
-            end
-            Persistence.save(namespace)
-            return "G balance: " .. tostring(result.currency_g)
-        end
-    })
-
-    pcall(dp.addCommand, {
-        name = "grdlseed",
-        shortDesc = "Seed test cards",
-        desc = "Seed Jokers into the Gradelatro binder for testing; grades and editions cycle, source mods rotate. Usage:\ngrdlseed [count] - graded cards, default 10\ngrdlseed g [count] - graded cards\ngrdlseed ug [count] - ungraded raw cards",
-        exec = function(args)
-            local collection = namespace and namespace.collection or nil
-            local config = namespace and namespace.config or nil
-            local runtime = rawget(_G, "G")
-            if not collection or not config then return "Gradelatro state unavailable.", "ERROR" end
-            if not runtime or not runtime.P_CENTERS then return "Game centers not loaded yet.", "ERROR" end
-            local parsed = DebugTools.parse_seed_args(args)
-            if not parsed.ok then
-                return "Usage: grdlseed [g|ug] [count]", "ERROR"
-            end
-            local smods = rawget(_G, "SMODS")
-            local catalog = Catalog.discover(config, runtime.P_CENTERS, smods and smods.Mods or nil)
-            local result = DebugTools.seed_cards(collection, catalog, { count = parsed.count, graded = parsed.graded, config = config })
-            if not result.ok then
-                return "Seeding failed: " .. tostring(result.reason), "ERROR"
-            end
-            Persistence.save(namespace)
-            return "Seeded " .. tostring(#result.cards) .. (parsed.graded and " graded" or " ungraded") .. " cards into the binder."
-        end
-    })
-
-    pcall(dp.addCommand, {
-        name = "grdlclear",
-        shortDesc = "Clear the Gradelatro binder",
-        desc = "Remove every card and grading queue entry from the Gradelatro collection. Currency, certificate counters, and settlement history are kept. Usage:\ngrdlclear",
-        exec = function()
-            local collection = namespace and namespace.collection or nil
-            if not collection then return "Gradelatro collection unavailable.", "ERROR" end
-            local result = DebugTools.clear_collection(collection)
-            if not result.ok then
-                return "Clear failed: " .. tostring(result.reason), "ERROR"
-            end
-            Persistence.save(namespace)
-            return "Cleared " .. tostring(result.cards_removed) .. " cards and " .. tostring(result.queue_removed) .. " queue entries."
+            return DebugTools.dispatch(namespace, args)
         end
     })
 
