@@ -175,4 +175,6 @@ local multi_quip = MarketUI.quip_lines({ "line one", "line two" })
 H.assert_equal(#multi_quip, 2, "array quip keeps its lines")
 H.assert_equal(multi_quip[2], "line two", "array quip line preserved")
 
+H.assert_equal(MarketUI.reveal_mystery(namespace, { offer = { slot = 3, mystery = true }, card = { center_key = "j_c" } }), false, "reveal is a safe no-op without runtime")
+
 print("market ui tests ok")

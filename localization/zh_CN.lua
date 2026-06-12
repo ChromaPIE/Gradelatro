@@ -109,6 +109,7 @@ return {
             grdl_k_prof_level = "等级",
             grdl_k_prof_progress = "进度",
             grdl_k_prof_maxed = "已满级",
+            grdl_b_collect = "收入",
             grdl_k_tab_trends = "行情",
             grdl_k_queue_empty = "评级队列为空。",
             grdl_k_heat_hot = "火热",

@@ -288,11 +288,14 @@ end
 
 local function attach_buy_button(card, offer)
     if not rawget(_G, "UIBox") then return end
-    card.children.grdl_buy_button = UIBox({
+    -- children.use_button only draws while the card is highlighted, so the
+    -- buy button appears under the selected offer and never overlaps others
+    card.children.use_button = UIBox({
         definition = { n = G.UIT.ROOT, config = { align = "cm", colour = G.C.CLEAR, padding = 0.03 }, nodes = {
             UICommon.outline_button({
                 button = "grdl_bm_buy",
                 ref = { id = offer.slot },
+                solid = true,
                 minw = 1.15,
                 minh = 0.6,
                 lines = {
@@ -301,7 +304,7 @@ local function attach_buy_button(card, offer)
                 }
             })
         } },
-        config = { align = "tm", offset = { x = 0, y = -0.06 }, major = card, bond = "Strong", parent = card }
+        config = { align = "bm", offset = { x = 0, y = 0.06 }, major = card, bond = "Strong", parent = card }
     })
 end
 
@@ -316,8 +319,17 @@ local function build_offer_card(area, offer)
     end
 
     local card = Card(area.T.x + area.T.w / 2, area.T.y, G.CARD_W, G.CARD_H, (G.P_CARDS and G.P_CARDS.empty or nil), display_center)
-    UICommon.suppress_selection(card)
+    card.click = function(self)
+        if self.highlighted then
+            self.highlighted = false
+        else
+            for _, other in ipairs(area.cards) do other.highlighted = false end
+            self.highlighted = true
+        end
+        if self.juice_up then self:juice_up(0.3, 0.3) end
+    end
     if offer.mystery then
+        card.grdl_mystery_slot = offer.slot
         card.hover = function(self)
             self.config.h_popup = mystery_popup(offer)
             self.config.h_popup_config = self:align_h_popup()
@@ -334,6 +346,75 @@ local function build_offer_card(area, offer)
     area:emplace(card)
     attach_buy_button(card, offer)
     return card
+end
+
+-- the bought mystery lifts forward, flips to its real face, jiggles, and
+-- waits for the collect click before dissolving out of the strip
+function MarketUI.reveal_mystery(namespace, result)
+    local runtime = rawget(_G, "G")
+    local state = namespace.market_ui_state
+    local area = namespace.bm_area
+    if not runtime or not runtime.E_MANAGER or not rawget(_G, "Event") or not area or not state then return false end
+    local offer = result.offer
+    local target = nil
+    for _, card in ipairs(area.cards or {}) do
+        if card.grdl_mystery_slot == offer.slot then
+            target = card
+            break
+        end
+    end
+    if not target then return false end
+
+    state.bm_revealing = true
+    for _, card in ipairs(area.cards) do
+        card.click = function() end
+        if card ~= target then card.highlighted = false end
+    end
+    if target.children.use_button then
+        target.children.use_button:remove()
+        target.children.use_button = nil
+    end
+    target.highlighted = true
+
+    local real_center = runtime.P_CENTERS and runtime.P_CENTERS[result.card.center_key] or nil
+    runtime.E_MANAGER:add_event(Event({ trigger = "after", delay = 0.25, blockable = false, func = function()
+        if target.flip then pcall(target.flip, target) end
+        if rawget(_G, "play_sound") then pcall(play_sound, "card1", 1, 0.5) end
+        return true
+    end }))
+    runtime.E_MANAGER:add_event(Event({ trigger = "after", delay = 0.4, blockable = false, func = function()
+        if real_center then pcall(target.set_ability, target, real_center, true) end
+        local flags = Catalog.edition_flags(result.card.edition)
+        if flags then pcall(target.set_edition, target, flags, true, true) end
+        target.hover = nil
+        target.stop_hover = nil
+        return true
+    end }))
+    runtime.E_MANAGER:add_event(Event({ trigger = "after", delay = 0.4, blockable = false, func = function()
+        if target.flip then pcall(target.flip, target) end
+        if target.juice_up then pcall(target.juice_up, target, 0.6, 0.4) end
+        if rawget(_G, "play_sound") then pcall(play_sound, "polychrome1", 1.2, 0.7) end
+        return true
+    end }))
+    runtime.E_MANAGER:add_event(Event({ trigger = "after", delay = 0.2, blockable = false, func = function()
+        if rawget(_G, "UIBox") then
+            target.children.grdl_collect = UIBox({
+                definition = { n = G.UIT.ROOT, config = { align = "cm", colour = G.C.CLEAR, padding = 0.03 }, nodes = {
+                    UICommon.outline_button({
+                        button = "grdl_bm_collect",
+                        solid = true,
+                        colour = G.C.GREEN,
+                        minw = 1.3,
+                        minh = 0.6,
+                        lines = { { text = safe_localize("grdl_b_collect"), scale = 0.32 } }
+                    })
+                } },
+                config = { align = "bm", offset = { x = 0, y = 0.06 }, major = target, bond = "Strong", parent = target }
+            })
+        end
+        return true
+    end }))
+    return true
 end
 
 local function dealer_jiggle(sprite, ticks)
@@ -456,15 +537,16 @@ local function blackmarket_tab_definition(namespace, state)
                 runtime.ROOM.T.x + 0.2 * runtime.ROOM.T.w / 2, runtime.ROOM.T.h,
                 3.25 * runtime.CARD_W,
                 0.95 * runtime.CARD_H,
-                { card_limit = 3, type = "title", highlight_limit = 0, collection = true })
+                { card_limit = 3, type = "title", highlight_limit = 1, collection = true })
+            namespace.bm_area = area
             for _, offer in ipairs(state.bm_offers or {}) do
                 if not offer.sold then
                     build_offer_card(area, offer)
                 end
             end
-            -- buy buttons hang above each card, so push the strip down to clear the tab header
-            offer_nodes[#offer_nodes + 1] = row({}, { minh = 0.45, padding = 0 })
             offer_nodes[#offer_nodes + 1] = row({ { n = G.UIT.O, config = { object = area } } }, { padding = 0.05, no_fill = true })
+            -- the highlight-gated buy button hangs under the selected card
+            offer_nodes[#offer_nodes + 1] = row({}, { minh = 0.7, padding = 0 })
         end
         offer_nodes[#offer_nodes + 1] = row({
             { n = G.UIT.T, config = { ref_table = state, ref_value = "bm_text", scale = 0.3, colour = G.C.GOLD } }
@@ -589,6 +671,8 @@ function MarketUI.install_runtime(namespace, runtime, adapter)
                     if runtime.SETTINGS then runtime.SETTINGS.paused = true end
                     runtime.FUNCS.overlay_menu({ definition = namespace.BinderUI.create_inspect_definition(namespace) })
                 end
+            elseif result.offer and result.offer.mystery and MarketUI.reveal_mystery(namespace, result) then
+                -- the reveal sequence owns the strip until the collect click
             else
                 local state = namespace.market_ui_state
                 if not (state and UICommon.swap_tab_contents(blackmarket_tab_definition(namespace, state))) then
@@ -597,6 +681,38 @@ function MarketUI.install_runtime(namespace, runtime, adapter)
             end
         elseif rawget(_G, "play_sound") then
             pcall(play_sound, "tarot2", 0.76, 0.4)
+        end
+    end
+
+    runtime.FUNCS.grdl_bm_collect = function(event)
+        local state = namespace.market_ui_state
+        local area = namespace.bm_area
+        local target = nil
+        for _, card in ipairs((area and area.cards) or {}) do
+            if card.children and card.children.grdl_collect then
+                target = card
+                break
+            end
+        end
+        if target then
+            target.children.grdl_collect:remove()
+            target.children.grdl_collect = nil
+            if target.start_dissolve then pcall(target.start_dissolve, target) end
+        end
+        if state then state.bm_revealing = nil end
+        local function rebuild()
+            if not (state and UICommon.swap_tab_contents(blackmarket_tab_definition(namespace, state))) then
+                if adapter.refresh_market then adapter.refresh_market(namespace, state, event) end
+            end
+        end
+        local game = rawget(_G, "G")
+        if game and game.E_MANAGER and rawget(_G, "Event") then
+            game.E_MANAGER:add_event(Event({ trigger = "after", delay = 0.45, blockable = false, func = function()
+                pcall(rebuild)
+                return true
+            end }))
+        else
+            rebuild()
         end
     end
 

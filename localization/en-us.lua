@@ -109,6 +109,7 @@ return {
             grdl_k_prof_level = "Level",
             grdl_k_prof_progress = "Progress",
             grdl_k_prof_maxed = "Mastered",
+            grdl_b_collect = "Collect",
             grdl_k_tab_trends = "Trends",
             grdl_k_queue_empty = "The grading queue is empty.",
             grdl_k_heat_hot = "Hot",
