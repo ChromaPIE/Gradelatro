@@ -11,9 +11,12 @@ local Binder = load_src("binder.lua")
 local Catalog = load_src("catalog.lua")
 local Grading = load_src("grading.lua")
 local Label = load_src("label.lua")
+local Loadout = load_src("loadout.lua")
 local Market = load_src("market.lua")
 local Persistence = load_src("persistence.lua")
+local Proficiency = load_src("proficiency.lua")
 local SlabUI = load_src("slab_ui.lua")
+local Storage = load_src("storage.lua")
 local UICommon = load_src("ui_common.lua")
 
 local safe_localize = UICommon.localize_text
@@ -245,10 +248,117 @@ function BinderUI.submit_grading(namespace, card_id, now)
     namespace.last_grading_result = result
 
     if result.ok then
+        Loadout.reconcile(namespace.collection)
         namespace.last_save_ok = Persistence.save(namespace)
         BinderUI.open_desk(namespace, now)
     end
     return result
+end
+
+function BinderUI.toggle_loadout(namespace, card_id)
+    if not namespace or not namespace.collection then return { ok = false, reason = "missing_collection" } end
+    local runtime = rawget(_G, "G")
+    if runtime and runtime.STAGE ~= nil and runtime.STAGES and runtime.STAGE == runtime.STAGES.RUN then
+        return { ok = false, reason = "loadout_locked" }
+    end
+    local collection = namespace.collection
+    if Loadout.contains(collection, card_id) then
+        local removed = Loadout.remove_card(collection, card_id)
+        if removed.ok then namespace.last_save_ok = Persistence.save(namespace) end
+        return removed
+    end
+    local card = Storage.find_card(collection, card_id)
+    if not card then return { ok = false, reason = "unknown_card" } end
+    local inspect_state = namespace.inspect_ui_state
+    if card.status == "raw" and inspect_state and not inspect_state.pending_loadout_add then
+        inspect_state.pending_loadout_add = true
+        inspect_state.last_reason_text = safe_localize("grdl_k_loadout_raw_hint")
+        return { ok = true, pending = true }
+    end
+    if inspect_state then inspect_state.pending_loadout_add = nil end
+    local added = Loadout.add_card(collection, card_id)
+    if added.ok then namespace.last_save_ok = Persistence.save(namespace) end
+    return added
+end
+
+function BinderUI.commit_prof_text(namespace, card_id, kind, text)
+    if not namespace or not namespace.collection then return { ok = false, reason = "missing_collection" } end
+    local card = Storage.find_card(namespace.collection, card_id)
+    if not card then return { ok = false, reason = "unknown_card" } end
+    local result
+    if kind == "note" then
+        result = Proficiency.set_note(card, text)
+    elseif kind == "badge" then
+        result = Proficiency.set_badge(card, text)
+    elseif kind == "tint" then
+        result = Proficiency.set_tint(card, text)
+    else
+        return { ok = false, reason = "unknown_kind" }
+    end
+    if result.ok then namespace.last_save_ok = Persistence.save(namespace) end
+    return result
+end
+
+function BinderUI.inspect_loadout(namespace, card_id)
+    local state = BinderUI.open_inspect(namespace, card_id)
+    if state then state.loadout_mode = true end
+    return state
+end
+
+function BinderUI.open_prof_input(namespace, card_id, kind)
+    local runtime = rawget(_G, "G")
+    if not runtime or not runtime.FUNCS or not runtime.FUNCS.overlay_menu then return end
+    if not rawget(_G, "create_text_input") then return end
+    local card = Storage.find_card(namespace.collection or {}, card_id)
+    if not card then return end
+    local meta = card.proficiency or {}
+    local current = (kind == "note" and meta.note)
+        or (kind == "badge" and meta.badge_text)
+        or (kind == "tint" and meta.tooltip_colour)
+        or ""
+    namespace.prof_input = { card_id = card_id, kind = kind, text = current or "", feedback = "" }
+    local nodes = {
+        row({ ui_text(safe_localize("grdl_b_prof_" .. kind), 0.4, G.C.WHITE) }),
+        row({ create_text_input({
+            ref_table = namespace.prof_input,
+            ref_value = "text",
+            max_length = kind == "tint" and 6 or 24,
+            all_caps = kind == "tint",
+            prompt_text = kind == "tint" and safe_localize("grdl_k_hex_prompt") or nil,
+            w = 4
+        }) }, { padding = 0.06 })
+    }
+    if kind == "tint" then
+        nodes[#nodes + 1] = row({
+            { n = G.UIT.C, config = {
+                minw = 1.2,
+                minh = 0.4,
+                r = 0.1,
+                emboss = 0.05,
+                colour = Proficiency.parse_hex(namespace.prof_input.text) or { 0.2, 0.2, 0.2, 1 },
+                func = "grdl_hex_preview"
+            }, nodes = {} }
+        }, { padding = 0.05 })
+    end
+    nodes[#nodes + 1] = row({ UICommon.outline_button({
+        button = "grdl_prof_commit",
+        solid = true,
+        minw = 1.6,
+        minh = 0.6,
+        lines = { { text = safe_localize("grdl_b_confirm"), scale = 0.3 } }
+    }) }, { padding = 0.06 })
+    nodes[#nodes + 1] = row({
+        { n = G.UIT.T, config = { ref_table = namespace.prof_input, ref_value = "feedback", scale = 0.28, colour = G.C.GOLD } }
+    })
+    if runtime.SETTINGS then runtime.SETTINGS.paused = true end
+    runtime.FUNCS.overlay_menu({ definition = create_UIBox_generic_options({
+        back_func = "grdl_open_binder",
+        minw = 5.5,
+        padding = 0.12,
+        colour = G.C.L_BLACK,
+        outline_colour = G.C.RED,
+        contents = nodes
+    }) })
 end
 
 function BinderUI.sell_from_inspect(namespace, card_id, now)
@@ -275,6 +385,7 @@ function BinderUI.sell_from_inspect(namespace, card_id, now)
     })
     namespace.last_market_result = result
     if result.ok then
+        Loadout.reconcile(namespace.collection)
         namespace.last_save_ok = Persistence.save(namespace)
     else
         state.pending_sell = false
@@ -630,7 +741,7 @@ local function inspect_action_row(namespace, state, entry, regular_font)
         and runtime.STAGE == runtime.STAGES.RUN
         and runtime.GAME ~= nil
 
-    if entry.status == "raw" then
+    if entry.status == "raw" and not state.loadout_mode then
         local ok_fee, fee = pcall(Grading.fee_for, namespace.config or {}, entry)
         actions[#actions + 1] = inspect_action_button("grdl_inspect_submit", entry.id, {
             { text = safe_localize("grdl_b_grade") },
@@ -638,12 +749,44 @@ local function inspect_action_row(namespace, state, entry, regular_font)
         }, regular_font)
     end
 
-    if entry.status == "raw" or entry.status == "graded" then
+    if (entry.status == "raw" or entry.status == "graded") and not state.loadout_mode then
         local ok_quote, quote = pcall(Market.sell_quote, namespace.config or {}, namespace.collection or {}, entry)
         actions[#actions + 1] = inspect_action_button("grdl_inspect_sell", entry.id, {
             { text = safe_localize("grdl_b_sell") },
             { text = safe_localize("grdl_k_grading_fee", { ok_quote and quote or 0 }), scale = 0.28, colour = G.C.GOLD }
         }, regular_font)
+    end
+
+    if (entry.status == "raw" or entry.status == "graded") and not state.loadout_mode and not in_run_now then
+        local member = Loadout.contains(namespace.collection or {}, entry.id)
+        actions[#actions + 1] = inspect_action_button("grdl_loadout_toggle", entry.id, {
+            { text = safe_localize(member and "grdl_b_loadout_remove" or "grdl_b_loadout_add") }
+        }, regular_font)
+    end
+
+    if entry.status == "graded" then
+        local card = Storage.find_card(namespace.collection or {}, entry.id)
+        if card and Proficiency.can_note(card) then
+            actions[#actions + 1] = inspect_action_button("grdl_prof_note", entry.id, {
+                { text = safe_localize("grdl_b_prof_note") }
+            }, regular_font)
+        end
+        if card and Proficiency.can_eternal(card) then
+            actions[#actions + 1] = inspect_action_button("grdl_prof_eternal", entry.id, {
+                { text = safe_localize((card.proficiency and card.proficiency.eternal)
+                    and "grdl_b_prof_eternal_on" or "grdl_b_prof_eternal_off") }
+            }, regular_font)
+        end
+        if card and Proficiency.can_badge(card) then
+            actions[#actions + 1] = inspect_action_button("grdl_prof_badge", entry.id, {
+                { text = safe_localize("grdl_b_prof_badge") }
+            }, regular_font)
+        end
+        if card and Proficiency.can_tint(card) then
+            actions[#actions + 1] = inspect_action_button("grdl_prof_tint", entry.id, {
+                { text = safe_localize("grdl_b_prof_tint") }
+            }, regular_font)
+        end
     end
 
     if #actions == 0 then return nil end
@@ -692,6 +835,13 @@ function BinderUI.create_inspect_definition(namespace)
         right_nodes[#right_nodes + 1] = inspect_detail_row("grdl_k_detail_price", safe_localize("grdl_k_stat_g", { entry.acquired_price or 0 }), regular_font)
     end
     right_nodes[#right_nodes + 1] = inspect_detail_row("grdl_k_detail_psa", inspect_psa_text(entry), regular_font)
+    if not state.offer_mode then
+        local inspected_card = Storage.find_card(namespace.collection or {}, entry.id)
+        local badge_text = inspected_card and inspected_card.proficiency and inspected_card.proficiency.badge_text or nil
+        if badge_text and rawget(_G, "create_badge") then
+            right_nodes[#right_nodes + 1] = row({ create_badge(badge_text, G.C.PURPLE, G.C.WHITE) }, { align = "cl", padding = 0.03 })
+        end
+    end
 
     local action_cols
     if state.offer_mode then
@@ -821,6 +971,90 @@ function BinderUI.install_runtime(namespace, runtime, adapter)
             reopen_inspect(card_id)
         elseif not result.ok and rawget(_G, "play_sound") then
             pcall(play_sound, "tarot2", 0.76, 0.4)
+        end
+    end
+
+    runtime.FUNCS.grdl_loadout_toggle = function(event)
+        local card_id = event_card_id(event)
+        local result = BinderUI.toggle_loadout(namespace, card_id)
+        namespace.last_loadout_result = result
+        if result.ok and not result.pending then
+            reopen_inspect(card_id)
+        elseif not result.ok then
+            local state = namespace.inspect_ui_state
+            if state then
+                state.last_reason_text = safe_localize(reason_key(result.reason))
+            end
+            if rawget(_G, "play_sound") then
+                pcall(play_sound, "tarot2", 0.76, 0.4)
+            end
+        end
+    end
+
+    runtime.FUNCS.grdl_prof_eternal = function(event)
+        local card_id = event_card_id(event)
+        local card = Storage.find_card(namespace.collection or {}, card_id)
+        if not card then return end
+        local enabled = not (card.proficiency and card.proficiency.eternal)
+        local result = Proficiency.set_eternal(card, enabled)
+        if not result.ok then
+            local state = namespace.inspect_ui_state
+            if state then state.last_reason_text = safe_localize(reason_key(result.reason)) end
+            return
+        end
+        namespace.last_save_ok = Persistence.save(namespace)
+        local game = rawget(_G, "G")
+        for _, joker in ipairs((game and game.jokers and game.jokers.cards) or {}) do
+            if joker.ability and joker.ability.grdl_loadout_id == card_id then
+                if joker.set_eternal then
+                    pcall(joker.set_eternal, joker, enabled)
+                else
+                    joker.ability.eternal = enabled or nil
+                end
+            end
+        end
+        if namespace.inspect_ui_state and namespace.inspect_ui_state.loadout_mode then
+            BinderUI.inspect_loadout(namespace, card_id)
+        else
+            reopen_inspect(card_id)
+        end
+    end
+
+    runtime.FUNCS.grdl_prof_note = function(event)
+        BinderUI.open_prof_input(namespace, event_card_id(event), "note")
+    end
+    runtime.FUNCS.grdl_prof_badge = function(event)
+        BinderUI.open_prof_input(namespace, event_card_id(event), "badge")
+    end
+    runtime.FUNCS.grdl_prof_tint = function(event)
+        BinderUI.open_prof_input(namespace, event_card_id(event), "tint")
+    end
+
+    runtime.FUNCS.grdl_prof_commit = function(event)
+        local input = namespace.prof_input
+        if not input then return end
+        local result = BinderUI.commit_prof_text(namespace, input.card_id, input.kind, input.text)
+        if result.ok then
+            if namespace.inspect_ui_state and namespace.inspect_ui_state.loadout_mode then
+                BinderUI.inspect_loadout(namespace, input.card_id)
+            else
+                reopen_inspect(input.card_id)
+            end
+        else
+            input.feedback = safe_localize(reason_key(result.reason))
+            if rawget(_G, "play_sound") then
+                pcall(play_sound, "tarot2", 0.76, 0.4)
+            end
+        end
+    end
+
+    runtime.FUNCS.grdl_hex_preview = function(element)
+        local input = namespace.prof_input
+        if not input or not element or not element.config then return end
+        local parsed = Proficiency.parse_hex(input.text)
+        local target = element.config.colour
+        if parsed and type(target) == "table" then
+            target[1], target[2], target[3], target[4] = parsed[1], parsed[2], parsed[3], 1
         end
     end
 

@@ -374,6 +374,82 @@ H.assert_equal(offer_state.entry.grade, 9, "offer grade mapped")
 H.assert_equal(offer_state.entry.price, 321, "offer price mapped")
 H.assert_equal(BinderUI.inspect_offer(namespace, { slot = 3, mystery = true }), nil, "mystery offer cannot be inspected")
 
+-- ===== loadout membership and proficiency perks from inspect =====
+local Loadout = dofile("src/loadout.lua")
+namespace.collection.loadout.license = 3
+local member_card = Storage.add_raw_card(namespace.collection, {
+    center_key = "j_member", local_key = "member", rarity = "common",
+    edition = "base", condition = mint_condition, acquired_at = 9000
+})
+member_card.status = "graded"
+member_card.grade = 9
+BinderUI.open(namespace, 9001)
+
+H.assert_true(type(runtime.FUNCS.grdl_loadout_toggle) == "function", "loadout toggle registered")
+BinderUI.open_inspect(namespace, member_card.id)
+local added = BinderUI.toggle_loadout(namespace, member_card.id)
+H.assert_equal(added.ok, true, "graded card joins loadout in one click")
+H.assert_equal(Loadout.contains(namespace.collection, member_card.id), true, "membership stored")
+local removed = BinderUI.toggle_loadout(namespace, member_card.id)
+H.assert_equal(removed.ok, true, "second toggle removes")
+H.assert_equal(Loadout.contains(namespace.collection, member_card.id), false, "membership cleared")
+
+-- raw card needs the armed second click
+local raw_member = Storage.add_raw_card(namespace.collection, {
+    center_key = "j_rawm", local_key = "rawm", rarity = "common",
+    edition = "base", condition = mint_condition, acquired_at = 9002
+})
+BinderUI.open(namespace, 9003)
+BinderUI.open_inspect(namespace, raw_member.id)
+local armed_add = BinderUI.toggle_loadout(namespace, raw_member.id)
+H.assert_equal(armed_add.pending, true, "raw add arms first")
+H.assert_equal(Loadout.contains(namespace.collection, raw_member.id), false, "raw not yet added")
+H.assert_equal(namespace.inspect_ui_state.last_reason_text, "grdl_k_loadout_raw_hint", "raw warning bound")
+local confirmed_add = BinderUI.toggle_loadout(namespace, raw_member.id)
+H.assert_equal(confirmed_add.ok, true, "raw add confirms second click")
+H.assert_equal(Loadout.contains(namespace.collection, raw_member.id), true, "raw added")
+
+-- in-run lock
+local previous_lock_g = rawget(_G, "G")
+_G.G = { STAGE = 1, STAGES = { RUN = 1 } }
+H.assert_equal(BinderUI.toggle_loadout(namespace, member_card.id).reason, "loadout_locked", "membership locked in run")
+_G.G = previous_lock_g
+
+-- selling a member auto-removes it from the loadout
+BinderUI.open(namespace, 9004)
+BinderUI.open_inspect(namespace, raw_member.id)
+BinderUI.sell_from_inspect(namespace, raw_member.id, 9005)
+BinderUI.sell_from_inspect(namespace, raw_member.id, 9006)
+H.assert_equal(raw_member.status, "sold", "member sold from inspect")
+H.assert_equal(Loadout.contains(namespace.collection, raw_member.id), false, "sale removes loadout membership")
+
+-- perk handlers
+member_card.proficiency = { antes = 100 }
+BinderUI.open(namespace, 9007)
+BinderUI.open_inspect(namespace, member_card.id)
+H.assert_true(type(runtime.FUNCS.grdl_prof_eternal) == "function", "eternal toggle registered")
+runtime.FUNCS.grdl_prof_eternal({ config = { ref_table = { id = member_card.id } } })
+H.assert_equal(member_card.proficiency.eternal, true, "eternal preference flipped")
+H.assert_equal(BinderUI.commit_prof_text(namespace, member_card.id, "note", "hello").ok, true, "note commit")
+H.assert_equal(member_card.proficiency.note, "hello", "note stored")
+H.assert_equal(BinderUI.commit_prof_text(namespace, member_card.id, "badge", "OG").ok, true, "badge commit")
+H.assert_equal(member_card.proficiency.badge_text, "OG", "badge stored")
+H.assert_equal(BinderUI.commit_prof_text(namespace, member_card.id, "tint", "1A2B3C").ok, true, "tint commit")
+H.assert_equal(member_card.proficiency.tooltip_colour, "1A2B3C", "tint stored")
+H.assert_equal(BinderUI.commit_prof_text(namespace, member_card.id, "tint", "zzz").reason, "invalid_hex", "bad tint rejected")
+local low_card = Storage.add_raw_card(namespace.collection, {
+    center_key = "j_low", local_key = "low", rarity = "common",
+    edition = "base", condition = mint_condition, acquired_at = 9008
+})
+low_card.status = "graded"
+H.assert_equal(BinderUI.commit_prof_text(namespace, low_card.id, "note", "x").reason, "locked", "perk gate enforced")
+
+-- in-run loadout inspect variant
+BinderUI.open(namespace, 9009)
+local loadout_state = BinderUI.inspect_loadout(namespace, member_card.id)
+H.assert_true(loadout_state ~= nil, "loadout inspect opens")
+H.assert_equal(loadout_state.loadout_mode, true, "loadout mode flagged")
+
 _G.SMODS = previous_smods_global
 
 print("binder ui tests ok")
