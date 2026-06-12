@@ -396,6 +396,18 @@ function BinderUI.create_overlay_definition(namespace)
             focus_args = { nav = "wide" }
         })
     })
+    controls[#controls + 1] = col({
+        UIBox_button({
+            button = "grdl_open_loadout",
+            label = { safe_localize("grdl_b_loadout") },
+            minw = 2.2,
+            maxw = 2.2,
+            minh = 0.7,
+            scale = 0.34,
+            colour = G.C.PURPLE,
+            focus_args = { nav = "wide" }
+        })
+    })
     rows[#rows + 1] = row(controls, { padding = 0.08 })
 
     return create_UIBox_generic_options({

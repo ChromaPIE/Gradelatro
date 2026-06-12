@@ -53,6 +53,10 @@ Bootstrap.attach(Gradelatro, "Loadout", Loadout)
 local Proficiency = load_src("proficiency.lua")
 Bootstrap.attach(Gradelatro, "Proficiency", Proficiency)
 
+local LoadoutUI = load_src("loadout_ui.lua")
+Bootstrap.attach(Gradelatro, "LoadoutUI", LoadoutUI)
+LoadoutUI.install_runtime(Gradelatro, rawget(_G, "G"))
+
 local Label = load_src("label.lua")
 Bootstrap.attach(Gradelatro, "Label", Label)
 

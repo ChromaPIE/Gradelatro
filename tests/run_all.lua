@@ -18,6 +18,7 @@ dofile("tests/market_ui_test.lua")
 dofile("tests/black_market_test.lua")
 dofile("tests/loadout_test.lua")
 dofile("tests/proficiency_test.lua")
+dofile("tests/loadout_ui_test.lua")
 dofile("tests/run_end_test.lua")
 dofile("tests/debug_tools_test.lua")
 
