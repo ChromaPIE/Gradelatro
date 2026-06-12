@@ -289,7 +289,11 @@ _G.CardArea = function(x, y, w, h, args)
     return {
         T = { x = x, y = y, w = w, h = h },
         cards = {},
-        emplace = function(self, card) self.cards[#self.cards + 1] = card end
+        emplace = function(self, card)
+            self.cards[#self.cards + 1] = card
+            -- vanilla emplace re-enables collision when an area takes the card
+            if card.states and card.states.collide then card.states.collide.can = true end
+        end
     }
 end
 local preview_box_removed = 0
@@ -311,7 +315,8 @@ runtime.FUNCS.grdl_row_preview(preview_element)
 H.assert_true(preview_element.children.grdl_preview ~= nil, "hover attaches card preview")
 H.assert_near(captured_card.w, 0.8 * 1.44, 0.000001, "preview card at point eight scale")
 H.assert_true(captured_card.edition_flags ~= nil and captured_card.edition_flags.negative == true, "preview applies edition")
-H.assert_equal(captured_card.states.collide.can, false, "preview card does not catch the cursor")
+H.assert_equal(captured_card.states.collide.can, false, "preview card does not catch the cursor even after emplace")
+H.assert_equal(captured_card.no_ui, true, "preview card never spawns its own tooltip")
 H.assert_equal(preview_box_args.config.instance_type, "POPUP", "preview draws on popup layer")
 H.assert_equal(preview_box_args.config.align, "cl", "preview floats beside the row")
 H.assert_equal(preview_box_args.config.parent, preview_element, "preview parented for cascade cleanup")

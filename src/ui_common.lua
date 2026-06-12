@@ -145,8 +145,15 @@ function UICommon.attach_card_preview(element, info)
     local card = Card(area.T.x, area.T.y, width, height, (runtime.P_CARDS and runtime.P_CARDS.empty or nil), center)
     local flags = Catalog.edition_flags(info.edition)
     if flags then card:set_edition(flags, true, true) end
-    if card.states and card.states.collide then card.states.collide.can = false end
     area:emplace(card)
+    -- interaction must be muted AFTER emplace: the area re-enables collision
+    -- when it takes the card, and a hoverable preview spawns its own tooltip
+    card.no_ui = true
+    if card.states then
+        if card.states.collide then card.states.collide.can = false end
+        if card.states.hover then card.states.hover.can = false end
+        if card.states.click then card.states.click.can = false end
+    end
 
     element.children.grdl_preview = UIBox({
         definition = { n = runtime.UIT.ROOT, config = { align = "cm", colour = runtime.C.CLEAR, padding = 0.05 }, nodes = {
