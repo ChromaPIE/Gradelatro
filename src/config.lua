@@ -90,7 +90,7 @@ Config.DEFAULTS = {
     catalog = {
         series_format = "#1# Series"
     },
-    carry = {
+    wear = {
         minor_chance = 0.70,
         minor_min = 0.05,
         minor_max = 0.15,

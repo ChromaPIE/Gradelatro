@@ -13,6 +13,9 @@ H.assert_equal(normalized.grading.default_service, "priority", "override grading
 H.assert_near(normalized.market.heat_min, 0.75, 0.000001, "market heat min")
 
 local empty = Config.normalize(nil)
+H.assert_equal(empty.carry, nil, "carry config renamed to wear")
+H.assert_near(empty.wear.minor_chance, 0.70, 0.000001, "wear minor chance default")
+H.assert_near(empty.wear.severe_max, 1.50, 0.000001, "wear severe max default")
 H.assert_equal(empty.authenticated_editions.negative, true, "negative edition accepted")
 H.assert_equal(empty.authenticated_editions.cry_exotic, nil, "unknown custom edition not accepted")
 H.assert_equal(empty.catalog.series_format, "#1# Series", "series format is localizable config")

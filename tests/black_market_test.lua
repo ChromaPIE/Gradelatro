@@ -49,8 +49,8 @@ H.assert_equal(offers[2].mystery, false, "slot two is open")
 H.assert_equal(offers[3].mystery, true, "slot three is the mystery")
 
 H.assert_true(config.black_market.intel_reveal_chance > 0 and config.black_market.intel_reveal_chance < 1, "intel reveal chance is a probability")
-H.assert_equal(offers[1].intel, nil, "open offers carry no intel")
-H.assert_equal(offers[2].intel, nil, "second open offer carries no intel")
+H.assert_equal(offers[1].intel, nil, "open offers have no intel")
+H.assert_equal(offers[2].intel, nil, "second open offer has no intel")
 H.assert_true(offers[3].intel ~= nil, "mystery offer rolls intel")
 for _, field in ipairs({ "mod", "rarity", "edition", "graded" }) do
     H.assert_true(type(offers[3].intel[field]) == "boolean", "intel field " .. field .. " is a boolean")

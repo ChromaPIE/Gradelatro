@@ -63,4 +63,13 @@ H.assert_equal(Storage.allocate_cert_number(state), "000001", "first cert number
 H.assert_equal(Storage.allocate_cert_number(state), "000002", "second cert number")
 H.assert_equal(state.next_cert_id, 3, "next cert id")
 
+local migrated = Storage.normalize({
+    cards = {
+        { id = "grdl_m1", center_key = "j_joker", status = "carried", edition = "base" }
+    },
+    carry = { card_id = "grdl_m1", run_id = "OLD" }
+})
+H.assert_equal(migrated.cards[1].status, "raw", "legacy carried card migrates to raw")
+H.assert_equal(migrated.carry, nil, "legacy carry block cleared")
+
 print("storage tests ok")

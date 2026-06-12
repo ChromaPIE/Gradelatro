@@ -47,12 +47,8 @@ Bootstrap.attach(Gradelatro, "Market", Market)
 local BlackMarket = load_src("black_market.lua")
 Bootstrap.attach(Gradelatro, "BlackMarket", BlackMarket)
 
-local Carry = load_src("carry.lua")
-Bootstrap.attach(Gradelatro, "Carry", Carry)
-
-local CarryUI = load_src("carry_ui.lua")
-Bootstrap.attach(Gradelatro, "CarryUI", CarryUI)
-pcall(CarryUI.install, Gradelatro)
+local Loadout = load_src("loadout.lua")
+Bootstrap.attach(Gradelatro, "Loadout", Loadout)
 
 local Label = load_src("label.lua")
 Bootstrap.attach(Gradelatro, "Label", Label)

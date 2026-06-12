@@ -8,7 +8,6 @@ local function load_src(path)
 end
 
 local Binder = load_src("binder.lua")
-local Carry = load_src("carry.lua")
 local Catalog = load_src("catalog.lua")
 local Grading = load_src("grading.lua")
 local Label = load_src("label.lua")
@@ -110,15 +109,6 @@ function BinderUI.open(namespace, now)
     local revealed_count = process_due(namespace, now)
     refresh_hover_index(namespace)
     SlabUI.install(namespace)
-
-    local runtime = rawget(_G, "G")
-    if namespace.collection.carry then
-        local current = (runtime and runtime.STAGE ~= nil and runtime.STAGES ~= nil and runtime.STAGE == runtime.STAGES.RUN and runtime.GAME)
-            and Carry.run_identity(runtime.GAME) or "menu"
-        if Carry.reconcile(namespace.collection, current).released then
-            namespace.last_save_ok = Persistence.save(namespace)
-        end
-    end
 
     local view = Binder.entries(namespace.collection, { centers = runtime_centers() })
     namespace.binder_ui_state = {
@@ -237,47 +227,6 @@ function BinderUI.inspect_offer(namespace, offer)
         })
     end
     return namespace.inspect_ui_state
-end
-
-local function in_run(runtime)
-    runtime = runtime or rawget(_G, "G")
-    return runtime ~= nil
-        and runtime.STAGE ~= nil
-        and runtime.STAGES ~= nil
-        and runtime.STAGE == runtime.STAGES.RUN
-        and runtime.GAME ~= nil
-end
-
-function BinderUI.toggle_carry(namespace, card_id, now, runtime)
-    if not namespace or not namespace.collection then
-        return { ok = false, reason = "missing_collection" }
-    end
-    if not namespace.config then
-        return { ok = false, reason = "missing_config" }
-    end
-    runtime = runtime or rawget(_G, "G")
-    if not in_run(runtime) then
-        return { ok = false, reason = "not_in_run" }
-    end
-
-    local collection = namespace.collection
-    if collection.carry then
-        return { ok = false, reason = "carry_locked" }
-    end
-
-    local result = Carry.select_for_run(namespace.config, collection, {
-        card_id = card_id,
-        run_id = Carry.run_identity(runtime.GAME),
-        now = now
-    })
-    namespace.last_carry_result = result
-    if result.ok then
-        namespace.last_save_ok = Persistence.save(namespace)
-        if namespace.CarryUI and namespace.CarryUI.build_peek then
-            pcall(namespace.CarryUI.build_peek, namespace)
-        end
-    end
-    return result
 end
 
 function BinderUI.submit_grading(namespace, card_id, now)
@@ -668,11 +617,6 @@ local function inspect_action_row(namespace, state, entry, regular_font)
         and runtime.STAGES ~= nil
         and runtime.STAGE == runtime.STAGES.RUN
         and runtime.GAME ~= nil
-    if entry.status == "raw" and in_run_now and not (namespace.collection and namespace.collection.carry) then
-        actions[#actions + 1] = inspect_action_button("grdl_carry_toggle", entry.id, {
-            { text = safe_localize("grdl_b_carry") }
-        }, regular_font)
-    end
 
     if entry.status == "raw" then
         local ok_fee, fee = pcall(Grading.fee_for, namespace.config or {}, entry)
@@ -840,16 +784,6 @@ function BinderUI.install_runtime(namespace, runtime, adapter)
             })
         end
         return state
-    end
-
-    runtime.FUNCS.grdl_carry_toggle = function(event)
-        local card_id = event_card_id(event)
-        local result = BinderUI.toggle_carry(namespace, card_id, os.time())
-        if result.ok then
-            reopen_inspect(card_id)
-        elseif rawget(_G, "play_sound") then
-            pcall(play_sound, "tarot2", 0.76, 0.4)
-        end
     end
 
     runtime.FUNCS.grdl_inspect_submit = function(event)

@@ -28,6 +28,10 @@ function Storage.normalize(input)
     state.settlements = type(state.settlements) == "table" and state.settlements or {}
     state.market = type(state.market) == "table" and state.market or { series_heat = {} }
     state.market.series_heat = type(state.market.series_heat) == "table" and state.market.series_heat or {}
+    for _, card in ipairs(state.cards) do
+        if card.status == "carried" then card.status = "raw" end
+    end
+    state.carry = nil
     return state
 end
 

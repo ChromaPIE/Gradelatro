@@ -9,8 +9,8 @@ end
 
 local BlackMarket = load_src("black_market.lua")
 local Buyout = load_src("buyout.lua")
-local Carry = load_src("carry.lua")
 local Catalog = load_src("catalog.lua")
+local Loadout = load_src("loadout.lua")
 local Market = load_src("market.lua")
 local Persistence = load_src("persistence.lua")
 local Settlement = load_src("settlement.lua")
@@ -44,7 +44,7 @@ local function stake_level(stake)
     return stake.stake_level or stake.order
 end
 
-local run_id = Carry.run_identity
+local run_id = Loadout.run_identity
 
 function RunEnd.year_from_timestamp(timestamp)
     return tonumber(os.date("%Y", timestamp or os.time()))

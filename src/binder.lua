@@ -2,7 +2,6 @@ local Binder = {}
 
 local STATUS_KEYS = {
     raw = "grdl_k_status_raw",
-    carried = "grdl_k_status_carried",
     graded = "grdl_k_status_graded",
     queued = "grdl_k_status_queued",
     sold = "grdl_k_status_sold",
