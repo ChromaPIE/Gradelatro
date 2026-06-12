@@ -176,7 +176,7 @@ local function trends_popup(slot)
     } }
 end
 
-local function build_trend_card(area, slot, delay_flag)
+local function build_trend_card(area, slot, slot_index)
     local centers = G.P_CENTERS or {}
     local center = centers[slot.center_keys[1]]
     if not center then return nil end
@@ -184,7 +184,8 @@ local function build_trend_card(area, slot, delay_flag)
     local card = Card(area.T.x + area.T.w / 2, area.T.y, G.CARD_W, G.CARD_H, (G.P_CARDS and G.P_CARDS.empty or nil), center)
     UICommon.suppress_selection(card)
 
-    card.grdl_carousel = { keys = slot.center_keys, index = 1 }
+    -- per-slot phase staggers the swaps so the page never flickers in unison
+    card.grdl_carousel = { keys = slot.center_keys, index = 1, phase = ((slot_index or 1) - 1) * 0.37 }
 
     card.hover = function(self)
         self.config.h_popup = trends_popup(slot)
@@ -197,7 +198,7 @@ local function build_trend_card(area, slot, delay_flag)
 
     area:emplace(card)
     if card.start_materialize then
-        pcall(card.start_materialize, card, nil, delay_flag)
+        pcall(card.start_materialize, card, nil, (slot_index or 1) > 1)
     end
     return card
 end
@@ -227,7 +228,7 @@ local function trends_tab_definition(state)
                 for _ = 1, count do
                     slot_index = slot_index + 1
                     local slot = view.items[slot_index]
-                    if slot then build_trend_card(area, slot, slot_index > 1) end
+                    if slot then build_trend_card(area, slot, slot_index) end
                 end
                 deck_tables[#deck_tables + 1] = row({ { n = G.UIT.O, config = { object = area, func = "grdl_trend_tick", ref_table = area } } }, { padding = 0.05, no_fill = true })
             end
@@ -637,7 +638,7 @@ function MarketUI.install_runtime(namespace, runtime, adapter)
         for _, card in ipairs(area.cards) do
             local carousel = card.grdl_carousel
             if carousel and #carousel.keys > 1 then
-                carousel.last = carousel.last or clock
+                carousel.last = carousel.last or (clock + (carousel.phase or 0))
                 if clock - carousel.last >= CAROUSEL_INTERVAL then
                     carousel.last = clock
                     carousel.index = carousel.index % #carousel.keys + 1
@@ -645,8 +646,12 @@ function MarketUI.install_runtime(namespace, runtime, adapter)
                     local next_center = centers[carousel.keys[carousel.index]]
                     if next_center then
                         -- full morph: per-frame center hooks (center.update) and the soul
-                        -- draw gate both expect ability and config.center to match the face
+                        -- draw gate both expect ability and config.center to match the face.
+                        -- set_ability resets T from original_T (the build position), which
+                        -- would teleport the card and ease it back - restore the live spot
+                        local keep_x, keep_y, keep_r = card.T.x, card.T.y, card.T.r
                         pcall(card.set_ability, card, next_center, true)
+                        card.T.x, card.T.y, card.T.r = keep_x, keep_y, keep_r
                     end
                 end
             end

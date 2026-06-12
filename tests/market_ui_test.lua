@@ -129,16 +129,35 @@ local morphs = {}
 local trend_card = {
     config = { center = plain_center, center_key = "j_one" },
     children = {},
+    T = { x = 5, y = 6, r = 0.1 },
     grdl_carousel = { keys = { "j_one", "j_two" }, index = 1, last = -1e9 },
-    set_ability = function(self, center, initial) morphs[#morphs + 1] = { center = center, initial = initial } end
+    set_ability = function(self, center, initial)
+        morphs[#morphs + 1] = { center = center, initial = initial }
+        -- the real set_ability teleports T back to the build position
+        self.T.x, self.T.y, self.T.r = -99, -99, 0
+    end
 }
 runtime.FUNCS.grdl_trend_tick({ config = { ref_table = { cards = { trend_card } } } })
 H.assert_equal(#morphs, 1, "due carousel morphs once")
 H.assert_equal(morphs[1].center, soul_center, "morph targets the next center")
 H.assert_equal(morphs[1].initial, true, "morph skips deck bookkeeping")
 H.assert_equal(trend_card.grdl_carousel.index, 2, "carousel index advanced")
+H.assert_near(trend_card.T.x, 5, 1e-9, "morph keeps the live x position")
+H.assert_near(trend_card.T.y, 6, 1e-9, "morph keeps the live y position")
+H.assert_near(trend_card.T.r, 0.1, 1e-9, "morph keeps the live rotation")
 runtime.FUNCS.grdl_trend_tick({ config = { ref_table = { cards = { trend_card } } } })
 H.assert_equal(#morphs, 1, "fresh morph waits for the interval")
+
+local staggered_card = {
+    config = { center = plain_center, center_key = "j_one" },
+    children = {},
+    T = { x = 0, y = 0, r = 0 },
+    grdl_carousel = { keys = { "j_one", "j_two" }, index = 1, phase = 0.74 },
+    set_ability = function(self) morphs[#morphs + 1] = {} end
+}
+runtime.FUNCS.grdl_trend_tick({ config = { ref_table = { cards = { staggered_card } } } })
+H.assert_equal(#morphs, 1, "staggered card does not morph on its first tick")
+H.assert_true(type(staggered_card.grdl_carousel.last) == "number", "stagger seeds the swap clock with its phase")
 _G.G = previous_tick_g
 
 local revealed_rows = MarketUI.intel_rows({
