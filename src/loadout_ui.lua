@@ -135,6 +135,7 @@ local function license_cell(config_table, state, level)
     if next_level then
         return col({ UICommon.outline_button({
             button = "grdl_license_buy",
+            solid = true,
             minw = 1.55,
             minh = 0.75,
             lines = {
@@ -159,6 +160,7 @@ local function transport_cell(config_table, state, key)
         return col({ UICommon.outline_button({
             button = "grdl_transport_buy",
             ref = { key = key },
+            solid = true,
             minw = 1.35,
             minh = 0.85,
             lines = {
@@ -178,6 +180,8 @@ local function transport_cell(config_table, state, key)
     return col({ UICommon.outline_button({
         button = "grdl_transport_activate",
         ref = { key = key },
+        solid = true,
+        colour = G.C.BLUE,
         minw = 1.35,
         minh = 0.85,
         lines = {
@@ -474,12 +478,14 @@ function LoadoutUI.create_entry_definition(namespace)
         col({ UICommon.outline_button({
             button = "grdl_entry_confirm",
             solid = true,
+            colour = G.C.GREEN,
             minw = 1.8,
             minh = 0.65,
             lines = { { text = safe_localize("grdl_b_entry_confirm"), scale = 0.32 } }
         }) }, { align = "cm", minw = 2.2 }),
         col({ UICommon.outline_button({
             button = "grdl_entry_skip",
+            solid = true,
             minw = 1.5,
             minh = 0.65,
             lines = { { text = safe_localize("grdl_b_entry_skip"), scale = 0.3 } }
