@@ -151,7 +151,8 @@ local column = popup.nodes[1].nodes
 local anchor = column[1]
 H.assert_equal(anchor.config.func, "grdl_show_slab", "slab anchor inserted at column top")
 H.assert_true(anchor.config.ref_table ~= nil, "anchor carries slab nodes")
-H.assert_equal(#column, 2, "anchor sits above the original frame")
+H.assert_equal(#column, 3, "anchor above frame, proficiency box below")
+H.assert_equal(column[3].grdl_prof_box, true, "graded card always carries the proficiency box")
 local frame_rows = column[2].nodes[1].nodes
 H.assert_equal(frame_rows[1].name, "name_box", "original box preserved below anchor")
 H.assert_equal(badge_calls[1].text, "PSA 10", "graded badge text")
@@ -185,6 +186,91 @@ H.assert_equal(uibox_args.definition.nodes[1].config.colour, _G.G.C.RED, "wrappe
 
 funcs.grdl_show_slab(anchor_element)
 H.assert_true(anchor_element.children.info ~= nil, "second call is a no-op")
+
+-- ===== proficiency info box and tooltip tint =====
+local function tinted_popup()
+    return { nodes = { { nodes = { {
+        config = { colour = { 0, 0, 0, 1 } },
+        nodes = { {
+            config = { colour = { 0.1, 0.1, 0.1, 1 } },
+            nodes = { { name = "name_box" } }
+        } }
+    } } } } }
+end
+
+local prof_funcs = {}
+local prof_namespace = { binder_hover_index = {} }
+local prof_env = {
+    ui_def = { card_h_popup = function() return tinted_popup() end },
+    funcs = prof_funcs
+}
+H.assert_equal(SlabUI.install(prof_namespace, prof_env), true, "fresh namespace installs its own wrap")
+
+local prof_card = {
+    children = {},
+    grdl_record = {
+        id = "grdl_p1",
+        status = "graded",
+        grade = 9,
+        center_key = "kino_air_freshener",
+        proficiency = { antes = 13, note = "my note", tooltip_colour = "FF8000" }
+    }
+}
+local prof_popup = prof_env.ui_def.card_h_popup(prof_card)
+local prof_column = prof_popup.nodes[1].nodes
+local info_box = prof_column[#prof_column]
+H.assert_equal(info_box.grdl_prof_box, true, "proficiency box appended last")
+
+local found_level = false
+local found_note = false
+local function scan(node)
+    if type(node) ~= "table" then return end
+    if node.config and type(node.config.text) == "string" then
+        if node.config.text:find("II", 1, true) then found_level = true end
+        if node.config.text == "my note" then found_note = true end
+    end
+    for _, child in ipairs(node.nodes or {}) do scan(child) end
+end
+scan(info_box)
+H.assert_true(found_level, "level label rendered in info box")
+H.assert_true(found_note, "custom note rendered in info box")
+
+local tinted = false
+local function find_tint(node)
+    if type(node) ~= "table" then return end
+    if node.config and type(node.config.colour) == "table"
+        and node.config.colour[1] == 1 and math.abs((node.config.colour[2] or 0) - 0.502) < 0.01 then
+        tinted = true
+    end
+    for _, child in ipairs(node.nodes or {}) do find_tint(child) end
+end
+find_tint(prof_popup)
+H.assert_true(tinted, "tooltip tinted with the custom colour")
+
+-- in-run loadout joker resolves its record through the namespace
+prof_namespace.collection = {
+    cards = {
+        { id = "grdl_lj1", status = "graded", center_key = "kino_air_freshener", proficiency = { antes = 100 } }
+    }
+}
+local loadout_joker = { children = {}, ability = { grdl_loadout_id = "grdl_lj1" } }
+local joker_popup = prof_env.ui_def.card_h_popup(loadout_joker)
+local joker_column = joker_popup.nodes[1].nodes
+H.assert_equal(joker_column[#joker_column].grdl_prof_box, true, "loadout joker gets the proficiency box")
+H.assert_equal(#joker_column, 2, "loadout joker gets no slab anchor")
+local found_maxed = false
+local function scan_maxed(node)
+    if type(node) ~= "table" then return end
+    if node.config and node.config.text == "grdl_k_prof_maxed" then found_maxed = true end
+    for _, child in ipairs(node.nodes or {}) do scan_maxed(child) end
+end
+scan_maxed(joker_column[#joker_column])
+H.assert_true(found_maxed, "maxed proficiency shows the mastered key")
+
+-- raw collection card gets neither box nor tint
+local raw_prof_card = { children = {}, grdl_record = { id = "grdl_p2", status = "raw" } }
+local raw_prof_popup = prof_env.ui_def.card_h_popup(raw_prof_card)
+H.assert_equal(raw_prof_popup.nodes[1].nodes[#raw_prof_popup.nodes[1].nodes].grdl_prof_box, nil, "raw card gets no proficiency box")
 
 _G.UIBox = nil
 _G.create_badge = nil
