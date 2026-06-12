@@ -172,31 +172,19 @@ local function proficiency_rows(record)
     return rows
 end
 
-local function fallback_info_box(rows, title)
-    local row_nodes = {
-        { n = G.UIT.R, config = { align = "cm", padding = 0.03 }, nodes = {
-            { n = G.UIT.T, config = { text = title, scale = 0.3, colour = G.C.UI.TEXT_LIGHT } }
-        } }
-    }
-    for _, cells in ipairs(rows) do
-        row_nodes[#row_nodes + 1] = { n = G.UIT.R, config = { align = "cm", padding = 0.02 }, nodes = cells }
+-- rides the vanilla info_queue path: entries in ability_UIBox_table.info
+-- render as the same side boxes tarot cards use for related effects
+local function inject_proficiency_info(card, record)
+    local aut = card.ability_UIBox_table
+    if type(aut) ~= "table" then return end
+    aut.info = aut.info or {}
+    for _, existing in ipairs(aut.info) do
+        if existing.grdl_prof then return end
     end
-    return { n = G.UIT.R, config = { align = "cm", padding = 0.05, r = 0.1, colour = G.C.WHITE }, nodes = row_nodes }
-end
-
-local function append_proficiency_box(popup, record)
-    local column = popup_column(popup)
-    if type(column) ~= "table" then return end
-    local rows = proficiency_rows(record)
-    local title = UICommon.localize_text("grdl_k_prof_title")
-    local box
-    if rawget(_G, "info_tip_from_rows") then
-        box = info_tip_from_rows(rows, title)
-    else
-        box = fallback_info_box(rows, title)
-    end
-    box.grdl_prof_box = true
-    column[#column + 1] = box
+    local entry = proficiency_rows(record)
+    entry.name = UICommon.localize_text("grdl_k_prof_title")
+    entry.grdl_prof = true
+    aut.info[#aut.info + 1] = entry
 end
 
 local function apply_tooltip_tint(popup, record)
@@ -235,6 +223,12 @@ function SlabUI.install(namespace, env)
 
     local original_popup = ui_def.card_h_popup
     ui_def.card_h_popup = function(card)
+        if card then
+            local record = card.grdl_record or resolve_loadout_record(namespace, card)
+            if record and record.status == "graded" then
+                pcall(inject_proficiency_info, card, record)
+            end
+        end
         local popup = original_popup(card)
         if not popup or not card then return popup end
         if card.grdl_record then
@@ -242,19 +236,11 @@ function SlabUI.install(namespace, env)
             if card.grdl_record.status == "graded" then
                 pcall(insert_slab_anchor, namespace, popup, card)
             end
-            -- tint before appending: it targets the column's last node,
-            -- which must still be the vanilla frame at that point
             pcall(apply_tooltip_tint, popup, card.grdl_record)
-            if card.grdl_record.status == "graded" then
-                pcall(append_proficiency_box, popup, card.grdl_record)
-            end
         else
             local record = resolve_loadout_record(namespace, card)
             if record then
                 pcall(apply_tooltip_tint, popup, record)
-                if record.status == "graded" then
-                    pcall(append_proficiency_box, popup, record)
-                end
             end
         end
         return popup

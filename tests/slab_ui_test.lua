@@ -151,8 +151,7 @@ local column = popup.nodes[1].nodes
 local anchor = column[1]
 H.assert_equal(anchor.config.func, "grdl_show_slab", "slab anchor inserted at column top")
 H.assert_true(anchor.config.ref_table ~= nil, "anchor carries slab nodes")
-H.assert_equal(#column, 3, "anchor above frame, proficiency box below")
-H.assert_equal(column[3].grdl_prof_box, true, "graded card always carries the proficiency box")
+H.assert_equal(#column, 2, "anchor sits above the original frame")
 local frame_rows = column[2].nodes[1].nodes
 H.assert_equal(frame_rows[1].name, "name_box", "original box preserved below anchor")
 H.assert_equal(badge_calls[1].text, "PSA 10", "graded badge text")
@@ -208,6 +207,7 @@ H.assert_equal(SlabUI.install(prof_namespace, prof_env), true, "fresh namespace 
 
 local prof_card = {
     children = {},
+    ability_UIBox_table = { info = {} },
     grdl_record = {
         id = "grdl_p1",
         status = "graded",
@@ -218,20 +218,24 @@ local prof_card = {
 }
 local prof_popup = prof_env.ui_def.card_h_popup(prof_card)
 local prof_column = prof_popup.nodes[1].nodes
-local info_box = prof_column[#prof_column]
-H.assert_equal(info_box.grdl_prof_box, true, "proficiency box appended last")
+H.assert_equal(#prof_column, 2, "anchor and frame only, no custom box appended")
+H.assert_equal(#prof_card.ability_UIBox_table.info, 1, "proficiency entry injected into vanilla info queue")
+local info_box = prof_card.ability_UIBox_table.info[1]
+H.assert_equal(info_box.grdl_prof, true, "entry tagged for dedupe")
+H.assert_equal(info_box.name, "grdl_k_prof_title", "entry named for the vanilla info box title")
+prof_env.ui_def.card_h_popup(prof_card)
+H.assert_equal(#prof_card.ability_UIBox_table.info, 1, "repeated hover never duplicates the entry")
 
 local found_level = false
 local found_note = false
-local function scan(node)
-    if type(node) ~= "table" then return end
-    if node.config and type(node.config.text) == "string" then
-        if node.config.text:find("II", 1, true) then found_level = true end
-        if node.config.text == "my note" then found_note = true end
+for _, cells in ipairs(info_box) do
+    for _, node in ipairs(cells) do
+        if node.config and type(node.config.text) == "string" then
+            if node.config.text:find("II", 1, true) then found_level = true end
+            if node.config.text == "my note" then found_note = true end
+        end
     end
-    for _, child in ipairs(node.nodes or {}) do scan(child) end
 end
-scan(info_box)
 H.assert_true(found_level, "level label rendered in info box")
 H.assert_true(found_note, "custom note rendered in info box")
 
@@ -253,24 +257,22 @@ prof_namespace.collection = {
         { id = "grdl_lj1", status = "graded", center_key = "kino_air_freshener", proficiency = { antes = 100 } }
     }
 }
-local loadout_joker = { children = {}, ability = { grdl_loadout_id = "grdl_lj1" } }
+local loadout_joker = { children = {}, ability_UIBox_table = { info = {} }, ability = { grdl_loadout_id = "grdl_lj1" } }
 local joker_popup = prof_env.ui_def.card_h_popup(loadout_joker)
-local joker_column = joker_popup.nodes[1].nodes
-H.assert_equal(joker_column[#joker_column].grdl_prof_box, true, "loadout joker gets the proficiency box")
-H.assert_equal(#joker_column, 2, "loadout joker gets no slab anchor")
+H.assert_equal(#joker_popup.nodes[1].nodes, 1, "loadout joker popup column untouched")
+H.assert_equal(#loadout_joker.ability_UIBox_table.info, 1, "loadout joker gets the proficiency entry")
 local found_maxed = false
-local function scan_maxed(node)
-    if type(node) ~= "table" then return end
-    if node.config and node.config.text == "grdl_k_prof_maxed" then found_maxed = true end
-    for _, child in ipairs(node.nodes or {}) do scan_maxed(child) end
+for _, cells in ipairs(loadout_joker.ability_UIBox_table.info[1]) do
+    for _, node in ipairs(cells) do
+        if node.config and node.config.text == "grdl_k_prof_maxed" then found_maxed = true end
+    end
 end
-scan_maxed(joker_column[#joker_column])
 H.assert_true(found_maxed, "maxed proficiency shows the mastered key")
 
 -- raw collection card gets neither box nor tint
-local raw_prof_card = { children = {}, grdl_record = { id = "grdl_p2", status = "raw" } }
-local raw_prof_popup = prof_env.ui_def.card_h_popup(raw_prof_card)
-H.assert_equal(raw_prof_popup.nodes[1].nodes[#raw_prof_popup.nodes[1].nodes].grdl_prof_box, nil, "raw card gets no proficiency box")
+local raw_prof_card = { children = {}, ability_UIBox_table = { info = {} }, grdl_record = { id = "grdl_p2", status = "raw" } }
+prof_env.ui_def.card_h_popup(raw_prof_card)
+H.assert_equal(#raw_prof_card.ability_UIBox_table.info, 0, "raw card gets no proficiency entry")
 
 _G.UIBox = nil
 _G.create_badge = nil
