@@ -159,15 +159,15 @@ local function proficiency_rows(record)
     -- keys without a localize global, which would swallow the values
     rows[#rows + 1] = { { n = G.UIT.T, config = {
         text = UICommon.localize_text("grdl_k_prof_level") .. " " .. Proficiency.level_label(level),
-        scale = 0.3, colour = G.C.UI.TEXT_DARK } } }
+        scale = 0.33, colour = G.C.UI.TEXT_DARK } } }
     local next_threshold = Proficiency.next_threshold(record)
     local progress = next_threshold
         and (UICommon.localize_text("grdl_k_prof_progress") .. " " .. tostring(Proficiency.antes(record)) .. "/" .. tostring(next_threshold))
         or UICommon.localize_text("grdl_k_prof_maxed")
-    rows[#rows + 1] = { { n = G.UIT.T, config = { text = progress, scale = 0.27, colour = G.C.UI.TEXT_DARK } } }
+    rows[#rows + 1] = { { n = G.UIT.T, config = { text = progress, scale = 0.3, colour = G.C.UI.TEXT_DARK } } }
     local note = record.proficiency and record.proficiency.note or nil
     if note and level >= 2 then
-        rows[#rows + 1] = { { n = G.UIT.T, config = { text = note, scale = 0.27, colour = G.C.UI.TEXT_DARK } } }
+        rows[#rows + 1] = { { n = G.UIT.T, config = { text = note, scale = 0.3, colour = G.C.UI.TEXT_DARK } } }
     end
     return rows
 end

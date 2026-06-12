@@ -88,7 +88,7 @@ end
 
 function UICommon.stat_chip(text)
     return { n = G.UIT.C, config = { align = "cm", padding = 0.09, r = 0.1, colour = G.C.WHITE, emboss = 0.05 }, nodes = {
-        { n = G.UIT.T, config = { text = text, scale = 0.31, colour = G.C.UI.TEXT_DARK } }
+        { n = G.UIT.T, config = { text = text, scale = 0.34, colour = G.C.UI.TEXT_DARK } }
     } }
 end
 
@@ -226,7 +226,7 @@ function UICommon.outline_button(args)
                 text = line.text,
                 ref_table = line.ref_table,
                 ref_value = line.ref_value,
-                scale = line.scale or 0.32,
+                scale = line.scale or 0.34,
                 colour = line.colour or G.C.WHITE,
                 font = args.font
             } }

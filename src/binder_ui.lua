@@ -345,10 +345,10 @@ function BinderUI.open_prof_input(namespace, card_id, kind)
         solid = true,
         minw = 1.6,
         minh = 0.6,
-        lines = { { text = safe_localize("grdl_b_confirm"), scale = 0.3 } }
+        lines = { { text = safe_localize("grdl_b_confirm"), scale = 0.34 } }
     }) }, { padding = 0.06 })
     nodes[#nodes + 1] = row({
-        { n = G.UIT.T, config = { ref_table = namespace.prof_input, ref_value = "feedback", scale = 0.28, colour = G.C.GOLD } }
+        { n = G.UIT.T, config = { ref_table = namespace.prof_input, ref_value = "feedback", scale = 0.32, colour = G.C.GOLD } }
     })
     if runtime.SETTINGS then runtime.SETTINGS.paused = true end
     runtime.FUNCS.overlay_menu({ definition = create_UIBox_generic_options({
@@ -475,7 +475,7 @@ function BinderUI.create_overlay_definition(namespace)
     end
 
     if (state.hidden or 0) > 0 then
-        rows[#rows + 1] = row({ ui_text(safe_localize(state.text_keys.hidden, { state.hidden }), 0.28, G.C.UI.TEXT_INACTIVE) })
+        rows[#rows + 1] = row({ ui_text(safe_localize(state.text_keys.hidden, { state.hidden }), 0.32, G.C.UI.TEXT_INACTIVE) })
     end
 
     local controls = {}
@@ -569,7 +569,7 @@ local function attach_countdown_tip(element, info)
     element.children.grdl_tip = UIBox({
         definition = { n = G.UIT.ROOT, config = { align = "cm", colour = G.C.CLEAR, padding = 0.05 }, nodes = {
             { n = G.UIT.R, config = { align = "cm", padding = 0.08, r = 0.1, colour = G.C.BLACK, emboss = 0.05 }, nodes = {
-                { n = G.UIT.T, config = { ref_table = info, ref_value = "countdown", scale = 0.3, colour = G.C.WHITE } }
+                { n = G.UIT.T, config = { ref_table = info, ref_value = "countdown", scale = 0.34, colour = G.C.WHITE } }
             } }
         } },
         config = { instance_type = "POPUP", align = "tm", offset = { x = 0, y = -0.05 }, major = element, parent = element }
@@ -582,14 +582,14 @@ end
 local function queue_row(queue_data)
     local name = center_name(queue_data)
     return row({
-        col({ ui_text(name, UICommon.fit_scale(name, 0.32, 18)) }, {
+        col({ ui_text(name, UICommon.fit_scale(name, 0.36, 18)) }, {
             align = "cl",
             minw = 2.2,
             collideable = true,
             func = "grdl_row_preview",
             ref_table = { center_key = queue_data.center_key, edition = queue_data.edition }
         }),
-        col({ ui_text(safe_localize("grdl_k_service_" .. tostring(queue_data.service or "standard")), 0.28) }, { align = "cl", minw = 1.0 }),
+        col({ ui_text(safe_localize("grdl_k_service_" .. tostring(queue_data.service or "standard")), 0.32) }, { align = "cl", minw = 1.1 }),
         col({ queue_bar(queue_data) }, { align = "cr", minw = 2.5 })
     }, { padding = 0.05 })
 end
@@ -688,8 +688,8 @@ end
 
 local function inspect_detail_row(label_key, value, regular_font)
     return row({
-        col({ inspect_text(safe_localize(label_key), 0.36, G.C.UI.TEXT_INACTIVE, regular_font) }, { align = "cl", minw = 2.0 }),
-        col({ inspect_text(value, 0.36, G.C.WHITE, regular_font) }, { align = "cl", minw = 2.9 })
+        col({ inspect_text(safe_localize(label_key), 0.38, G.C.UI.TEXT_INACTIVE, regular_font) }, { align = "cl", minw = 2.1 }),
+        col({ inspect_text(value, 0.38, G.C.WHITE, regular_font) }, { align = "cl", minw = 3.0 })
     }, { align = "cl", padding = 0.07 })
 end
 
@@ -745,7 +745,7 @@ local function inspect_action_row(namespace, state, entry, regular_font)
         local ok_fee, fee = pcall(Grading.fee_for, namespace.config or {}, entry)
         actions[#actions + 1] = inspect_action_button("grdl_inspect_submit", entry.id, {
             { text = safe_localize("grdl_b_grade") },
-            { text = safe_localize("grdl_k_grading_fee", { ok_fee and fee or 0 }), scale = 0.28, colour = G.C.GOLD }
+            { text = safe_localize("grdl_k_grading_fee", { ok_fee and fee or 0 }), scale = 0.3, colour = G.C.GOLD }
         }, regular_font)
     end
 
@@ -753,7 +753,7 @@ local function inspect_action_row(namespace, state, entry, regular_font)
         local ok_quote, quote = pcall(Market.sell_quote, namespace.config or {}, namespace.collection or {}, entry)
         actions[#actions + 1] = inspect_action_button("grdl_inspect_sell", entry.id, {
             { text = safe_localize("grdl_b_sell") },
-            { text = safe_localize("grdl_k_grading_fee", { ok_quote and quote or 0 }), scale = 0.28, colour = G.C.GOLD }
+            { text = safe_localize("grdl_k_grading_fee", { ok_quote and quote or 0 }), scale = 0.3, colour = G.C.GOLD }
         }, regular_font)
     end
 
@@ -850,7 +850,7 @@ function BinderUI.create_inspect_definition(namespace)
         action_cols = {
             inspect_action_button("grdl_bm_buy", entry.offer_slot, {
                 { text = safe_localize("grdl_b_buy") },
-                { text = safe_localize("grdl_k_grading_fee", { entry.price or 0 }), scale = 0.28, colour = G.C.GOLD }
+                { text = safe_localize("grdl_k_grading_fee", { entry.price or 0 }), scale = 0.3, colour = G.C.GOLD }
             }, regular_font)
         }
     else
@@ -860,7 +860,7 @@ function BinderUI.create_inspect_definition(namespace)
         right_nodes[#right_nodes + 1] = row({}, { minh = 0.35 })
         right_nodes[#right_nodes + 1] = row(action_cols, { align = "cl", padding = 0.04 })
         right_nodes[#right_nodes + 1] = row({
-            { n = G.UIT.T, config = { ref_table = state, ref_value = "last_reason_text", scale = 0.3, colour = G.C.RED } }
+            { n = G.UIT.T, config = { ref_table = state, ref_value = "last_reason_text", scale = 0.34, colour = G.C.RED } }
         }, { align = "cl" })
     end
 

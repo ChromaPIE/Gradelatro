@@ -80,7 +80,7 @@ end
 
 local function loadout_cards_row(namespace, state)
     if #state.entries == 0 or not (rawget(_G, "CardArea") and rawget(_G, "Card") and rawget(_G, "G") and G.P_CENTERS) then
-        return row({ ui_text(safe_localize("grdl_k_loadout_empty"), 0.32, G.C.UI.TEXT_INACTIVE) }, { padding = 0.3 })
+        return row({ ui_text(safe_localize("grdl_k_loadout_empty"), 0.35, G.C.UI.TEXT_INACTIVE) }, { padding = 0.3 })
     end
     local area = CardArea(
         G.ROOM.T.x + 0.2 * G.ROOM.T.w / 2, G.ROOM.T.h,
@@ -118,7 +118,7 @@ function LoadoutUI.create_overlay_definition(namespace)
             UICommon.stat_chip(safe_localize("grdl_k_active_transport", { transport_name }))
         }, { padding = 0.09 }),
         loadout_cards_row(namespace, state),
-        row({ ui_text(safe_localize("grdl_k_loadout_hint"), 0.27, G.C.UI.TEXT_INACTIVE) }),
+        row({ ui_text(safe_localize("grdl_k_loadout_hint"), 0.31, G.C.UI.TEXT_INACTIVE) }),
         row({
             UIBox_button({
                 button = "grdl_open_license",
@@ -152,19 +152,19 @@ local function license_cell(config_table, state, level)
         return col({ UICommon.outline_button({
             button = "grdl_license_buy",
             solid = true,
-            minw = 1.55,
-            minh = 0.75,
+            minw = 1.7,
+            minh = 0.8,
             lines = {
-                { text = label, scale = 0.26 },
-                { text = safe_localize("grdl_k_grading_fee", { price }), scale = 0.24, colour = G.C.GOLD }
+                { text = label, scale = 0.3 },
+                { text = safe_localize("grdl_k_grading_fee", { price }), scale = 0.27, colour = G.C.GOLD }
             }
-        }) }, { align = "cm", minw = 1.7 })
+        }) }, { align = "cm", minw = 1.85 })
     end
     local colour = owned and G.C.GREEN or G.C.UI.TEXT_INACTIVE
     local status = owned and safe_localize("grdl_k_owned") or safe_localize("grdl_k_locked")
     return col({
-        row({ ui_text(label, 0.26, colour) }, { padding = 0.01 }),
-        row({ ui_text(status, 0.22, colour) }, { padding = 0.01 })
+        row({ ui_text(label, 0.3, colour) }, { padding = 0.01 }),
+        row({ ui_text(status, 0.26, colour) }, { padding = 0.01 })
     }, { align = "cm", minw = 1.7 })
 end
 
@@ -177,20 +177,20 @@ local function transport_cell(config_table, state, key)
             button = "grdl_transport_buy",
             ref = { key = key },
             solid = true,
-            minw = 1.35,
-            minh = 0.85,
+            minw = 1.5,
+            minh = 0.9,
             lines = {
-                { text = name, scale = 0.25 },
-                { text = safe_localize("grdl_k_transport_antes", { antes }), scale = 0.21 },
-                { text = safe_localize("grdl_k_grading_fee", { transport.price }), scale = 0.23, colour = G.C.GOLD }
+                { text = name, scale = 0.28 },
+                { text = safe_localize("grdl_k_transport_antes", { antes }), scale = 0.24 },
+                { text = safe_localize("grdl_k_grading_fee", { transport.price }), scale = 0.26, colour = G.C.GOLD }
             }
         }) }, { align = "cm", minw = 1.5 })
     end
     if state.active_transport == key then
         return col({
-            row({ ui_text(name, 0.25, G.C.GREEN) }, { padding = 0.01 }),
-            row({ ui_text(safe_localize("grdl_k_transport_antes", { antes }), 0.21, G.C.GREEN) }, { padding = 0.01 }),
-            row({ ui_text(safe_localize("grdl_k_enabled"), 0.22, G.C.GREEN) }, { padding = 0.01 })
+            row({ ui_text(name, 0.28, G.C.GREEN) }, { padding = 0.01 }),
+            row({ ui_text(safe_localize("grdl_k_transport_antes", { antes }), 0.24, G.C.GREEN) }, { padding = 0.01 }),
+            row({ ui_text(safe_localize("grdl_k_enabled"), 0.26, G.C.GREEN) }, { padding = 0.01 })
         }, { align = "cm", minw = 1.5 })
     end
     return col({ UICommon.outline_button({
@@ -198,12 +198,12 @@ local function transport_cell(config_table, state, key)
         ref = { key = key },
         solid = true,
         colour = G.C.BLUE,
-        minw = 1.35,
-        minh = 0.85,
+        minw = 1.5,
+        minh = 0.9,
         lines = {
-            { text = name, scale = 0.25 },
-            { text = safe_localize("grdl_k_transport_antes", { antes }), scale = 0.21 },
-            { text = safe_localize("grdl_b_enable"), scale = 0.23 }
+            { text = name, scale = 0.28 },
+            { text = safe_localize("grdl_k_transport_antes", { antes }), scale = 0.24 },
+            { text = safe_localize("grdl_b_enable"), scale = 0.26 }
         }
     }) }, { align = "cm", minw = 1.5 })
 end
@@ -219,7 +219,7 @@ local function license_tab_definition(namespace)
         local config_table = namespace.config
         local ladder = {}
         for tier = 1, 4 do
-            local cells = { row({ ui_text(safe_localize(TIER_KEYS[tier]), 0.3, G.C.WHITE) }, { padding = 0.02 }) }
+            local cells = { row({ ui_text(safe_localize(TIER_KEYS[tier]), 0.34, G.C.WHITE) }, { padding = 0.02 }) }
             for within = 1, 3 do
                 cells[#cells + 1] = row({ license_cell(config_table, state, (tier - 1) * 3 + within) }, { padding = 0.02 })
             end
@@ -486,7 +486,7 @@ function LoadoutUI.create_entry_definition(namespace)
     local collection = namespace.collection
     local nodes = {
         row({ ui_text(safe_localize("grdl_k_entry_title"), 0.5, G.C.WHITE) }),
-        row({ ui_text(safe_localize("grdl_k_entry_pick", { window.picks }), 0.32, G.C.UI.TEXT_LIGHT) }, { padding = 0.04 })
+        row({ ui_text(safe_localize("grdl_k_entry_pick", { window.picks }), 0.35, G.C.UI.TEXT_LIGHT) }, { padding = 0.04 })
     }
     if rawget(_G, "CardArea") and rawget(_G, "Card") and rawget(_G, "G") and G.P_CENTERS then
         local area = CardArea(
@@ -531,14 +531,14 @@ function LoadoutUI.create_entry_definition(namespace)
             colour = G.C.GREEN,
             minw = 1.8,
             minh = 0.65,
-            lines = { { text = safe_localize("grdl_b_entry_confirm"), scale = 0.32 } }
+            lines = { { text = safe_localize("grdl_b_entry_confirm"), scale = 0.34 } }
         }) }, { align = "cm", minw = 2.2 }),
         col({ UICommon.outline_button({
             button = "grdl_entry_skip",
             solid = true,
             minw = 1.5,
             minh = 0.65,
-            lines = { { text = safe_localize("grdl_b_entry_skip"), scale = 0.3 } }
+            lines = { { text = safe_localize("grdl_b_entry_skip"), scale = 0.32 } }
         }) }, { align = "cm", minw = 1.9 })
     }, { padding = 0.08 })
     return create_UIBox_generic_options({

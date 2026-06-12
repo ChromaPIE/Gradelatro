@@ -141,7 +141,7 @@ end
 
 local function trend_line_cell(text, side, colour)
     return { n = G.UIT.R, config = { align = side, minh = 0.36, padding = 0.01 }, nodes = {
-        ui_text(text, 0.32, colour or G.C.UI.TEXT_DARK)
+        ui_text(text, 0.35, colour or G.C.UI.TEXT_DARK)
     } }
 end
 
@@ -164,8 +164,8 @@ local function trends_popup(slot)
     return { n = G.UIT.ROOT, config = { align = "cm", colour = G.C.CLEAR }, nodes = {
         { n = G.UIT.R, config = { align = "cm", padding = 0.05, r = 0.12, colour = rawget(_G, "lighten") and lighten(G.C.JOKER_GREY, 0.5) or G.C.JOKER_GREY, emboss = 0.07 }, nodes = {
             { n = G.UIT.R, config = { align = "cm", padding = 0.07, r = 0.1, colour = G.C.L_BLACK }, nodes = {
-                row({ ui_text(slot.mod_name, 0.44, G.C.WHITE) }, { padding = 0.02 }),
-                row({ ui_text(slot.series_key, 0.34, G.C.UI.TEXT_LIGHT) }, { padding = 0.02 }),
+                row({ ui_text(slot.mod_name, 0.46, G.C.WHITE) }, { padding = 0.02 }),
+                row({ ui_text(slot.series_key, 0.36, G.C.UI.TEXT_LIGHT) }, { padding = 0.02 }),
                 { n = G.UIT.R, config = { align = "cm", padding = 0.06, r = 0.06, colour = G.C.WHITE }, nodes = {
                     { n = G.UIT.C, config = { align = "cl", padding = 0.01 }, nodes = labels },
                     { n = G.UIT.C, config = { align = "cm", minw = 0.35 }, nodes = {} },
@@ -276,7 +276,7 @@ local function mystery_popup(offer)
     return { n = G.UIT.ROOT, config = { align = "cm", colour = G.C.CLEAR }, nodes = {
         { n = G.UIT.R, config = { align = "cm", padding = 0.05, r = 0.12, colour = rawget(_G, "lighten") and lighten(G.C.JOKER_GREY, 0.5) or G.C.JOKER_GREY, emboss = 0.07 }, nodes = {
             { n = G.UIT.R, config = { align = "cm", padding = 0.07, r = 0.1, colour = G.C.L_BLACK }, nodes = {
-                row({ ui_text(safe_localize("grdl_k_intel_unknown"), 0.44, G.C.WHITE) }, { padding = 0.02 }),
+                row({ ui_text(safe_localize("grdl_k_intel_unknown"), 0.46, G.C.WHITE) }, { padding = 0.02 }),
                 { n = G.UIT.R, config = { align = "cm", padding = 0.06, r = 0.06, colour = G.C.WHITE }, nodes = {
                     { n = G.UIT.C, config = { align = "cl", padding = 0.01 }, nodes = labels },
                     { n = G.UIT.C, config = { align = "cm", minw = 0.35 }, nodes = {} },
@@ -300,8 +300,8 @@ local function attach_buy_button(card, offer)
                 minw = 1.15,
                 minh = 0.6,
                 lines = {
-                    { text = safe_localize(TEXT_KEYS.buy), scale = 0.3 },
-                    { text = safe_localize("grdl_k_grading_fee", { offer.price }), scale = 0.26, colour = G.C.GOLD }
+                    { text = safe_localize(TEXT_KEYS.buy), scale = 0.32 },
+                    { text = safe_localize("grdl_k_grading_fee", { offer.price }), scale = 0.28, colour = G.C.GOLD }
                 }
             })
         } },
@@ -448,7 +448,7 @@ local function attach_dealer_bubble(sprite, quip)
         local ok_line, line_object = pcall(DynaText, {
             string = { line },
             colours = { G.C.UI.TEXT_DARK },
-            scale = 0.32,
+            scale = 0.34,
             float = true,
             bump = true,
             silent = true,
@@ -550,7 +550,7 @@ local function blackmarket_tab_definition(namespace, state)
             offer_nodes[#offer_nodes + 1] = row({}, { minh = 0.7, padding = 0 })
         end
         offer_nodes[#offer_nodes + 1] = row({
-            { n = G.UIT.T, config = { ref_table = state, ref_value = "bm_text", scale = 0.3, colour = G.C.GOLD } }
+            { n = G.UIT.T, config = { ref_table = state, ref_value = "bm_text", scale = 0.34, colour = G.C.GOLD } }
         })
 
         nodes[#nodes + 1] = row({
