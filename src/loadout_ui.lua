@@ -291,6 +291,248 @@ function LoadoutUI.install_runtime(namespace, runtime, adapter)
         return Loadout.set_active_transport(namespace.collection, event_key(event))
     end, "grdl_k_transport_enabled")
 
+    runtime.FUNCS.grdl_entry_confirm = function(event)
+        local area = namespace.loadout_entry_area
+        local picked = {}
+        for _, card in ipairs((area and area.cards) or {}) do
+            if card.highlighted and card.grdl_record then picked[#picked + 1] = card.grdl_record.id end
+        end
+        if #picked > 0 then
+            LoadoutUI.spawn_entries(namespace, picked, os.time())
+        end
+        namespace.loadout_entry_window = nil
+        namespace.loadout_entry_area = nil
+        if runtime.FUNCS.exit_overlay_menu then runtime.FUNCS.exit_overlay_menu() end
+    end
+
+    runtime.FUNCS.grdl_entry_skip = function(event)
+        namespace.loadout_entry_window = nil
+        namespace.loadout_entry_area = nil
+        if runtime.FUNCS.exit_overlay_menu then runtime.FUNCS.exit_overlay_menu() end
+    end
+
+    return true
+end
+
+-- ===== run integration =====
+
+function LoadoutUI.on_run_start(namespace)
+    local runtime = rawget(_G, "G")
+    if not namespace or not namespace.collection or not runtime or not runtime.GAME then return end
+    local run_id = Loadout.run_identity(runtime.GAME)
+    local existing = runtime.GAME.grdl_loadout
+    if not existing or existing.run_id ~= run_id then
+        runtime.GAME.grdl_loadout = Loadout.begin_run(namespace.collection, run_id)
+    end
+end
+
+function LoadoutUI.count_proficiency(namespace, runtime, run_state)
+    local changed = false
+    for _, card_id in ipairs(run_state.entered or {}) do
+        local present = false
+        for _, joker in ipairs((runtime.jokers and runtime.jokers.cards) or {}) do
+            if joker.ability and joker.ability.grdl_loadout_id == card_id then
+                present = true
+                break
+            end
+        end
+        if present then
+            local card = Storage.find_card(namespace.collection, card_id)
+            if card and Proficiency.record_ante(card) then changed = true end
+        end
+    end
+    if changed then namespace.last_save_ok = Persistence.save(namespace) end
+end
+
+function LoadoutUI.on_boss_cash_out(namespace)
+    local runtime = rawget(_G, "G")
+    if not namespace or not namespace.collection or not runtime or not runtime.GAME then return end
+    local resets = runtime.GAME.round_resets or {}
+    if not resets.blind_states or resets.blind_states.Boss ~= "Defeated" then return end
+    local run_state = runtime.GAME.grdl_loadout
+    if not run_state then return end
+    -- ease_ante has already run by cash-out time, so the beaten ante is one back
+    local defeated_ante = (resets.ante or 1) - 1
+    if run_state.counted_ante == defeated_ante then return end
+    run_state.counted_ante = defeated_ante
+
+    LoadoutUI.count_proficiency(namespace, runtime, run_state)
+
+    local window = Loadout.window(namespace.config, namespace.collection, run_state, defeated_ante)
+    if not window then return end
+    namespace.loadout_entry_window = window
+    if runtime.E_MANAGER and rawget(_G, "Event") then
+        runtime.E_MANAGER:add_event(Event({
+            trigger = "after",
+            delay = 0.7,
+            blockable = false,
+            func = function()
+                pcall(LoadoutUI.open_entry, namespace)
+                return true
+            end
+        }))
+    end
+end
+
+function LoadoutUI.spawn_entries(namespace, card_ids, now)
+    local runtime = rawget(_G, "G")
+    local smods = rawget(_G, "SMODS")
+    if not runtime or not runtime.GAME or not runtime.GAME.grdl_loadout then
+        return { ok = false, reason = "no_run" }
+    end
+    if not smods or type(smods.add_card) ~= "function" then
+        return { ok = false, reason = "spawn_failed" }
+    end
+    local run_state = runtime.GAME.grdl_loadout
+    local collection = namespace.collection
+    now = now or os.time()
+    local spawned = 0
+    for index, card_id in ipairs(card_ids or {}) do
+        local card = Storage.find_card(collection, card_id)
+        if card and (card.status == "raw" or card.status == "graded") then
+            local spawn_args = { key = card.center_key }
+            if card.status == "graded" and Proficiency.allows_edition(card) and card.edition ~= "base" then
+                spawn_args.edition = "e_" .. card.edition
+            else
+                spawn_args.no_edition = true
+            end
+            local ok, joker = pcall(smods.add_card, spawn_args)
+            if ok and joker then
+                joker.ability = joker.ability or {}
+                joker.ability.grdl_loadout_id = card.id
+                if card.status == "graded" and Proficiency.can_eternal(card)
+                    and card.proficiency and card.proficiency.eternal then
+                    if joker.set_eternal then
+                        pcall(joker.set_eternal, joker, true)
+                    else
+                        joker.ability.eternal = true
+                    end
+                end
+                if card.status == "raw" then
+                    local _, intensity = Loadout.roll_wear(namespace.config, now + index * 7919)
+                    card.condition = Condition.apply_wear(card.condition, card.edition, intensity)
+                    card.wear_count = (card.wear_count or 0) + 1
+                end
+                Loadout.mark_entered(run_state, card.id)
+                spawned = spawned + 1
+            end
+        end
+    end
+    namespace.last_save_ok = Persistence.save(namespace)
+    return { ok = spawned > 0, spawned = spawned, reason = spawned == 0 and "spawn_failed" or nil }
+end
+
+-- ===== entry popup =====
+
+function LoadoutUI.create_entry_definition(namespace)
+    local window = namespace.loadout_entry_window
+    if not window then
+        return create_UIBox_generic_options({ back_func = "grdl_entry_skip", contents = {} })
+    end
+    local collection = namespace.collection
+    local nodes = {
+        row({ ui_text(safe_localize("grdl_k_entry_title"), 0.5, G.C.WHITE) }),
+        row({ ui_text(safe_localize("grdl_k_entry_pick", { window.picks }), 0.32, G.C.UI.TEXT_LIGHT) }, { padding = 0.04 })
+    }
+    if rawget(_G, "CardArea") and rawget(_G, "Card") and rawget(_G, "G") and G.P_CENTERS then
+        local area = CardArea(
+            G.ROOM.T.x + 0.2 * G.ROOM.T.w / 2, G.ROOM.T.h,
+            3.25 * G.CARD_W, 0.95 * G.CARD_H,
+            { card_limit = 3, type = "title", highlight_limit = window.picks, collection = true })
+        namespace.loadout_entry_area = area
+        for _, card_id in ipairs(window.card_ids) do
+            local record = Storage.find_card(collection, card_id)
+            local center = record and G.P_CENTERS[record.center_key] or nil
+            if center then
+                local card = Card(area.T.x + area.T.w / 2, area.T.y, G.CARD_W, G.CARD_H,
+                    (G.P_CARDS and G.P_CARDS.empty or nil), center)
+                local flags = Catalog.edition_flags(record.edition)
+                if flags then card:set_edition(flags, true, true) end
+                card.grdl_record = record
+                card.click = function(self)
+                    if self.highlighted then
+                        self.highlighted = false
+                    else
+                        local count = 0
+                        for _, other in ipairs(area.cards) do
+                            if other.highlighted then count = count + 1 end
+                        end
+                        if count >= window.picks then
+                            if rawget(_G, "play_sound") then pcall(play_sound, "cancel") end
+                            return
+                        end
+                        self.highlighted = true
+                    end
+                    if self.juice_up then self:juice_up(0.3, 0.3) end
+                end
+                area:emplace(card)
+            end
+        end
+        nodes[#nodes + 1] = row({ { n = G.UIT.O, config = { object = area } } }, { padding = 0.05, no_fill = true })
+    end
+    nodes[#nodes + 1] = row({
+        col({ UICommon.outline_button({
+            button = "grdl_entry_confirm",
+            solid = true,
+            minw = 1.8,
+            minh = 0.65,
+            lines = { { text = safe_localize("grdl_b_entry_confirm"), scale = 0.32 } }
+        }) }, { align = "cm", minw = 2.2 }),
+        col({ UICommon.outline_button({
+            button = "grdl_entry_skip",
+            minw = 1.5,
+            minh = 0.65,
+            lines = { { text = safe_localize("grdl_b_entry_skip"), scale = 0.3 } }
+        }) }, { align = "cm", minw = 1.9 })
+    }, { padding = 0.08 })
+    return create_UIBox_generic_options({
+        back_func = "grdl_entry_skip",
+        minw = 6.6,
+        padding = 0.12,
+        colour = G.C.L_BLACK,
+        outline_colour = G.C.RED,
+        contents = nodes
+    })
+end
+
+function LoadoutUI.open_entry(namespace)
+    local runtime = rawget(_G, "G")
+    if not namespace or not namespace.loadout_entry_window then return end
+    if not runtime or not runtime.FUNCS or not runtime.FUNCS.overlay_menu then return end
+    if runtime.SETTINGS then runtime.SETTINGS.paused = true end
+    runtime.FUNCS.overlay_menu({ definition = LoadoutUI.create_entry_definition(namespace) })
+end
+
+-- ===== hooks =====
+
+function LoadoutUI.install(namespace, env)
+    env = env or {}
+    if not namespace then return false end
+    if namespace.loadout_hooks_installed then return true end
+
+    local funcs = env.funcs or (rawget(_G, "G") and G.FUNCS) or nil
+    if not funcs then return false end
+
+    local game_class = env.game_class or rawget(_G, "Game")
+    if game_class and type(game_class.start_run) == "function" then
+        local original_start = game_class.start_run
+        game_class.start_run = function(self, args)
+            local result = original_start(self, args)
+            pcall(LoadoutUI.on_run_start, namespace)
+            return result
+        end
+    end
+
+    if type(funcs.cash_out) == "function" then
+        local original_cash_out = funcs.cash_out
+        funcs.cash_out = function(e)
+            local result = original_cash_out(e)
+            pcall(LoadoutUI.on_boss_cash_out, namespace)
+            return result
+        end
+    end
+
+    namespace.loadout_hooks_installed = true
     return true
 end
 
