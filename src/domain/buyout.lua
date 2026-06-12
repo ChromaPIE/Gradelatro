@@ -7,11 +7,11 @@ local function load_src(path)
     return dofile("src/" .. path)
 end
 
-local Catalog = load_src("catalog.lua")
-local Condition = load_src("condition.lua")
-local Economy = load_src("economy.lua")
-local Stakes = load_src("stakes.lua")
-local Storage = load_src("storage.lua")
+local Catalog = load_src("domain/catalog.lua")
+local Condition = load_src("domain/condition.lua")
+local Economy = load_src("domain/economy.lua")
+local Stakes = load_src("domain/stakes.lua")
+local Storage = load_src("core/storage.lua")
 
 local function catalog_index(catalog)
     local out = {}

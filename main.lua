@@ -11,70 +11,70 @@ local function load_src(path)
     return dofile("src/" .. path)
 end
 
-local Bootstrap = load_src("bootstrap.lua")
+local Bootstrap = load_src("core/bootstrap.lua")
 local Gradelatro = Bootstrap.init(current_mod)
 
-local Config = load_src("config.lua")
+local Config = load_src("core/config.lua")
 Bootstrap.attach(Gradelatro, "Config", Config)
 
 Gradelatro.config = Config.normalize(current_mod.config or {})
 current_mod.config = Gradelatro.config
 
-local Economy = load_src("economy.lua")
+local Economy = load_src("domain/economy.lua")
 Bootstrap.attach(Gradelatro, "Economy", Economy)
 
-local Stakes = load_src("stakes.lua")
+local Stakes = load_src("domain/stakes.lua")
 Bootstrap.attach(Gradelatro, "Stakes", Stakes)
 
-local Condition = load_src("condition.lua")
+local Condition = load_src("domain/condition.lua")
 Bootstrap.attach(Gradelatro, "Condition", Condition)
 
-local Storage = load_src("storage.lua")
+local Storage = load_src("core/storage.lua")
 Bootstrap.attach(Gradelatro, "Storage", Storage)
 
 current_mod.config.collection = Storage.normalize(current_mod.config.collection)
 Gradelatro.collection = current_mod.config.collection
 
-local Catalog = load_src("catalog.lua")
+local Catalog = load_src("domain/catalog.lua")
 Bootstrap.attach(Gradelatro, "Catalog", Catalog)
 
-local Grading = load_src("grading.lua")
+local Grading = load_src("domain/grading.lua")
 Bootstrap.attach(Gradelatro, "Grading", Grading)
 
-local Market = load_src("market.lua")
+local Market = load_src("domain/market.lua")
 Bootstrap.attach(Gradelatro, "Market", Market)
 
-local BlackMarket = load_src("black_market.lua")
+local BlackMarket = load_src("domain/black_market.lua")
 Bootstrap.attach(Gradelatro, "BlackMarket", BlackMarket)
 
-local Loadout = load_src("loadout.lua")
+local Loadout = load_src("domain/loadout.lua")
 Bootstrap.attach(Gradelatro, "Loadout", Loadout)
 
-local Proficiency = load_src("proficiency.lua")
+local Proficiency = load_src("domain/proficiency.lua")
 Bootstrap.attach(Gradelatro, "Proficiency", Proficiency)
 
-local LoadoutUI = load_src("loadout_ui.lua")
+local LoadoutUI = load_src("ui/loadout_ui.lua")
 Bootstrap.attach(Gradelatro, "LoadoutUI", LoadoutUI)
 LoadoutUI.install_runtime(Gradelatro, rawget(_G, "G"))
 pcall(LoadoutUI.install, Gradelatro)
 
-local Label = load_src("label.lua")
+local Label = load_src("domain/label.lua")
 Bootstrap.attach(Gradelatro, "Label", Label)
 
-local UICommon = load_src("ui_common.lua")
+local UICommon = load_src("ui/ui_common.lua")
 Bootstrap.attach(Gradelatro, "UICommon", UICommon)
 
-local SlabUI = load_src("slab_ui.lua")
+local SlabUI = load_src("ui/slab_ui.lua")
 Bootstrap.attach(Gradelatro, "SlabUI", SlabUI)
 
-local Binder = load_src("binder.lua")
+local Binder = load_src("domain/binder.lua")
 Bootstrap.attach(Gradelatro, "Binder", Binder)
 
-local BinderUI = load_src("binder_ui.lua")
+local BinderUI = load_src("ui/binder_ui.lua")
 Bootstrap.attach(Gradelatro, "BinderUI", BinderUI)
 BinderUI.install_runtime(Gradelatro, rawget(_G, "G"))
 
-local MarketUI = load_src("market_ui.lua")
+local MarketUI = load_src("ui/market_ui.lua")
 Bootstrap.attach(Gradelatro, "MarketUI", MarketUI)
 MarketUI.install_runtime(Gradelatro, rawget(_G, "G"))
 
@@ -102,23 +102,23 @@ if SMODS and SMODS.Keybind then
     })
 end
 
-local Buyout = load_src("buyout.lua")
+local Buyout = load_src("domain/buyout.lua")
 Bootstrap.attach(Gradelatro, "Buyout", Buyout)
 
-local Settlement = load_src("settlement.lua")
+local Settlement = load_src("domain/settlement.lua")
 Bootstrap.attach(Gradelatro, "Settlement", Settlement)
 
-local Persistence = load_src("persistence.lua")
+local Persistence = load_src("core/persistence.lua")
 Bootstrap.attach(Gradelatro, "Persistence", Persistence)
 
-local BuyoutUI = load_src("buyout_ui.lua")
+local BuyoutUI = load_src("ui/buyout_ui.lua")
 Bootstrap.attach(Gradelatro, "BuyoutUI", BuyoutUI)
 BuyoutUI.install_runtime(Gradelatro, rawget(_G, "G"))
 
-local RunEnd = load_src("run_end.lua")
+local RunEnd = load_src("domain/run_end.lua")
 Bootstrap.attach(Gradelatro, "RunEnd", RunEnd)
 
-local DebugTools = load_src("debug_tools.lua")
+local DebugTools = load_src("debug/debug_tools.lua")
 Bootstrap.attach(Gradelatro, "DebugTools", DebugTools)
 pcall(DebugTools.install, Gradelatro)
 

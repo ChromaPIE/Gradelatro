@@ -1,6 +1,6 @@
 local H = dofile("tests/test_helper.lua")
-local Storage = dofile("src/storage.lua")
-local Binder = dofile("src/binder.lua")
+local Storage = dofile("src/core/storage.lua")
+local Binder = dofile("src/domain/binder.lua")
 
 local state = Storage.normalize({
     currency_g = 123,

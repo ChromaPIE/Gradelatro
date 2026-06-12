@@ -1,6 +1,6 @@
 local H = dofile("tests/test_helper.lua")
-local Config = dofile("src/config.lua")
-local Catalog = dofile("src/catalog.lua")
+local Config = dofile("src/core/config.lua")
+local Catalog = dofile("src/domain/catalog.lua")
 
 local config = Config.normalize({})
 local centers = {

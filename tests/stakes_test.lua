@@ -1,5 +1,5 @@
 local H = dofile("tests/test_helper.lua")
-local Stakes = dofile("src/stakes.lua")
+local Stakes = dofile("src/domain/stakes.lua")
 
 local anchors = {
     stake_red = 2,

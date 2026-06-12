@@ -1,7 +1,7 @@
 local H = dofile("tests/test_helper.lua")
-local Storage = dofile("src/storage.lua")
-local Condition = dofile("src/condition.lua")
-local DebugTools = dofile("src/debug_tools.lua")
+local Storage = dofile("src/core/storage.lua")
+local Condition = dofile("src/domain/condition.lua")
+local DebugTools = dofile("src/debug/debug_tools.lua")
 
 for _, grade in ipairs({ 10, 9, 8, 7, 6, 5 }) do
     local condition = DebugTools.condition_for_grade(grade)
@@ -35,7 +35,7 @@ local catalog = {
 }
 
 local seed_state = Storage.normalize({})
-local Config = dofile("src/config.lua")
+local Config = dofile("src/core/config.lua")
 local seed_config = Config.normalize({})
 local seeded = DebugTools.seed_cards(seed_state, catalog, { count = 4, now = 1767225600, rng_seed = 42, config = seed_config })
 H.assert_equal(seeded.ok, true, "seeding succeeds")

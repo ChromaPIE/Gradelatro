@@ -7,13 +7,13 @@ local function load_src(path)
     return dofile("src/" .. path)
 end
 
-local Catalog = load_src("catalog.lua")
-local BlackMarket = load_src("black_market.lua")
-local Economy = load_src("economy.lua")
-local Persistence = load_src("persistence.lua")
-local Proficiency = load_src("proficiency.lua")
-local Rng = load_src("rng.lua")
-local Storage = load_src("storage.lua")
+local Catalog = load_src("domain/catalog.lua")
+local BlackMarket = load_src("domain/black_market.lua")
+local Economy = load_src("domain/economy.lua")
+local Persistence = load_src("core/persistence.lua")
+local Proficiency = load_src("domain/proficiency.lua")
+local Rng = load_src("core/rng.lua")
+local Storage = load_src("core/storage.lua")
 
 local GRADE_CONDITION = {
     [10] = 9.8,

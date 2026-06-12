@@ -7,14 +7,14 @@ local function load_src(path)
     return dofile("src/" .. path)
 end
 
-local BlackMarket = load_src("black_market.lua")
-local Buyout = load_src("buyout.lua")
-local Catalog = load_src("catalog.lua")
-local Loadout = load_src("loadout.lua")
-local Market = load_src("market.lua")
-local Persistence = load_src("persistence.lua")
-local Settlement = load_src("settlement.lua")
-local Stakes = load_src("stakes.lua")
+local BlackMarket = load_src("domain/black_market.lua")
+local Buyout = load_src("domain/buyout.lua")
+local Catalog = load_src("domain/catalog.lua")
+local Loadout = load_src("domain/loadout.lua")
+local Market = load_src("domain/market.lua")
+local Persistence = load_src("core/persistence.lua")
+local Settlement = load_src("domain/settlement.lua")
+local Stakes = load_src("domain/stakes.lua")
 
 local function copy_shallow_table(value)
     if type(value) ~= "table" then return value end

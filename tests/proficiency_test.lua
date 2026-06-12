@@ -1,5 +1,5 @@
 local H = dofile("tests/test_helper.lua")
-local Proficiency = dofile("src/proficiency.lua")
+local Proficiency = dofile("src/domain/proficiency.lua")
 
 local card = { status = "graded" }
 H.assert_equal(Proficiency.level(card), 0, "fresh card level zero")

@@ -1,5 +1,5 @@
 local H = dofile("tests/test_helper.lua")
-local Storage = dofile("src/storage.lua")
+local Storage = dofile("src/core/storage.lua")
 
 local state = Storage.normalize(nil)
 H.assert_equal(state.schema_version, 1, "schema version")

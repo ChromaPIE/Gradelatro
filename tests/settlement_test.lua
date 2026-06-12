@@ -1,7 +1,7 @@
 local H = dofile("tests/test_helper.lua")
-local Config = dofile("src/config.lua")
-local Storage = dofile("src/storage.lua")
-local Settlement = dofile("src/settlement.lua")
+local Config = dofile("src/core/config.lua")
+local Storage = dofile("src/core/storage.lua")
+local Settlement = dofile("src/domain/settlement.lua")
 
 local config = Config.normalize({})
 local state = Storage.normalize({ currency_g = 10 })

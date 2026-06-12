@@ -7,17 +7,17 @@ local function load_src(path)
     return dofile("src/" .. path)
 end
 
-local Binder = load_src("binder.lua")
-local Catalog = load_src("catalog.lua")
-local Grading = load_src("grading.lua")
-local Label = load_src("label.lua")
-local Loadout = load_src("loadout.lua")
-local Market = load_src("market.lua")
-local Persistence = load_src("persistence.lua")
-local Proficiency = load_src("proficiency.lua")
-local SlabUI = load_src("slab_ui.lua")
-local Storage = load_src("storage.lua")
-local UICommon = load_src("ui_common.lua")
+local Binder = load_src("domain/binder.lua")
+local Catalog = load_src("domain/catalog.lua")
+local Grading = load_src("domain/grading.lua")
+local Label = load_src("domain/label.lua")
+local Loadout = load_src("domain/loadout.lua")
+local Market = load_src("domain/market.lua")
+local Persistence = load_src("core/persistence.lua")
+local Proficiency = load_src("domain/proficiency.lua")
+local SlabUI = load_src("ui/slab_ui.lua")
+local Storage = load_src("core/storage.lua")
+local UICommon = load_src("ui/ui_common.lua")
 
 local safe_localize = UICommon.localize_text
 local center_name = UICommon.center_name

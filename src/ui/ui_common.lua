@@ -7,7 +7,7 @@ local function load_src(path)
     return dofile("src/" .. path)
 end
 
-local Catalog = load_src("catalog.lua")
+local Catalog = load_src("domain/catalog.lua")
 
 local ERROR_TEXT = "ERROR"
 

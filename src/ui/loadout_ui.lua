@@ -7,13 +7,13 @@ local function load_src(path)
     return dofile("src/" .. path)
 end
 
-local Catalog = load_src("catalog.lua")
-local Condition = load_src("condition.lua")
-local Loadout = load_src("loadout.lua")
-local Persistence = load_src("persistence.lua")
-local Proficiency = load_src("proficiency.lua")
-local Storage = load_src("storage.lua")
-local UICommon = load_src("ui_common.lua")
+local Catalog = load_src("domain/catalog.lua")
+local Condition = load_src("domain/condition.lua")
+local Loadout = load_src("domain/loadout.lua")
+local Persistence = load_src("core/persistence.lua")
+local Proficiency = load_src("domain/proficiency.lua")
+local Storage = load_src("core/storage.lua")
+local UICommon = load_src("ui/ui_common.lua")
 
 local safe_localize = UICommon.localize_text
 local ui_text = UICommon.text_node

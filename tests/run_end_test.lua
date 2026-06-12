@@ -1,7 +1,7 @@
 local H = dofile("tests/test_helper.lua")
-local Config = dofile("src/config.lua")
-local Storage = dofile("src/storage.lua")
-local RunEnd = dofile("src/run_end.lua")
+local Config = dofile("src/core/config.lua")
+local Storage = dofile("src/core/storage.lua")
+local RunEnd = dofile("src/domain/run_end.lua")
 
 local config = Config.normalize({})
 

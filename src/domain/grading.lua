@@ -7,9 +7,9 @@ local function load_src(path)
     return dofile("src/" .. path)
 end
 
-local Condition = load_src("condition.lua")
-local Economy = load_src("economy.lua")
-local Storage = load_src("storage.lua")
+local Condition = load_src("domain/condition.lua")
+local Economy = load_src("domain/economy.lua")
+local Storage = load_src("core/storage.lua")
 
 local function complete_condition(condition)
     condition = condition or {}

@@ -1,5 +1,5 @@
 local H = dofile("tests/test_helper.lua")
-local SlabUI = dofile("src/slab_ui.lua")
+local SlabUI = dofile("src/ui/slab_ui.lua")
 
 local record = {
     id = "grdl_9",
@@ -26,7 +26,7 @@ H.assert_equal(args.grade, 10, "label grade")
 H.assert_equal(args.edition, "negative", "label edition")
 H.assert_equal(args.cert_number, "000129", "label cert number")
 
-local Label = dofile("src/label.lua")
+local Label = dofile("src/domain/label.lua")
 local lines = Label.slab_lines(args)
 H.assert_equal(lines[1].left, "2026 MONARCHY", "slab line one left")
 H.assert_equal(lines[1].right, "#001", "slab line one right")
@@ -58,7 +58,7 @@ _G.G = {
 
 H.assert_equal(SlabUI.label_font(), _G.G.FONTS[3], "noto sans bold font found")
 
-local UICommon = dofile("src/ui_common.lua")
+local UICommon = dofile("src/ui/ui_common.lua")
 _G.G.FONTS[4] = { file = "resources/fonts/GoNotoCJKCore.ttf" }
 H.assert_equal(UICommon.noto_regular(), _G.G.FONTS[4], "regular cjk noto found")
 _G.G.LANG = { font = _G.G.FONTS[2] }

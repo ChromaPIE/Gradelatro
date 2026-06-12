@@ -1,8 +1,8 @@
 local H = dofile("tests/test_helper.lua")
-local Config = dofile("src/config.lua")
-local Storage = dofile("src/storage.lua")
-local Loadout = dofile("src/loadout.lua")
-local LoadoutUI = dofile("src/loadout_ui.lua")
+local Config = dofile("src/core/config.lua")
+local Storage = dofile("src/core/storage.lua")
+local Loadout = dofile("src/domain/loadout.lua")
+local LoadoutUI = dofile("src/ui/loadout_ui.lua")
 
 local config = Config.normalize({})
 local namespace = {
@@ -83,7 +83,7 @@ namespace.collection.currency_g = poor
 
 -- ===== run integration =====
 local previous_run_g = rawget(_G, "G")
-local Proficiency = dofile("src/proficiency.lua")
+local Proficiency = dofile("src/domain/proficiency.lua")
 local run_ns = {
     config = config,
     mod = { id = "Gradelatro", config = {} },

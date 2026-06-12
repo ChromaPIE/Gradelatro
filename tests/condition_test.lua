@@ -1,5 +1,5 @@
 local H = dofile("tests/test_helper.lua")
-local Condition = dofile("src/condition.lua")
+local Condition = dofile("src/domain/condition.lua")
 
 local perfect = {
     centering = 9.8,

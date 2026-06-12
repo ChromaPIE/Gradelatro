@@ -1,5 +1,5 @@
 local H = dofile("tests/test_helper.lua")
-local Config = dofile("src/config.lua")
+local Config = dofile("src/core/config.lua")
 
 local normalized = Config.normalize({
     economy = { buyout_mult = 1.25 },

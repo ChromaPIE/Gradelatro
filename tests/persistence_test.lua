@@ -1,5 +1,5 @@
 local H = dofile("tests/test_helper.lua")
-local Persistence = dofile("src/persistence.lua")
+local Persistence = dofile("src/core/persistence.lua")
 
 local saved_mod = nil
 local smods = {

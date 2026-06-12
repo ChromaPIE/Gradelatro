@@ -1,7 +1,7 @@
 local H = dofile("tests/test_helper.lua")
-local Config = dofile("src/config.lua")
-local Storage = dofile("src/storage.lua")
-local MarketUI = dofile("src/market_ui.lua")
+local Config = dofile("src/core/config.lua")
+local Storage = dofile("src/core/storage.lua")
+local MarketUI = dofile("src/ui/market_ui.lua")
 
 local config = Config.normalize({})
 

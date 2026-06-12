@@ -7,8 +7,8 @@ local function load_src(path)
     return dofile("src/" .. path)
 end
 
-local Economy = load_src("economy.lua")
-local Storage = load_src("storage.lua")
+local Economy = load_src("domain/economy.lua")
+local Storage = load_src("core/storage.lua")
 
 local function run_key(args)
     return tostring(args.run_id or "unknown") .. ":" .. tostring(args.run_started_at or "unknown")

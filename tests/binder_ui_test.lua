@@ -1,7 +1,7 @@
 local H = dofile("tests/test_helper.lua")
-local Config = dofile("src/config.lua")
-local Storage = dofile("src/storage.lua")
-local BinderUI = dofile("src/binder_ui.lua")
+local Config = dofile("src/core/config.lua")
+local Storage = dofile("src/core/storage.lua")
+local BinderUI = dofile("src/ui/binder_ui.lua")
 
 local config = Config.normalize({})
 
@@ -380,7 +380,7 @@ H.assert_equal(offer_state.entry.price, 321, "offer price mapped")
 H.assert_equal(BinderUI.inspect_offer(namespace, { slot = 3, mystery = true }), nil, "mystery offer cannot be inspected")
 
 -- ===== loadout membership and proficiency perks from inspect =====
-local Loadout = dofile("src/loadout.lua")
+local Loadout = dofile("src/domain/loadout.lua")
 namespace.collection.loadout.license = 3
 local member_card = Storage.add_raw_card(namespace.collection, {
     center_key = "j_member", local_key = "member", rarity = "common",

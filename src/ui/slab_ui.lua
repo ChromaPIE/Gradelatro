@@ -7,9 +7,9 @@ local function load_src(path)
     return dofile("src/" .. path)
 end
 
-local Label = load_src("label.lua")
-local Proficiency = load_src("proficiency.lua")
-local UICommon = load_src("ui_common.lua")
+local Label = load_src("domain/label.lua")
+local Proficiency = load_src("domain/proficiency.lua")
+local UICommon = load_src("ui/ui_common.lua")
 
 local BASE_LINE_SCALE = 0.27
 local LINE_BUDGET_BYTES = 24

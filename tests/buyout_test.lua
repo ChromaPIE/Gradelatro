@@ -1,8 +1,8 @@
 local H = dofile("tests/test_helper.lua")
-local Config = dofile("src/config.lua")
-local Catalog = dofile("src/catalog.lua")
-local Storage = dofile("src/storage.lua")
-local Buyout = dofile("src/buyout.lua")
+local Config = dofile("src/core/config.lua")
+local Catalog = dofile("src/domain/catalog.lua")
+local Storage = dofile("src/core/storage.lua")
+local Buyout = dofile("src/domain/buyout.lua")
 
 local config = Config.normalize({})
 local centers = {

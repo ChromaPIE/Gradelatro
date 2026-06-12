@@ -1,6 +1,6 @@
 local H = dofile("tests/test_helper.lua")
-local Config = dofile("src/config.lua")
-local Economy = dofile("src/economy.lua")
+local Config = dofile("src/core/config.lua")
+local Economy = dofile("src/domain/economy.lua")
 
 local config = Config.normalize({})
 

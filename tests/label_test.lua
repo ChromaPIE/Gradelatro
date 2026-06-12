@@ -1,5 +1,5 @@
 local H = dofile("tests/test_helper.lua")
-local Label = dofile("src/label.lua")
+local Label = dofile("src/domain/label.lua")
 
 local lines = Label.slab_lines({
     year = 2026,

@@ -1,8 +1,8 @@
 local H = dofile("tests/test_helper.lua")
-local Config = dofile("src/config.lua")
-local Storage = dofile("src/storage.lua")
-local Condition = dofile("src/condition.lua")
-local BlackMarket = dofile("src/black_market.lua")
+local Config = dofile("src/core/config.lua")
+local Storage = dofile("src/core/storage.lua")
+local Condition = dofile("src/domain/condition.lua")
+local BlackMarket = dofile("src/domain/black_market.lua")
 
 local config = Config.normalize({})
 

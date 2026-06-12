@@ -7,8 +7,8 @@ local function load_src(path)
     return dofile("src/" .. path)
 end
 
-local Rng = load_src("rng.lua")
-local Storage = load_src("storage.lua")
+local Rng = load_src("core/rng.lua")
+local Storage = load_src("core/storage.lua")
 
 local MAX_LEVEL = 12
 local RARITY_RANK = { common = 1, uncommon = 2, rare = 3, legendary = 4 }

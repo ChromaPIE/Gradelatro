@@ -7,12 +7,12 @@ local function load_src(path)
     return dofile("src/" .. path)
 end
 
-local Binder = load_src("binder.lua")
-local BlackMarket = load_src("black_market.lua")
-local Catalog = load_src("catalog.lua")
-local Market = load_src("market.lua")
-local Persistence = load_src("persistence.lua")
-local UICommon = load_src("ui_common.lua")
+local Binder = load_src("domain/binder.lua")
+local BlackMarket = load_src("domain/black_market.lua")
+local Catalog = load_src("domain/catalog.lua")
+local Market = load_src("domain/market.lua")
+local Persistence = load_src("core/persistence.lua")
+local UICommon = load_src("ui/ui_common.lua")
 
 local safe_localize = UICommon.localize_text
 local center_name = UICommon.center_name

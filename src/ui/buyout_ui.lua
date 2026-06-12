@@ -7,10 +7,10 @@ local function load_src(path)
     return dofile("src/" .. path)
 end
 
-local Binder = load_src("binder.lua")
-local Buyout = load_src("buyout.lua")
-local Persistence = load_src("persistence.lua")
-local UICommon = load_src("ui_common.lua")
+local Binder = load_src("domain/binder.lua")
+local Buyout = load_src("domain/buyout.lua")
+local Persistence = load_src("core/persistence.lua")
+local UICommon = load_src("ui/ui_common.lua")
 
 local safe_localize = UICommon.localize_text
 local safe_center_name = UICommon.center_name
