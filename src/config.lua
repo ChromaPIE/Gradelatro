@@ -117,6 +117,16 @@ Config.DEFAULTS = {
             negative = 0.04
         }
     },
+    loadout = {
+        license_prices = { 80, 160, 300, 500, 750, 1050, 1400, 1850, 2400, 3200, 4200, 5500 },
+        transports = {
+            blue   = { price = 200,  antes = { 5, 6, 7 }, picks = { 1, 1, 1 } },
+            green  = { price = 450,  antes = { 3, 5, 7 }, picks = { 1, 1, 1 } },
+            red    = { price = 800,  antes = { 2, 4, 6 }, picks = { 1, 1, 1 } },
+            purple = { price = 1400, antes = { 1, 3, 5 }, picks = { 1, 1, 1 } },
+            gold   = { price = 2200, antes = { 1, 4 },    picks = { 2, 1 } }
+        }
+    },
     authenticated_editions = {
         base = true,
         foil = true,

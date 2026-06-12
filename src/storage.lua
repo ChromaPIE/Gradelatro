@@ -32,6 +32,10 @@ function Storage.normalize(input)
         if card.status == "carried" then card.status = "raw" end
     end
     state.carry = nil
+    state.loadout = type(state.loadout) == "table" and state.loadout or {}
+    state.loadout.license = tonumber(state.loadout.license) or 0
+    state.loadout.transports = type(state.loadout.transports) == "table" and state.loadout.transports or {}
+    state.loadout.card_ids = type(state.loadout.card_ids) == "table" and state.loadout.card_ids or {}
     return state
 end
 
