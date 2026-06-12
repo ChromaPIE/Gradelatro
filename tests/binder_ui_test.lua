@@ -428,8 +428,19 @@ member_card.proficiency = { antes = 100 }
 BinderUI.open(namespace, 9007)
 BinderUI.open_inspect(namespace, member_card.id)
 H.assert_true(type(runtime.FUNCS.grdl_prof_eternal) == "function", "eternal toggle registered")
+local eternal_identity = namespace.inspect_ui_state
 runtime.FUNCS.grdl_prof_eternal({ config = { ref_table = { id = member_card.id } } })
 H.assert_equal(member_card.proficiency.eternal, true, "eternal preference flipped")
+H.assert_equal(namespace.inspect_ui_state, eternal_identity, "eternal toggle keeps inspect state in place")
+H.assert_equal(eternal_identity.eternal_button_text, "grdl_b_prof_eternal_on", "eternal label flips in place")
+
+-- in-place loadout toggle keeps the overlay state and flips the label
+local toggle_identity = namespace.inspect_ui_state
+runtime.FUNCS.grdl_loadout_toggle({ config = { ref_table = { id = member_card.id } } })
+H.assert_equal(namespace.inspect_ui_state, toggle_identity, "loadout toggle keeps inspect state in place")
+H.assert_equal(toggle_identity.loadout_button_text, "grdl_b_loadout_remove", "label flips to remove")
+runtime.FUNCS.grdl_loadout_toggle({ config = { ref_table = { id = member_card.id } } })
+H.assert_equal(toggle_identity.loadout_button_text, "grdl_b_loadout_add", "label flips back to add")
 H.assert_equal(BinderUI.commit_prof_text(namespace, member_card.id, "note", "hello").ok, true, "note commit")
 H.assert_equal(member_card.proficiency.note, "hello", "note stored")
 H.assert_equal(BinderUI.commit_prof_text(namespace, member_card.id, "badge", "OG").ok, true, "badge commit")

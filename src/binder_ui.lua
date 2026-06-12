@@ -759,8 +759,9 @@ local function inspect_action_row(namespace, state, entry, regular_font)
 
     if (entry.status == "raw" or entry.status == "graded") and not state.loadout_mode and not in_run_now then
         local member = Loadout.contains(namespace.collection or {}, entry.id)
+        state.loadout_button_text = safe_localize(member and "grdl_b_loadout_remove" or "grdl_b_loadout_add")
         actions[#actions + 1] = inspect_action_button("grdl_loadout_toggle", entry.id, {
-            { text = safe_localize(member and "grdl_b_loadout_remove" or "grdl_b_loadout_add") }
+            { ref_table = state, ref_value = "loadout_button_text" }
         }, regular_font)
     end
 
@@ -772,9 +773,10 @@ local function inspect_action_row(namespace, state, entry, regular_font)
             }, regular_font)
         end
         if card and Proficiency.can_eternal(card) then
+            state.eternal_button_text = safe_localize((card.proficiency and card.proficiency.eternal)
+                and "grdl_b_prof_eternal_on" or "grdl_b_prof_eternal_off")
             actions[#actions + 1] = inspect_action_button("grdl_prof_eternal", entry.id, {
-                { text = safe_localize((card.proficiency and card.proficiency.eternal)
-                    and "grdl_b_prof_eternal_on" or "grdl_b_prof_eternal_off") }
+                { ref_table = state, ref_value = "eternal_button_text" }
             }, regular_font)
         end
         if card and Proficiency.can_badge(card) then
@@ -978,10 +980,16 @@ function BinderUI.install_runtime(namespace, runtime, adapter)
         local card_id = event_card_id(event)
         local result = BinderUI.toggle_loadout(namespace, card_id)
         namespace.last_loadout_result = result
+        local state = namespace.inspect_ui_state
         if result.ok and not result.pending then
-            reopen_inspect(card_id)
+            -- in-place label flip: a full overlay reopen plays the exit and
+            -- enter animations and breaks continuity
+            if state then
+                local member = Loadout.contains(namespace.collection or {}, card_id)
+                state.loadout_button_text = safe_localize(member and "grdl_b_loadout_remove" or "grdl_b_loadout_add")
+                state.last_reason_text = ""
+            end
         elseif not result.ok then
-            local state = namespace.inspect_ui_state
             if state then
                 state.last_reason_text = safe_localize(reason_key(result.reason))
             end
@@ -997,8 +1005,8 @@ function BinderUI.install_runtime(namespace, runtime, adapter)
         if not card then return end
         local enabled = not (card.proficiency and card.proficiency.eternal)
         local result = Proficiency.set_eternal(card, enabled)
+        local state = namespace.inspect_ui_state
         if not result.ok then
-            local state = namespace.inspect_ui_state
             if state then state.last_reason_text = safe_localize(reason_key(result.reason)) end
             return
         end
@@ -1013,10 +1021,8 @@ function BinderUI.install_runtime(namespace, runtime, adapter)
                 end
             end
         end
-        if namespace.inspect_ui_state and namespace.inspect_ui_state.loadout_mode then
-            BinderUI.inspect_loadout(namespace, card_id)
-        else
-            reopen_inspect(card_id)
+        if state then
+            state.eternal_button_text = safe_localize(enabled and "grdl_b_prof_eternal_on" or "grdl_b_prof_eternal_off")
         end
     end
 

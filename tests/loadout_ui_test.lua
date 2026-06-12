@@ -68,9 +68,11 @@ runtime.FUNCS.grdl_transport_buy({ config = { ref_table = { key = "blue" } } })
 H.assert_equal(namespace.collection.loadout.transports.blue, true, "transport purchased")
 H.assert_equal(namespace.collection.loadout.active_transport, "blue", "first transport activates")
 H.assert_equal(save_count, 2, "transport purchase saves")
+local state_identity = namespace.loadout_ui_state
 runtime.FUNCS.grdl_transport_buy({ config = { ref_table = { key = "gold" } } })
 runtime.FUNCS.grdl_transport_activate({ config = { ref_table = { key = "gold" } } })
 H.assert_equal(namespace.collection.loadout.active_transport, "gold", "activation switches")
+H.assert_equal(namespace.loadout_ui_state, state_identity, "purchase handlers refresh state in place")
 H.assert_equal(save_count, 4, "activation saves")
 local poor = namespace.collection.currency_g
 namespace.collection.currency_g = 0

@@ -30,8 +30,7 @@ function LoadoutUI.license_label(level)
     return safe_localize(TIER_KEYS[Loadout.tier(level)]) .. " X" .. tostring(Loadout.within(level))
 end
 
-function LoadoutUI.open(namespace)
-    if not namespace or not namespace.collection then return nil end
+local function build_state_fields(namespace)
     local collection = namespace.collection
     Loadout.reconcile(collection)
     local entries = {}
@@ -39,15 +38,32 @@ function LoadoutUI.open(namespace)
         local card = Storage.find_card(collection, card_id)
         if card then entries[#entries + 1] = card end
     end
-    namespace.loadout_ui_state = {
+    return {
         license = collection.loadout.license,
         capacity = Loadout.capacity(collection.loadout.license),
         entries = entries,
         transports = collection.loadout.transports,
-        active_transport = collection.loadout.active_transport,
-        feedback = ""
+        active_transport = collection.loadout.active_transport
     }
-    return namespace.loadout_ui_state
+end
+
+function LoadoutUI.open(namespace)
+    if not namespace or not namespace.collection then return nil end
+    local state = build_state_fields(namespace)
+    state.feedback = ""
+    namespace.loadout_ui_state = state
+    return state
+end
+
+-- in-place update preserving table identity so ref-bound nodes in the
+-- live overlay keep pointing at the current state
+function LoadoutUI.refresh(namespace)
+    local state = namespace and namespace.loadout_ui_state or nil
+    if not state then return LoadoutUI.open(namespace) end
+    for key, value in pairs(build_state_fields(namespace)) do
+        state[key] = value
+    end
+    return state
 end
 
 local function feedback(namespace, result, ok_key)
@@ -192,30 +208,64 @@ local function transport_cell(config_table, state, key)
     }) }, { align = "cm", minw = 1.5 })
 end
 
+local function license_tab_root(nodes)
+    return { n = G.UIT.ROOT, config = { align = "tm", colour = G.C.CLEAR, minw = 7.4, minh = 4.6, padding = 0.05 }, nodes = nodes }
+end
+
+local function license_tab_definition(namespace)
+    return function()
+        local state = namespace.loadout_ui_state or LoadoutUI.open(namespace)
+        state.license_tab = "license"
+        local config_table = namespace.config
+        local ladder = {}
+        for tier = 1, 4 do
+            local cells = { row({ ui_text(safe_localize(TIER_KEYS[tier]), 0.3, G.C.WHITE) }, { padding = 0.02 }) }
+            for within = 1, 3 do
+                cells[#cells + 1] = row({ license_cell(config_table, state, (tier - 1) * 3 + within) }, { padding = 0.02 })
+            end
+            ladder[#ladder + 1] = col(cells, { align = "tm", minw = 1.8, padding = 0.03 })
+        end
+        return license_tab_root({ row(ladder, { padding = 0.04 }) })
+    end
+end
+
+local function transport_tab_definition(namespace)
+    return function()
+        local state = namespace.loadout_ui_state or LoadoutUI.open(namespace)
+        state.license_tab = "transport"
+        local transports = {}
+        for _, key in ipairs(TRANSPORT_ORDER) do
+            transports[#transports + 1] = transport_cell(namespace.config, state, key)
+        end
+        return license_tab_root({ row(transports, { padding = 0.04 }) })
+    end
+end
+
 function LoadoutUI.create_license_definition(namespace)
     namespace = namespace or rawget(_G, "Gradelatro") or {}
     local state = namespace.loadout_ui_state or LoadoutUI.open(namespace)
     if not state then
         return create_UIBox_generic_options({ back_func = "grdl_open_loadout", contents = {} })
     end
-    local config_table = namespace.config
-    local ladder = {}
-    for tier = 1, 4 do
-        local cells = { row({ ui_text(safe_localize(TIER_KEYS[tier]), 0.3, G.C.WHITE) }, { padding = 0.02 }) }
-        for within = 1, 3 do
-            cells[#cells + 1] = row({ license_cell(config_table, state, (tier - 1) * 3 + within) }, { padding = 0.02 })
-        end
-        ladder[#ladder + 1] = col(cells, { align = "tm", minw = 1.8, padding = 0.03 })
-    end
-    local transports = {}
-    for _, key in ipairs(TRANSPORT_ORDER) do
-        transports[#transports + 1] = transport_cell(config_table, state, key)
-    end
     local rows = {
         row({ ui_text(safe_localize("grdl_k_license_title"), 0.5, G.C.WHITE) }),
-        row(ladder, { padding = 0.04 }),
-        row({ ui_text(safe_localize("grdl_k_transport_title"), 0.38, G.C.WHITE) }, { padding = 0.04 }),
-        row(transports, { padding = 0.04 }),
+        row({
+            create_tabs({
+                tabs = {
+                    {
+                        label = safe_localize("grdl_b_license"),
+                        chosen = state.license_tab ~= "transport",
+                        tab_definition_function = license_tab_definition(namespace)
+                    },
+                    {
+                        label = safe_localize("grdl_k_transport_title"),
+                        chosen = state.license_tab == "transport",
+                        tab_definition_function = transport_tab_definition(namespace)
+                    }
+                },
+                text_scale = 0.4
+            })
+        }, { padding = 0.05 }),
         row({ { n = G.UIT.T, config = { ref_table = state, ref_value = "feedback", scale = 0.3, colour = G.C.GOLD } } })
     }
     return create_UIBox_generic_options({
@@ -263,19 +313,19 @@ function LoadoutUI.install_runtime(namespace, runtime, adapter)
         if adapter.open_license then adapter.open_license(namespace, namespace.loadout_ui_state, event) end
     end
 
-    local function refresh_license(event)
-        if adapter.open_license then adapter.open_license(namespace, namespace.loadout_ui_state, event) end
-    end
-
-    local function purchase_handler(action, ok_key)
+    local function purchase_handler(action, ok_key, tab_def_factory)
         return function(event)
             if not namespace.loadout_ui_state then LoadoutUI.open(namespace) end
             local result = action(event)
             if result.ok then
                 namespace.last_save_ok = Persistence.save(namespace)
-                LoadoutUI.open(namespace)
+                LoadoutUI.refresh(namespace)
                 feedback(namespace, result, ok_key)
-                refresh_license(event)
+                -- swap the live tab contents in place: reopening the overlay
+                -- replays the enter and exit animations
+                if not UICommon.swap_tab_contents(tab_def_factory(namespace)) then
+                    if adapter.open_license then adapter.open_license(namespace, namespace.loadout_ui_state, event) end
+                end
             else
                 feedback(namespace, result, ok_key)
                 if rawget(_G, "play_sound") then pcall(play_sound, "tarot2", 0.76, 0.4) end
@@ -285,15 +335,15 @@ function LoadoutUI.install_runtime(namespace, runtime, adapter)
 
     runtime.FUNCS.grdl_license_buy = purchase_handler(function()
         return Loadout.purchase_license(namespace.config, namespace.collection)
-    end, "grdl_k_license_bought")
+    end, "grdl_k_license_bought", license_tab_definition)
 
     runtime.FUNCS.grdl_transport_buy = purchase_handler(function(event)
         return Loadout.purchase_transport(namespace.config, namespace.collection, event_key(event))
-    end, "grdl_k_transport_bought")
+    end, "grdl_k_transport_bought", transport_tab_definition)
 
     runtime.FUNCS.grdl_transport_activate = purchase_handler(function(event)
         return Loadout.set_active_transport(namespace.collection, event_key(event))
-    end, "grdl_k_transport_enabled")
+    end, "grdl_k_transport_enabled", transport_tab_definition)
 
     runtime.FUNCS.grdl_entry_confirm = function(event)
         local area = namespace.loadout_entry_area
