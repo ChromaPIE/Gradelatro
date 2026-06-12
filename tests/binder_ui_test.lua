@@ -202,17 +202,55 @@ H.assert_equal(BinderUI.countdown_text(3725), "1:02:05", "hour countdown format"
 H.assert_equal(BinderUI.countdown_text(-5), "grdl_k_grading_ready", "negative countdown treated as ready")
 
 H.assert_true(type(runtime.FUNCS.grdl_queue_tick) == "function", "queue tick func registered")
+local previous_tick_g = rawget(_G, "G")
+local previous_tick_uibox = rawget(_G, "UIBox")
+_G.G = {
+    UIT = { R = "R", C = "C", T = "T", O = "O", ROOT = "ROOT" },
+    C = { CLEAR = "CLEAR", BLACK = "BLACK", WHITE = "WHITE", GREEN = "GREEN", BLUE = "BLUE" }
+}
+local tip_args = nil
+local tip_removed = 0
+_G.UIBox = function(args)
+    tip_args = args
+    return { states = { collide = { can = true } }, remove = function() tip_removed = tip_removed + 1 end }
+end
+local tick_now = os.time()
+local tick_info = { due_at = tick_now + 50, submitted_at = tick_now - 50, progress = 0, countdown = "" }
 local bar_element = {
     config = {
-        ref_table = { due_at = os.time() + 3725 },
-        tooltip = { text = { "" } }
-    }
+        ref_table = tick_info,
+        progress_bar = { ref_table = tick_info, ref_value = "progress", max = 1, filled_col = "BLUE" }
+    },
+    children = {},
+    states = { hover = { is = false } }
 }
 runtime.FUNCS.grdl_queue_tick(bar_element)
-H.assert_true(bar_element.config.tooltip.text[1]:find("^1:02:0") ~= nil, "tick writes precise countdown into tooltip")
-bar_element.config.ref_table.due_at = os.time() - 1
+H.assert_true(tick_info.countdown:find("^0:[45]") ~= nil, "tick refreshes countdown text every frame")
+H.assert_near(tick_info.progress, 0.5, 0.02, "tick recomputes progress from the wall clock")
+H.assert_equal(bar_element.config.progress_bar.filled_col, "BLUE", "running bar stays blue")
+H.assert_equal(bar_element.children.grdl_tip, nil, "no tooltip while not hovered")
+
+bar_element.states.hover.is = true
 runtime.FUNCS.grdl_queue_tick(bar_element)
-H.assert_equal(bar_element.config.tooltip.text[1], "grdl_k_grading_ready", "tick reports ready when due passed")
+H.assert_true(bar_element.children.grdl_tip ~= nil, "hover attaches the live tooltip")
+H.assert_equal(tip_args.config.instance_type, "POPUP", "tooltip draws on the popup layer")
+H.assert_equal(tip_args.definition.nodes[1].nodes[1].config.ref_value, "countdown", "tooltip text bound to the live countdown")
+H.assert_equal(tip_args.definition.nodes[1].nodes[1].config.ref_table, tick_info, "tooltip bound to the bar state")
+runtime.FUNCS.grdl_queue_tick(bar_element)
+H.assert_equal(tip_removed, 0, "steady hover keeps the tooltip")
+
+tick_info.due_at = tick_now - 1
+runtime.FUNCS.grdl_queue_tick(bar_element)
+H.assert_equal(tick_info.countdown, "grdl_k_grading_ready", "tick reports ready when due passed")
+H.assert_near(tick_info.progress, 1, 0.001, "ready bar fills completely")
+H.assert_equal(bar_element.config.progress_bar.filled_col, "GREEN", "ready bar turns green")
+
+bar_element.states.hover.is = false
+runtime.FUNCS.grdl_queue_tick(bar_element)
+H.assert_equal(tip_removed, 1, "unhover removes the tooltip")
+H.assert_equal(bar_element.children.grdl_tip, nil, "tooltip reference cleared")
+_G.G = previous_tick_g
+_G.UIBox = previous_tick_uibox
 
 local tab_desk = BinderUI.open_desk(namespace, 3000)
 H.assert_equal(tab_desk.queue_page, 1, "queue page starts at one")

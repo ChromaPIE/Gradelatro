@@ -463,27 +463,48 @@ local QUEUE_BAR_W = 2.2
 local QUEUE_BAR_H = 0.3
 
 local function queue_bar(queue_data)
-    local progress = math.max(0, math.min(1, queue_data.progress or 0))
-    local fill_w = QUEUE_BAR_W * progress
-    local segments = {}
-    if fill_w > 0.02 then
-        segments[#segments + 1] = { n = G.UIT.C, config = { align = "cl", minw = fill_w, minh = QUEUE_BAR_H, r = 0.07, colour = queue_data.ready and G.C.GREEN or G.C.BLUE } }
+    local info = {
+        due_at = queue_data.due_at,
+        submitted_at = queue_data.submitted_at,
+        progress = math.max(0, math.min(1, queue_data.progress or 0)),
+        countdown = ""
+    }
+    -- the engine's native progress_bar channel redraws the fill from
+    -- info.progress every frame; the tick only has to keep info fresh
+    return { n = G.UIT.C, config = { align = "cm", padding = 0.05, r = 0.1, colour = G.C.BLACK, emboss = 0.05 }, nodes = {
+        { n = G.UIT.C, config = {
+            align = "cm",
+            minw = QUEUE_BAR_W,
+            minh = QUEUE_BAR_H,
+            r = 0.07,
+            colour = G.C.BLACK,
+            collideable = true,
+            func = "grdl_queue_tick",
+            ref_table = info,
+            progress_bar = {
+                ref_table = info,
+                ref_value = "progress",
+                max = 1,
+                empty_col = G.C.BLACK,
+                filled_col = queue_data.ready and G.C.GREEN or G.C.BLUE
+            }
+        } }
+    } }
+end
+
+local function attach_countdown_tip(element, info)
+    if not rawget(_G, "UIBox") then return end
+    element.children.grdl_tip = UIBox({
+        definition = { n = G.UIT.ROOT, config = { align = "cm", colour = G.C.CLEAR, padding = 0.05 }, nodes = {
+            { n = G.UIT.R, config = { align = "cm", padding = 0.08, r = 0.1, colour = G.C.BLACK, emboss = 0.05 }, nodes = {
+                { n = G.UIT.T, config = { ref_table = info, ref_value = "countdown", scale = 0.3, colour = G.C.WHITE } }
+            } }
+        } },
+        config = { instance_type = "POPUP", align = "tm", offset = { x = 0, y = -0.05 }, major = element, parent = element }
+    })
+    if element.children.grdl_tip.states and element.children.grdl_tip.states.collide then
+        element.children.grdl_tip.states.collide.can = false
     end
-    if QUEUE_BAR_W - fill_w > 0.02 then
-        segments[#segments + 1] = { n = G.UIT.C, config = { align = "cl", minw = QUEUE_BAR_W - fill_w, minh = QUEUE_BAR_H } }
-    end
-    return { n = G.UIT.C, config = {
-        align = "cm",
-        minw = QUEUE_BAR_W + 0.1,
-        minh = QUEUE_BAR_H + 0.1,
-        padding = 0.05,
-        r = 0.1,
-        colour = G.C.BLACK,
-        emboss = 0.05,
-        func = "grdl_queue_tick",
-        ref_table = { due_at = queue_data.due_at },
-        tooltip = { text = { "" } }
-    }, nodes = segments }
 end
 
 local function queue_row(queue_data)
@@ -868,9 +889,25 @@ function BinderUI.install_runtime(namespace, runtime, adapter)
 
     runtime.FUNCS.grdl_queue_tick = function(element)
         local info = element and element.config and element.config.ref_table or nil
-        local tooltip = element and element.config and element.config.tooltip or nil
-        if not info or not tooltip or not tooltip.text then return end
-        tooltip.text[1] = BinderUI.countdown_text((info.due_at or 0) - os.time())
+        if not info then return end
+        local now = os.time()
+        local remaining = (info.due_at or 0) - now
+        info.countdown = BinderUI.countdown_text(remaining)
+        local duration = math.max(1, (info.due_at or now) - (info.submitted_at or info.due_at or now))
+        info.progress = math.max(0, math.min(1, 1 - math.max(0, remaining) / duration))
+        local bar = element.config.progress_bar
+        if bar then
+            bar.filled_col = remaining <= 0 and G.C.GREEN or G.C.BLUE
+        end
+
+        if element.states and element.states.hover and element.states.hover.is then
+            if element.children and not element.children.grdl_tip then
+                pcall(attach_countdown_tip, element, info)
+            end
+        elseif element.children and element.children.grdl_tip then
+            element.children.grdl_tip:remove()
+            element.children.grdl_tip = nil
+        end
     end
 
     return true
