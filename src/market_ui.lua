@@ -34,6 +34,16 @@ local TEXT_KEYS = {
     buy = "grdl_b_buy"
 }
 
+-- quip keys may hold a plain string or an array of line strings
+function MarketUI.quip_lines(value)
+    if type(value) == "table" then
+        local lines = {}
+        for _, line in ipairs(value) do lines[#lines + 1] = tostring(line) end
+        return lines
+    end
+    return { tostring(value) }
+end
+
 local function pick_quip(seed)
     local quips = {}
     for index = 1, 30 do
@@ -350,26 +360,31 @@ end
 
 local function attach_dealer_bubble(sprite, quip)
     if not rawget(_G, "UIBox") or not rawget(_G, "DynaText") then return end
-    local ok_quip, quip_object = pcall(DynaText, {
-        string = { quip },
-        colours = { G.C.UI.TEXT_DARK },
-        scale = 0.32,
-        float = true,
-        bump = true,
-        silent = true,
-        pop_in = 0.2,
-        maxw = 2.6
-    })
-    if not ok_quip or not quip_object then return end
+    local lines = MarketUI.quip_lines(quip)
+    local line_rows = {}
+    for _, line in ipairs(lines) do
+        local ok_line, line_object = pcall(DynaText, {
+            string = { line },
+            colours = { G.C.UI.TEXT_DARK },
+            scale = 0.32,
+            float = true,
+            bump = true,
+            silent = true,
+            pop_in = 0.2,
+            maxw = 2.6
+        })
+        if ok_line and line_object then
+            line_rows[#line_rows + 1] = { n = G.UIT.R, config = { align = "cl", padding = 0.01 }, nodes = {
+                { n = G.UIT.O, config = { object = line_object } }
+            } }
+        end
+    end
+    if #line_rows == 0 then return end
 
     -- vanilla speech bubble shell: grey ring around a white core (G.UIDEF.speech_bubble)
     local ok_bubble, bubble = pcall(UIBox, {
         definition = { n = G.UIT.ROOT, config = { align = "cm", minh = 1, r = 0.3, padding = 0.07, minw = 1, colour = G.C.JOKER_GREY, shadow = true }, nodes = {
-            { n = G.UIT.C, config = { align = "cm", minh = 1, r = 0.2, padding = 0.1, minw = 1, colour = G.C.WHITE }, nodes = {
-                { n = G.UIT.R, config = { align = "cl" }, nodes = {
-                    { n = G.UIT.O, config = { object = quip_object } }
-                } }
-            } }
+            { n = G.UIT.C, config = { align = "cm", minh = 1, r = 0.2, padding = 0.1, minw = 1, colour = G.C.WHITE }, nodes = line_rows }
         } },
         config = {
             instance_type = "POPUP",
@@ -388,7 +403,8 @@ local function attach_dealer_bubble(sprite, quip)
     sprite.children.speech_bubble = bubble
 
     local runtime = rawget(_G, "G")
-    local ticks = math.max(6, math.min(14, math.floor(#quip / 6)))
+    local flat = table.concat(lines, " ")
+    local ticks = math.max(6, math.min(14, math.floor(#flat / 6)))
     if runtime and runtime.E_MANAGER and rawget(_G, "Event") then
         bubble.states.visible = false
         runtime.E_MANAGER:add_event(Event({

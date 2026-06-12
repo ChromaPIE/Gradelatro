@@ -168,4 +168,11 @@ for index = 1, 4 do
     H.assert_equal(hidden_rows[index].value, "grdl_k_intel_unknown", "hidden intel row " .. index .. " masked")
 end
 
+local single_quip = MarketUI.quip_lines("hello")
+H.assert_equal(#single_quip, 1, "string quip wraps into one line")
+H.assert_equal(single_quip[1], "hello", "string quip preserved")
+local multi_quip = MarketUI.quip_lines({ "line one", "line two" })
+H.assert_equal(#multi_quip, 2, "array quip keeps its lines")
+H.assert_equal(multi_quip[2], "line two", "array quip line preserved")
+
 print("market ui tests ok")
