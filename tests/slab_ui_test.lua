@@ -239,7 +239,7 @@ H.assert_equal(#prof_card.ability_UIBox_table.info, 2, "inscription and proficie
 local inscription_box = prof_card.ability_UIBox_table.info[1]
 local info_box = prof_card.ability_UIBox_table.info[2]
 H.assert_equal(inscription_box.grdl_inscription, true, "inscription entry inserted first")
-H.assert_equal(inscription_box.name, nil, "inscription entry has no title")
+H.assert_equal(inscription_box.name, " ", "inscription entry uses a hidden vanilla-safe title")
 H.assert_equal(info_box.grdl_prof, true, "proficiency entry still tagged for dedupe")
 H.assert_equal(info_box.name, "grdl_k_prof_title", "entry named for the vanilla info box title")
 prof_env.ui_def.card_h_popup(prof_card)

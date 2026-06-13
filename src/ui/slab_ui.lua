@@ -195,6 +195,7 @@ local function inscription_rows(record)
         } } }
     end
     rows.grdl_inscription = true
+    rows.name = " "
     rows.background_colour = G.C.WHITE
     return rows
 end
