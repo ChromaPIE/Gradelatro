@@ -32,6 +32,7 @@ local PAGE_ROWS = { 5, 5 }
 local DESK_PAGE_SIZE = 7
 
 local CARD_INSPECT_SCALE = 2.2
+local TRANSIENT_FEEDBACK_SECONDS = 2
 
 local TEXT_KEYS = {
     title = "grdl_k_binder_title",
@@ -75,6 +76,47 @@ local function runtime_in_run()
         and runtime.STAGE ~= nil
         and runtime.STAGES ~= nil
         and runtime.STAGE == runtime.STAGES.RUN
+end
+
+local function now_seconds()
+    local love_obj = rawget(_G, "love")
+    if love_obj and love_obj.timer and type(love_obj.timer.getTime) == "function" then
+        local ok, value = pcall(love_obj.timer.getTime)
+        if ok and type(value) == "number" then return value end
+    end
+    return os.time()
+end
+
+local function clear_feedback(input)
+    if type(input) ~= "table" then return end
+    input.feedback = ""
+    input.feedback_transient = nil
+    input.feedback_until = nil
+end
+
+local function set_feedback(input, text, transient)
+    if type(input) ~= "table" then return end
+    input.feedback = text or ""
+    if transient then
+        input.feedback_transient = true
+        input.feedback_until = now_seconds() + TRANSIENT_FEEDBACK_SECONDS
+    else
+        input.feedback_transient = nil
+        input.feedback_until = nil
+    end
+end
+
+local function clear_transient_feedback(input)
+    if type(input) == "table" and input.feedback_transient then
+        clear_feedback(input)
+    end
+end
+
+local function decay_transient_feedback(input)
+    if type(input) ~= "table" or not input.feedback_transient then return end
+    if input.feedback_until and now_seconds() >= input.feedback_until then
+        clear_feedback(input)
+    end
 end
 
 local function suppress_selection(card)
@@ -357,6 +399,7 @@ function BinderUI.open_text_input(namespace, card_id, kind)
         namespace.prof_text_input = { card_id = card_id, kind = kind, text = current or "", feedback = "" }
     end
     local input = namespace.prof_text_input
+    clear_transient_feedback(input)
     local nodes = {
         row({ ui_text(safe_localize("grdl_b_prof_inscription"), 0.4, G.C.WHITE) }),
         row({ { n = G.UIT.C, config = { minw = 4.2, minh = 0.9, r = 0.08, colour = G.C.WHITE, emboss = 0.04 }, nodes = preview_text_rows(input.text, 4, 0.32) } }, { padding = 0.06 }),
@@ -365,7 +408,7 @@ function BinderUI.open_text_input(namespace, card_id, kind)
             UICommon.outline_button({ button = "grdl_prof_text_clear", solid = true, minw = 1.35, minh = 0.55, lines = { { text = safe_localize("grdl_b_clear"), scale = 0.3 } } }),
             UICommon.outline_button({ button = "grdl_prof_text_commit", solid = true, minw = 1.35, minh = 0.55, lines = { { text = safe_localize("grdl_b_confirm"), scale = 0.3 } } })
         }, { padding = 0.05 }),
-        row({ { n = G.UIT.T, config = { ref_table = input, ref_value = "feedback", scale = 0.32, colour = G.C.GOLD } } })
+        row({ { n = G.UIT.T, config = { ref_table = input, ref_value = "feedback", scale = 0.32, colour = G.C.GOLD, func = "grdl_prof_feedback_decay" } } })
     }
     if runtime.SETTINGS then runtime.SETTINGS.paused = true end
     runtime.FUNCS.overlay_menu({ definition = create_UIBox_generic_options({
@@ -456,6 +499,7 @@ function BinderUI.open_badge_input(namespace, card_id)
         }
     end
     local input = namespace.prof_badge_input
+    clear_transient_feedback(input)
     local nodes = {
         row({ ui_text(safe_localize("grdl_b_prof_badge"), 0.4, G.C.WHITE) }),
         row({ { n = G.UIT.C, config = { minw = 4.2, minh = 0.65, r = 0.08, colour = G.C.WHITE, emboss = 0.04 }, nodes = preview_text_rows(input.badge_text, 2, 0.32) } }, { padding = 0.05 }),
@@ -488,7 +532,7 @@ function BinderUI.open_badge_input(namespace, card_id)
             minh = 0.6,
             lines = { { text = safe_localize("grdl_b_confirm"), scale = 0.34 } }
         }) }, { padding = 0.05 }),
-        row({ { n = G.UIT.T, config = { ref_table = input, ref_value = "feedback", scale = 0.32, colour = G.C.GOLD } } })
+        row({ { n = G.UIT.T, config = { ref_table = input, ref_value = "feedback", scale = 0.32, colour = G.C.GOLD, func = "grdl_prof_feedback_decay" } } })
     }
     if runtime.SETTINGS then runtime.SETTINGS.paused = true end
     runtime.FUNCS.overlay_menu({ definition = create_UIBox_generic_options({
@@ -1300,13 +1344,19 @@ function BinderUI.install_runtime(namespace, runtime, adapter)
         BinderUI.open_prof_input(namespace, event_card_id(event), "tint")
     end
 
+    runtime.FUNCS.grdl_prof_feedback_decay = function(element)
+        local input = element and element.config and element.config.ref_table or nil
+        decay_transient_feedback(input)
+    end
+
     runtime.FUNCS.grdl_prof_text_paste = function()
         local input = namespace.prof_text_input
         local result = TextInput.apply_paste(input)
         if result.ok then
+            clear_feedback(input)
             BinderUI.open_text_input(namespace, input.card_id, input.kind)
         elseif input then
-            input.feedback = safe_localize(reason_key(result.reason))
+            set_feedback(input, safe_localize(reason_key(result.reason)), result.reason == "empty_clipboard")
         end
     end
 
@@ -1314,6 +1364,7 @@ function BinderUI.install_runtime(namespace, runtime, adapter)
         local input = namespace.prof_text_input
         if input then
             TextInput.clear(input)
+            clear_feedback(input)
             BinderUI.open_text_input(namespace, input.card_id, input.kind)
         end
     end
@@ -1331,7 +1382,7 @@ function BinderUI.install_runtime(namespace, runtime, adapter)
                 reopen_inspect(input.card_id)
             end
         else
-            input.feedback = safe_localize(reason_key(result.reason))
+            set_feedback(input, safe_localize(reason_key(result.reason)))
         end
     end
 
@@ -1342,9 +1393,10 @@ function BinderUI.install_runtime(namespace, runtime, adapter)
         local result = TextInput.apply_paste(temp)
         if result.ok then
             input.badge_text = temp.text
+            clear_feedback(input)
             BinderUI.open_badge_input(namespace, input.card_id)
         else
-            input.feedback = safe_localize(reason_key(result.reason))
+            set_feedback(input, safe_localize(reason_key(result.reason)), result.reason == "empty_clipboard")
         end
     end
 
@@ -1352,6 +1404,7 @@ function BinderUI.install_runtime(namespace, runtime, adapter)
         local input = namespace.prof_badge_input
         if input then
             input.badge_text = ""
+            clear_feedback(input)
             BinderUI.open_badge_input(namespace, input.card_id)
         end
     end
@@ -1360,7 +1413,7 @@ function BinderUI.install_runtime(namespace, runtime, adapter)
         local input = namespace.prof_badge_input
         if not input then return end
         if input.badge_colour ~= "" and not Proficiency.parse_hex(input.badge_colour) then
-            input.feedback = safe_localize(reason_key("invalid_hex"))
+            set_feedback(input, safe_localize(reason_key("invalid_hex")))
             return
         end
         local text_result = BinderUI.commit_prof_text(namespace, input.card_id, "badge", input.badge_text)
@@ -1374,7 +1427,7 @@ function BinderUI.install_runtime(namespace, runtime, adapter)
                 reopen_inspect(input.card_id)
             end
         else
-            input.feedback = safe_localize(reason_key(colour_result.reason))
+            set_feedback(input, safe_localize(reason_key(colour_result.reason)))
         end
     end
 
@@ -1391,7 +1444,7 @@ function BinderUI.install_runtime(namespace, runtime, adapter)
                 reopen_inspect(input.card_id)
             end
         else
-            input.feedback = safe_localize(reason_key(result.reason))
+            set_feedback(input, safe_localize(reason_key(result.reason)))
             if rawget(_G, "play_sound") then
                 pcall(play_sound, "tarot2", 0.76, 0.4)
             end

@@ -627,6 +627,29 @@ H.assert_true(inscription_clear ~= nil, "inscription editor has a clear button")
 H.assert_equal(inscription_clear.config.colour, _G.G.C.RED, "inscription clear uses regular red button fill")
 H.assert_equal(inscription_clear.config.outline, nil, "inscription clear has no white outline")
 H.assert_equal(namespace.prof_text_input.kind, "note", "inscription editor uses text input state")
+
+local feedback_now = 100
+_G.love = {
+    timer = { getTime = function() return feedback_now end },
+    system = { getClipboardText = function() return "" end }
+}
+H.assert_true(type(runtime.FUNCS.grdl_prof_feedback_decay) == "function", "transient feedback decay callback registered")
+runtime.FUNCS.grdl_prof_text_paste()
+H.assert_equal(namespace.prof_text_input.feedback, "grdl_k_reason_empty_clipboard", "empty inscription paste shows feedback")
+H.assert_equal(namespace.prof_text_input.feedback_transient, true, "empty inscription paste is transient feedback")
+feedback_now = 102.1
+runtime.FUNCS.grdl_prof_feedback_decay({ config = { ref_table = namespace.prof_text_input } })
+H.assert_equal(namespace.prof_text_input.feedback, "", "empty inscription paste feedback decays after two seconds")
+
+runtime.FUNCS.grdl_prof_text_paste()
+H.assert_equal(namespace.prof_text_input.feedback, "grdl_k_reason_empty_clipboard", "empty inscription feedback can be shown again")
+BinderUI.open_prof_input(namespace, member_card.id, "note")
+H.assert_equal(namespace.prof_text_input.feedback, "", "reopening inscription editor clears transient feedback")
+
+_G.love = {
+    timer = { getTime = function() return feedback_now end },
+    system = { getClipboardText = function() return "刻字\n第二行" end }
+}
 runtime.FUNCS.grdl_prof_text_paste()
 H.assert_equal(namespace.prof_text_input.text, "刻字\n第二行", "inscription paste preserves unicode newline")
 runtime.FUNCS.grdl_prof_text_commit()
@@ -644,6 +667,24 @@ H.assert_equal(badge_clear.config.outline, nil, "badge clear has no white outlin
 H.assert_true(captured_text_input ~= nil, "badge colour still uses vanilla text input")
 H.assert_equal(captured_text_input.ref_value, "badge_colour", "badge colour field bound")
 H.assert_equal(captured_text_input.extended_corpus, true, "badge colour keeps extended corpus")
+
+_G.love = {
+    timer = { getTime = function() return feedback_now end },
+    system = { getClipboardText = function() return "" end }
+}
+runtime.FUNCS.grdl_prof_badge_paste()
+H.assert_equal(namespace.prof_badge_input.feedback, "grdl_k_reason_empty_clipboard", "empty badge paste shows feedback")
+H.assert_equal(namespace.prof_badge_input.feedback_transient, true, "empty badge paste is transient feedback")
+runtime.FUNCS.grdl_prof_badge_clear()
+H.assert_equal(namespace.prof_badge_input.feedback, "", "badge clear removes transient feedback")
+runtime.FUNCS.grdl_prof_badge_paste()
+BinderUI.open_badge_input(namespace, member_card.id)
+H.assert_equal(namespace.prof_badge_input.feedback, "", "reopening badge editor clears transient feedback")
+
+_G.love = {
+    timer = { getTime = function() return feedback_now end },
+    system = { getClipboardText = function() return "徽标中文" end }
+}
 runtime.FUNCS.grdl_prof_badge_paste()
 H.assert_equal(namespace.prof_badge_input.badge_text, "徽标中文", "badge text paste stores unicode")
 namespace.prof_badge_input.badge_colour = "00FF80"
