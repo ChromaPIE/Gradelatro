@@ -341,7 +341,7 @@ function BinderUI.open_text_input(namespace, card_id, kind)
         row({ { n = G.UIT.C, config = { minw = 4.2, minh = 0.9, r = 0.08, colour = G.C.WHITE, emboss = 0.04 }, nodes = preview_text_rows(input.text, 4, 0.32) } }, { padding = 0.06 }),
         row({
             UICommon.outline_button({ button = "grdl_prof_text_paste", solid = true, minw = 1.35, minh = 0.55, lines = { { text = safe_localize("grdl_b_paste"), scale = 0.3 } } }),
-            UICommon.outline_button({ button = "grdl_prof_text_clear", minw = 1.35, minh = 0.55, lines = { { text = safe_localize("grdl_b_clear"), scale = 0.3 } } }),
+            UICommon.outline_button({ button = "grdl_prof_text_clear", solid = true, minw = 1.35, minh = 0.55, lines = { { text = safe_localize("grdl_b_clear"), scale = 0.3 } } }),
             UICommon.outline_button({ button = "grdl_prof_text_commit", solid = true, minw = 1.35, minh = 0.55, lines = { { text = safe_localize("grdl_b_confirm"), scale = 0.3 } } })
         }, { padding = 0.05 }),
         row({ { n = G.UIT.T, config = { ref_table = input, ref_value = "feedback", scale = 0.32, colour = G.C.GOLD } } })
@@ -440,7 +440,7 @@ function BinderUI.open_badge_input(namespace, card_id)
         row({ { n = G.UIT.C, config = { minw = 4.2, minh = 0.65, r = 0.08, colour = G.C.WHITE, emboss = 0.04 }, nodes = preview_text_rows(input.badge_text, 2, 0.32) } }, { padding = 0.05 }),
         row({
             UICommon.outline_button({ button = "grdl_prof_badge_paste", solid = true, minw = 1.35, minh = 0.55, lines = { { text = safe_localize("grdl_b_paste"), scale = 0.3 } } }),
-            UICommon.outline_button({ button = "grdl_prof_badge_clear", minw = 1.35, minh = 0.55, lines = { { text = safe_localize("grdl_b_clear"), scale = 0.3 } } })
+            UICommon.outline_button({ button = "grdl_prof_badge_clear", solid = true, minw = 1.35, minh = 0.55, lines = { { text = safe_localize("grdl_b_clear"), scale = 0.3 } } })
         }, { padding = 0.04 }),
         row({ ui_text(safe_localize("grdl_b_prof_badge_colour"), 0.34, G.C.WHITE) }),
         row({ create_text_input({

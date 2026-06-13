@@ -604,6 +604,10 @@ captured_overlay = nil
 _G.love = { system = { getClipboardText = function() return "刻字\n第二行" end } }
 BinderUI.open_prof_input(namespace, member_card.id, "note")
 H.assert_true(captured_overlay ~= nil, "inscription editor opens")
+local inscription_clear = find_button(captured_overlay.definition, "grdl_prof_text_clear")
+H.assert_true(inscription_clear ~= nil, "inscription editor has a clear button")
+H.assert_equal(inscription_clear.config.colour, _G.G.C.RED, "inscription clear uses regular red button fill")
+H.assert_equal(inscription_clear.config.outline, nil, "inscription clear has no white outline")
 H.assert_equal(namespace.prof_text_input.kind, "note", "inscription editor uses text input state")
 runtime.FUNCS.grdl_prof_text_paste()
 H.assert_equal(namespace.prof_text_input.text, "刻字\n第二行", "inscription paste preserves unicode newline")
@@ -615,6 +619,10 @@ captured_overlay = nil
 _G.love = { system = { getClipboardText = function() return "徽标中文" end } }
 BinderUI.open_badge_input(namespace, member_card.id)
 H.assert_true(captured_overlay ~= nil, "combined badge editor opens")
+local badge_clear = find_button(captured_overlay.definition, "grdl_prof_badge_clear")
+H.assert_true(badge_clear ~= nil, "badge editor has a clear button")
+H.assert_equal(badge_clear.config.colour, _G.G.C.RED, "badge clear uses regular red button fill")
+H.assert_equal(badge_clear.config.outline, nil, "badge clear has no white outline")
 H.assert_true(captured_text_input ~= nil, "badge colour still uses vanilla text input")
 H.assert_equal(captured_text_input.ref_value, "badge_colour", "badge colour field bound")
 H.assert_equal(captured_text_input.extended_corpus, true, "badge colour keeps extended corpus")
