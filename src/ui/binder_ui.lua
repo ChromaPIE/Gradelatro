@@ -290,6 +290,8 @@ function BinderUI.commit_prof_text(namespace, card_id, kind, text)
         result = Proficiency.set_note(card, text)
     elseif kind == "badge" then
         result = Proficiency.set_badge(card, text)
+    elseif kind == "badge_colour" then
+        result = Proficiency.set_badge_colour(card, text)
     elseif kind == "tint" then
         result = Proficiency.set_tint(card, text)
     else
@@ -314,23 +316,25 @@ function BinderUI.open_prof_input(namespace, card_id, kind)
     local meta = card.proficiency or {}
     local current = (kind == "note" and meta.note)
         or (kind == "badge" and meta.badge_text)
+        or (kind == "badge_colour" and meta.badge_colour)
         or (kind == "tint" and meta.tooltip_colour)
         or ""
+    local is_hex = kind == "tint" or kind == "badge_colour"
     namespace.prof_input = { card_id = card_id, kind = kind, text = current or "", feedback = "" }
     local nodes = {
         row({ ui_text(safe_localize("grdl_b_prof_" .. kind), 0.4, G.C.WHITE) }),
         row({ create_text_input({
             ref_table = namespace.prof_input,
             ref_value = "text",
-            max_length = kind == "tint" and 6 or 24,
+            max_length = is_hex and 6 or 24,
             -- extended_corpus needs all_caps off, or digits remap to shifted symbols.
             all_caps = false,
-            extended_corpus = kind == "tint",
-            prompt_text = kind == "tint" and safe_localize("grdl_k_hex_prompt") or nil,
+            extended_corpus = is_hex,
+            prompt_text = is_hex and safe_localize("grdl_k_hex_prompt") or nil,
             w = 4
         }) }, { padding = 0.06 })
     }
-    if kind == "tint" then
+    if is_hex then
         nodes[#nodes + 1] = row({
             { n = G.UIT.C, config = {
                 minw = 1.2,
@@ -724,13 +728,22 @@ local function build_inspect_card(namespace, entry, catalog_entry)
     return area
 end
 
-local function inspect_action_button(button_key, ref_id, lines, regular_font)
+local function inspect_action_button(button_key, ref_id, lines, regular_font, opts)
+    opts = opts or {}
     return UICommon.outline_button({
         button = button_key,
         ref = { id = ref_id },
         lines = lines,
-        font = regular_font
+        font = regular_font,
+        colour = opts.colour,
+        outline_colour = opts.outline_colour,
+        solid = opts.solid
     })
+end
+
+local function set_state_colour(target, source)
+    if type(target) ~= "table" or type(source) ~= "table" then return end
+    target[1], target[2], target[3], target[4] = source[1], source[2], source[3], source[4]
 end
 
 local function inspect_action_row(namespace, state, entry, regular_font)
@@ -775,15 +788,19 @@ local function inspect_action_row(namespace, state, entry, regular_font)
             }, regular_font)
         end
         if card and Proficiency.can_eternal(card) then
-            state.eternal_button_text = safe_localize((card.proficiency and card.proficiency.eternal)
-                and "grdl_b_prof_eternal_on" or "grdl_b_prof_eternal_off")
+            state.eternal_button_text = safe_localize("grdl_b_prof_eternal")
+            state.eternal_button_colour = state.eternal_button_colour or { 0, 0, 0, 0 }
+            set_state_colour(state.eternal_button_colour, (card.proficiency and card.proficiency.eternal) and G.C.GREEN or G.C.CLEAR)
             actions[#actions + 1] = inspect_action_button("grdl_prof_eternal", entry.id, {
                 { ref_table = state, ref_value = "eternal_button_text" }
-            }, regular_font)
+            }, regular_font, { colour = state.eternal_button_colour, outline_colour = G.C.WHITE })
         end
         if card and Proficiency.can_badge(card) then
             actions[#actions + 1] = inspect_action_button("grdl_prof_badge", entry.id, {
                 { text = safe_localize("grdl_b_prof_badge") }
+            }, regular_font)
+            actions[#actions + 1] = inspect_action_button("grdl_prof_badge_colour", entry.id, {
+                { text = safe_localize("grdl_b_prof_badge_colour") }
             }, regular_font)
         end
         if card and Proficiency.can_tint(card) then
@@ -843,7 +860,7 @@ function BinderUI.create_inspect_definition(namespace)
         local inspected_card = Storage.find_card(namespace.collection or {}, entry.id)
         local badge_text = inspected_card and inspected_card.proficiency and inspected_card.proficiency.badge_text or nil
         if badge_text and rawget(_G, "create_badge") then
-            right_nodes[#right_nodes + 1] = row({ create_badge(badge_text, G.C.PURPLE, G.C.WHITE) }, { align = "cl", padding = 0.03 })
+            right_nodes[#right_nodes + 1] = row({ create_badge(badge_text, Proficiency.badge_colour(inspected_card, G.C.PURPLE), G.C.WHITE) }, { align = "cl", padding = 0.03 })
         end
     end
 
@@ -1024,7 +1041,9 @@ function BinderUI.install_runtime(namespace, runtime, adapter)
             end
         end
         if state then
-            state.eternal_button_text = safe_localize(enabled and "grdl_b_prof_eternal_on" or "grdl_b_prof_eternal_off")
+            state.eternal_button_text = safe_localize("grdl_b_prof_eternal")
+            state.eternal_button_colour = state.eternal_button_colour or { 0, 0, 0, 0 }
+            set_state_colour(state.eternal_button_colour, enabled and G.C.GREEN or G.C.CLEAR)
         end
     end
 
@@ -1033,6 +1052,9 @@ function BinderUI.install_runtime(namespace, runtime, adapter)
     end
     runtime.FUNCS.grdl_prof_badge = function(event)
         BinderUI.open_prof_input(namespace, event_card_id(event), "badge")
+    end
+    runtime.FUNCS.grdl_prof_badge_colour = function(event)
+        BinderUI.open_prof_input(namespace, event_card_id(event), "badge_colour")
     end
     runtime.FUNCS.grdl_prof_tint = function(event)
         BinderUI.open_prof_input(namespace, event_card_id(event), "tint")

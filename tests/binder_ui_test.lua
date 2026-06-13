@@ -434,10 +434,46 @@ BinderUI.open(namespace, 9007)
 BinderUI.open_inspect(namespace, member_card.id)
 H.assert_true(type(runtime.FUNCS.grdl_prof_eternal) == "function", "eternal toggle registered")
 local eternal_identity = namespace.inspect_ui_state
+local previous_eternal_g = rawget(_G, "G")
+_G.G = {
+    ROOM = { T = { w = 10, h = 10 } },
+    UIT = { R = "R", C = "C", T = "T", O = "O", ROOT = "ROOT" },
+    C = {
+        WHITE = { 1, 1, 1, 1 },
+        GREEN = { 0, 1, 0, 1 },
+        CLEAR = { 0, 0, 0, 0 },
+        RED = { 1, 0, 0, 1 },
+        GOLD = { 1, 0.8, 0, 1 },
+        PURPLE = { 0.5, 0, 1, 1 },
+        UI = {
+            TEXT_LIGHT = { 1, 1, 1, 1 },
+            TEXT_INACTIVE = { 0.5, 0.5, 0.5, 1 },
+            TEXT_DARK = { 0, 0, 0, 1 }
+        }
+    },
+    FONTS = {}
+}
+local function find_button(node, button)
+    if type(node) ~= "table" then return nil end
+    if node.config and node.config.button == button then return node end
+    for _, child in ipairs(node.nodes or {}) do
+        local found = find_button(child, button)
+        if found then return found end
+    end
+    return nil
+end
+local eternal_button = find_button(BinderUI.create_inspect_definition(namespace), "grdl_prof_eternal")
+H.assert_true(eternal_button ~= nil, "eternal button rendered")
+H.assert_equal(eternal_identity.eternal_button_text, "grdl_b_prof_eternal", "eternal button uses neutral label")
+H.assert_equal(eternal_button.config.outline_colour, _G.G.C.WHITE, "eternal off keeps white outline")
+H.assert_equal(eternal_button.config.colour[4], 0, "eternal off has transparent fill")
 runtime.FUNCS.grdl_prof_eternal({ config = { ref_table = { id = member_card.id } } })
 H.assert_equal(member_card.proficiency.eternal, true, "eternal preference flipped")
 H.assert_equal(namespace.inspect_ui_state, eternal_identity, "eternal toggle keeps inspect state in place")
-H.assert_equal(eternal_identity.eternal_button_text, "grdl_b_prof_eternal_on", "eternal label flips in place")
+H.assert_equal(eternal_identity.eternal_button_text, "grdl_b_prof_eternal", "eternal label stays neutral")
+H.assert_equal(eternal_identity.eternal_button_colour[4], 1, "eternal on fills button")
+H.assert_near(eternal_identity.eternal_button_colour[2], 1, 0.001, "eternal on fill is green")
+_G.G = previous_eternal_g
 
 -- in-place loadout toggle keeps the overlay state and flips the label
 local toggle_identity = namespace.inspect_ui_state
@@ -450,6 +486,8 @@ H.assert_equal(BinderUI.commit_prof_text(namespace, member_card.id, "note", "hel
 H.assert_equal(member_card.proficiency.note, "hello", "note stored")
 H.assert_equal(BinderUI.commit_prof_text(namespace, member_card.id, "badge", "OG").ok, true, "badge commit")
 H.assert_equal(member_card.proficiency.badge_text, "OG", "badge stored")
+H.assert_equal(BinderUI.commit_prof_text(namespace, member_card.id, "badge_colour", "00ff80").ok, true, "badge colour commit")
+H.assert_equal(member_card.proficiency.badge_colour, "00FF80", "badge colour stored")
 H.assert_equal(BinderUI.commit_prof_text(namespace, member_card.id, "tint", "1A2B3C").ok, true, "tint commit")
 H.assert_equal(member_card.proficiency.tooltip_colour, "1A2B3C", "tint stored")
 H.assert_equal(BinderUI.commit_prof_text(namespace, member_card.id, "tint", "zzz").reason, "invalid_hex", "bad tint rejected")
@@ -488,6 +526,19 @@ runtime.FUNCS.grdl_hex_preview(swatch)
 H.assert_near(swatch.config.colour[1], 1, 0.001, "hex preview red channel")
 H.assert_near(swatch.config.colour[2], 0.502, 0.001, "hex preview green channel")
 H.assert_near(swatch.config.colour[3], 0, 0.001, "hex preview blue channel can be zero")
+captured_text_input = nil
+captured_overlay = nil
+BinderUI.open_prof_input(namespace, member_card.id, "badge_colour")
+H.assert_true(captured_overlay ~= nil, "badge colour input opens an overlay")
+H.assert_equal(captured_text_input.extended_corpus, true, "badge colour input allows zeroes for RGB hex")
+H.assert_true(captured_text_input.all_caps ~= true, "badge colour input keeps digits from remapping to shifted symbols")
+H.assert_equal(namespace.prof_input.text, "00FF80", "badge colour input starts from stored tint")
+namespace.prof_input.text = "00FF80"
+local badge_swatch = { config = { colour = { 0, 0, 0, 1 } } }
+runtime.FUNCS.grdl_hex_preview(badge_swatch)
+H.assert_near(badge_swatch.config.colour[1], 0, 0.001, "badge colour preview red channel")
+H.assert_near(badge_swatch.config.colour[2], 1, 0.001, "badge colour preview green channel")
+H.assert_near(badge_swatch.config.colour[3], 0.502, 0.001, "badge colour preview blue channel")
 runtime.FUNCS.overlay_menu = previous_overlay_menu
 _G.create_UIBox_generic_options = previous_generic_options
 _G.create_text_input = previous_text_input

@@ -238,7 +238,7 @@ function UICommon.outline_button(args)
         minh = args.minh or 0.9,
         padding = 0.08,
         r = solid and 0.1 or 0.06,
-        colour = solid and (args.colour or G.C.RED) or G.C.CLEAR,
+        colour = solid and (args.colour or G.C.RED) or (args.colour or G.C.CLEAR),
         outline = not solid and 1.2 or nil,
         outline_colour = not solid and (args.outline_colour or G.C.WHITE) or nil,
         hover = true,

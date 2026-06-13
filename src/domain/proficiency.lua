@@ -77,6 +77,24 @@ function Proficiency.set_badge(card, text)
     end)
 end
 
+function Proficiency.set_badge_colour(card, text)
+    if not Proficiency.can_badge(card) then return { ok = false, reason = "locked" } end
+    local meta = Proficiency.ensure(card)
+    if text == nil or text == "" then
+        meta.badge_colour = nil
+        return { ok = true }
+    end
+    local hex = tostring(text):gsub("^#", ""):upper()
+    if not Proficiency.parse_hex(hex) then return { ok = false, reason = "invalid_hex" } end
+    meta.badge_colour = hex
+    return { ok = true }
+end
+
+function Proficiency.badge_colour(card, fallback)
+    local hex = card and card.proficiency and card.proficiency.badge_colour or nil
+    return (hex and Proficiency.parse_hex(hex)) or fallback
+end
+
 function Proficiency.set_eternal(card, enabled)
     return gated_set(card, Proficiency.can_eternal, function(meta)
         meta.eternal = enabled and true or false

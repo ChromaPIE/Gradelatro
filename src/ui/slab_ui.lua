@@ -95,12 +95,18 @@ function SlabUI.attach_above(card, record, catalog_entry, opts)
     return true
 end
 
-local function badge_node(card)
-    local record = card.grdl_record
+local function badge_nodes(record)
+    local nodes = {}
     if record.status == "graded" then
-        return create_badge("PSA " .. tostring(record.grade or 0), G.C.RED, G.C.WHITE)
+        nodes[#nodes + 1] = create_badge("PSA " .. tostring(record.grade or 0), G.C.RED, G.C.WHITE)
+        local badge_text = record.proficiency and record.proficiency.badge_text or nil
+        if badge_text then
+            nodes[#nodes + 1] = create_badge(badge_text, Proficiency.badge_colour(record, G.C.PURPLE), G.C.WHITE)
+        end
+    else
+        nodes[#nodes + 1] = create_badge(UICommon.localize_text("grdl_k_badge_ungraded"), G.C.JOKER_GREY, G.C.UI.TEXT_DARK)
     end
-    return create_badge(UICommon.localize_text("grdl_k_badge_ungraded"), G.C.JOKER_GREY, G.C.UI.TEXT_DARK)
+    return nodes
 end
 
 local function popup_column(popup)
@@ -108,7 +114,7 @@ local function popup_column(popup)
     return type(level_one) == "table" and level_one.nodes or nil
 end
 
-local function append_badge(popup, card)
+local function append_badge(popup, record)
     if not rawget(_G, "create_badge") then return end
     local column = popup_column(popup)
     local level_two = type(column) == "table" and column[#column] or nil
@@ -118,7 +124,7 @@ local function append_badge(popup, card)
     inner_rows[#inner_rows + 1] = {
         n = G.UIT.R,
         config = { align = "cm", padding = 0.03 },
-        nodes = { badge_node(card) }
+        nodes = badge_nodes(record)
     }
 end
 
@@ -192,13 +198,10 @@ local function apply_tooltip_tint(popup, record)
     local colour = hex and Proficiency.parse_hex(hex) or nil
     if not colour then return end
     local column = popup_column(popup)
-    local level_two = type(column) == "table" and column[#column] or nil
-    if type(level_two) == "table" and level_two.config and level_two.config.colour then
-        level_two.config.colour = colour
-    end
-    local level_three = type(level_two) == "table" and level_two.nodes and level_two.nodes[1] or nil
-    if type(level_three) == "table" and level_three.config and level_three.config.colour then
-        level_three.config.colour = colour
+    local frame = type(column) == "table" and column[#column] or nil
+    local background = type(frame) == "table" and frame.nodes and frame.nodes[1] or nil
+    if type(background) == "table" and background.config and background.config.colour then
+        background.config.colour = colour
     end
 end
 
@@ -232,7 +235,7 @@ function SlabUI.install(namespace, env)
         local popup = original_popup(card)
         if not popup or not card then return popup end
         if card.grdl_record then
-            pcall(append_badge, popup, card)
+            pcall(append_badge, popup, card.grdl_record)
             if card.grdl_record.status == "graded" then
                 pcall(insert_slab_anchor, namespace, popup, card)
             end
@@ -240,6 +243,7 @@ function SlabUI.install(namespace, env)
         else
             local record = resolve_loadout_record(namespace, card)
             if record then
+                pcall(append_badge, popup, record)
                 pcall(apply_tooltip_tint, popup, record)
             end
         end

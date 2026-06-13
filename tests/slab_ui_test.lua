@@ -9,7 +9,8 @@ local record = {
     status = "graded",
     grade = 10,
     cert_number = "000129",
-    acquired_year = 2026
+    acquired_year = 2026,
+    proficiency = { badge_text = "OG", badge_colour = "00FF80" }
 }
 local catalog_entry = {
     center_key = "kino_air_freshener",
@@ -155,16 +156,21 @@ H.assert_equal(#column, 2, "anchor sits above the original frame")
 local frame_rows = column[2].nodes[1].nodes
 H.assert_equal(frame_rows[1].name, "name_box", "original box preserved below anchor")
 H.assert_equal(badge_calls[1].text, "PSA 10", "graded badge text")
+H.assert_equal(badge_calls[2].text, "OG", "custom badge text")
+H.assert_near(badge_calls[2].badge_col[1], 0, 0.001, "custom badge red channel")
+H.assert_near(badge_calls[2].badge_col[2], 1, 0.001, "custom badge green channel")
+H.assert_near(badge_calls[2].badge_col[3], 0.502, 0.001, "custom badge blue channel")
 H.assert_equal(frame_rows[2].nodes[1].text, "PSA 10", "badge row appended inside frame")
+H.assert_equal(frame_rows[2].nodes[2].text, "OG", "custom badge appended inside tooltip badge row")
 
 local raw_card = { grdl_record = { status = "raw" }, children = {} }
 local raw_popup = env.ui_def.card_h_popup(raw_card)
 H.assert_equal(#raw_popup.nodes[1].nodes, 1, "raw card gets no slab anchor")
-H.assert_equal(badge_calls[2].text, "grdl_k_badge_ungraded", "ungraded badge uses localization key")
+H.assert_equal(badge_calls[3].text, "grdl_k_badge_ungraded", "ungraded badge uses localization key")
 
 local plain_popup = env.ui_def.card_h_popup({ children = {} })
 H.assert_equal(#plain_popup.nodes[1].nodes, 1, "non binder card untouched")
-H.assert_equal(#badge_calls, 2, "non binder card gets no badge")
+H.assert_equal(#badge_calls, 3, "non binder card gets no badge")
 
 local uibox_args = nil
 _G.UIBox = function(args)
@@ -187,11 +193,13 @@ funcs.grdl_show_slab(anchor_element)
 H.assert_true(anchor_element.children.info ~= nil, "second call is a no-op")
 
 -- ===== proficiency info box and tooltip tint =====
+local tooltip_border_colour = { 0, 0, 0, 1 }
+local tooltip_background_colour = { 0.1, 0.1, 0.1, 1 }
 local function tinted_popup()
     return { nodes = { { nodes = { {
-        config = { colour = { 0, 0, 0, 1 } },
+        config = { colour = { tooltip_border_colour[1], tooltip_border_colour[2], tooltip_border_colour[3], tooltip_border_colour[4] } },
         nodes = { {
-            config = { colour = { 0.1, 0.1, 0.1, 1 } },
+            config = { colour = { tooltip_background_colour[1], tooltip_background_colour[2], tooltip_background_colour[3], tooltip_background_colour[4] } },
             nodes = { { name = "name_box" } }
         } }
     } } } } }
@@ -219,6 +227,14 @@ local prof_card = {
 local prof_popup = prof_env.ui_def.card_h_popup(prof_card)
 local prof_column = prof_popup.nodes[1].nodes
 H.assert_equal(#prof_column, 2, "anchor and frame only, no custom box appended")
+local main_frame = prof_column[2]
+local main_background = main_frame.nodes[1]
+H.assert_near(main_frame.config.colour[1], tooltip_border_colour[1], 0.001, "tooltip tint preserves border red")
+H.assert_near(main_frame.config.colour[2], tooltip_border_colour[2], 0.001, "tooltip tint preserves border green")
+H.assert_near(main_frame.config.colour[3], tooltip_border_colour[3], 0.001, "tooltip tint preserves border blue")
+H.assert_near(main_background.config.colour[1], 1, 0.001, "tooltip tint changes background red")
+H.assert_near(main_background.config.colour[2], 0.502, 0.001, "tooltip tint changes background green")
+H.assert_near(main_background.config.colour[3], 0, 0.001, "tooltip tint changes background blue")
 H.assert_equal(#prof_card.ability_UIBox_table.info, 1, "proficiency entry injected into vanilla info queue")
 local info_box = prof_card.ability_UIBox_table.info[1]
 H.assert_equal(info_box.grdl_prof, true, "entry tagged for dedupe")
@@ -254,13 +270,16 @@ H.assert_true(tinted, "tooltip tinted with the custom colour")
 -- in-run loadout joker resolves its record through the namespace
 prof_namespace.collection = {
     cards = {
-        { id = "grdl_lj1", status = "graded", center_key = "kino_air_freshener", proficiency = { antes = 100 } }
+        { id = "grdl_lj1", status = "graded", grade = 8, center_key = "kino_air_freshener", proficiency = { antes = 100, badge_text = "LOAD", badge_colour = "00FF80" } }
     }
 }
 local loadout_joker = { children = {}, ability_UIBox_table = { info = {} }, ability = { grdl_loadout_id = "grdl_lj1" } }
 local joker_popup = prof_env.ui_def.card_h_popup(loadout_joker)
 H.assert_equal(#joker_popup.nodes[1].nodes, 1, "loadout joker popup column untouched")
 H.assert_equal(#loadout_joker.ability_UIBox_table.info, 1, "loadout joker gets the proficiency entry")
+local joker_frame_rows = joker_popup.nodes[1].nodes[1].nodes[1].nodes
+H.assert_equal(joker_frame_rows[2].nodes[1].text, "PSA 8", "loadout joker gets PSA badge in tooltip")
+H.assert_equal(joker_frame_rows[2].nodes[2].text, "LOAD", "loadout joker gets custom badge in tooltip")
 local found_maxed = false
 for _, cells in ipairs(loadout_joker.ability_UIBox_table.info[1]) do
     for _, node in ipairs(cells) do
