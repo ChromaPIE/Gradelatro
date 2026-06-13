@@ -398,15 +398,12 @@ function LoadoutUI.count_proficiency(namespace, runtime, run_state)
     if changed then namespace.last_save_ok = Persistence.save(namespace) end
 end
 
-function LoadoutUI.on_boss_cash_out(namespace)
+function LoadoutUI.on_boss_cash_out(namespace, defeated_ante)
     local runtime = rawget(_G, "G")
     if not namespace or not namespace.collection or not runtime or not runtime.GAME then return end
-    local resets = runtime.GAME.round_resets or {}
-    if not resets.blind_states or resets.blind_states.Boss ~= "Defeated" then return end
     local run_state = runtime.GAME.grdl_loadout
     if not run_state then return end
-    -- ease_ante has already run by cash-out time, so the beaten ante is one back
-    local defeated_ante = (resets.ante or 1) - 1
+    if not defeated_ante then return end
     if run_state.counted_ante == defeated_ante then return end
     run_state.counted_ante = defeated_ante
 
@@ -582,8 +579,19 @@ function LoadoutUI.install(namespace, env)
     if type(funcs.cash_out) == "function" then
         local original_cash_out = funcs.cash_out
         funcs.cash_out = function(e)
+            -- vanilla cash_out calls reset_blinds() before returning, wiping
+            -- the Defeated flag - the boss state and the already-eased ante
+            -- must be captured before the original runs
+            local defeated_ante = nil
+            local game = rawget(_G, "G")
+            local resets = game and game.GAME and game.GAME.round_resets or nil
+            if resets and resets.blind_states and resets.blind_states.Boss == "Defeated" then
+                defeated_ante = (resets.ante or 1) - 1
+            end
             local result = original_cash_out(e)
-            pcall(LoadoutUI.on_boss_cash_out, namespace)
+            if defeated_ante then
+                pcall(LoadoutUI.on_boss_cash_out, namespace, defeated_ante)
+            end
             return result
         end
     end

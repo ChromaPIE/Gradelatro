@@ -125,7 +125,12 @@ _G.SMODS.add_card = function(args)
     return joker
 end
 
-local funcs = { cash_out = function(e) return "paid" end }
+local funcs = { cash_out = function(e)
+    -- vanilla cash_out resets the blind states for the next ante before returning
+    local resets = _G.G and _G.G.GAME and _G.G.GAME.round_resets or nil
+    if resets and resets.blind_states then resets.blind_states.Boss = "Upcoming" end
+    return "paid"
+end }
 local game_class = {}
 function game_class.start_run(self, args) return "started" end
 local env = { funcs = funcs, game_class = game_class }
@@ -165,15 +170,18 @@ H.assert_equal(#run_state.entered, 2, "entries consumed")
 -- proficiency counts on next boss; entry ante itself never counted
 _G.G.jokers.cards = { spawned[1].joker, spawned[2].joker }
 _G.G.GAME.round_resets.ante = 5
+_G.G.GAME.round_resets.blind_states.Boss = "Defeated"
 funcs.cash_out({ config = {} })
 H.assert_equal(graded_novice.proficiency.antes, 1, "present graded card counts the ante")
 H.assert_equal(graded_adept.proficiency.antes, 41, "count accumulates on top")
+_G.G.GAME.round_resets.blind_states.Boss = "Defeated"
 funcs.cash_out({ config = {} })
 H.assert_equal(graded_novice.proficiency.antes, 1, "same ante never double counts")
 
 -- removed joker stops counting
 _G.G.jokers.cards = { spawned[2].joker }
 _G.G.GAME.round_resets.ante = 7
+_G.G.GAME.round_resets.blind_states.Boss = "Defeated"
 funcs.cash_out({ config = {} })
 H.assert_equal(graded_novice.proficiency.antes, 1, "missing joker stops accruing")
 H.assert_equal(graded_adept.proficiency.antes, 42, "surviving joker keeps accruing")
