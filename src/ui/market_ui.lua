@@ -378,26 +378,38 @@ function MarketUI.reveal_mystery(namespace, result)
     target.highlighted = true
 
     local real_center = runtime.P_CENTERS and runtime.P_CENTERS[result.card.center_key] or nil
+    -- blockable=false events time independently from enqueue, so the
+    -- sequence is staged with cumulative delays; the collect button must
+    -- attach AFTER set_ability, whose clean_up_children would destroy it
     runtime.E_MANAGER:add_event(Event({ trigger = "after", delay = 0.25, blockable = false, func = function()
+        if target.REMOVED then return true end
         if target.flip then pcall(target.flip, target) end
         if rawget(_G, "play_sound") then pcall(play_sound, "card1", 1, 0.5) end
         return true
     end }))
-    runtime.E_MANAGER:add_event(Event({ trigger = "after", delay = 0.4, blockable = false, func = function()
+    runtime.E_MANAGER:add_event(Event({ trigger = "after", delay = 0.7, blockable = false, func = function()
+        if target.REMOVED then return true end
+        local keep_x, keep_y, keep_r = target.T.x, target.T.y, target.T.r
+        if target.original_T then
+            target.original_T.x, target.original_T.y, target.original_T.r = keep_x, keep_y, keep_r
+        end
         if real_center then pcall(target.set_ability, target, real_center, true) end
+        target.T.x, target.T.y, target.T.r = keep_x, keep_y, keep_r
         local flags = Catalog.edition_flags(result.card.edition)
         if flags then pcall(target.set_edition, target, flags, true, true) end
         target.hover = nil
         target.stop_hover = nil
         return true
     end }))
-    runtime.E_MANAGER:add_event(Event({ trigger = "after", delay = 0.4, blockable = false, func = function()
+    runtime.E_MANAGER:add_event(Event({ trigger = "after", delay = 1.05, blockable = false, func = function()
+        if target.REMOVED then return true end
         if target.flip then pcall(target.flip, target) end
         if target.juice_up then pcall(target.juice_up, target, 0.6, 0.4) end
         if rawget(_G, "play_sound") then pcall(play_sound, "polychrome1", 1.2, 0.7) end
         return true
     end }))
-    runtime.E_MANAGER:add_event(Event({ trigger = "after", delay = 0.2, blockable = false, func = function()
+    runtime.E_MANAGER:add_event(Event({ trigger = "after", delay = 1.35, blockable = false, func = function()
+        if target.REMOVED then return true end
         if rawget(_G, "UIBox") then
             target.children.grdl_collect = UIBox({
                 definition = { n = G.UIT.ROOT, config = { align = "cm", colour = G.C.CLEAR, padding = 0.03 }, nodes = {
