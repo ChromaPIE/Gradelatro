@@ -65,3 +65,22 @@ position = "after"
 payload = '''      grdl_binder,'''
 match_indent = false
 overwrite = false
+
+[[patches]]
+[patches.pattern]
+target = "functions/UI_definitions.lua"
+pattern = '''  function overlay_infotip(text_rows)'''
+position = "before"
+payload = '''
+  local grdl_info_tip_from_rows = info_tip_from_rows
+  function info_tip_from_rows(desc_nodes, name)
+    local box = grdl_info_tip_from_rows(desc_nodes, name)
+    if desc_nodes and desc_nodes.grdl_hide_title and box and box.nodes then
+      table.remove(box.nodes, 1)
+    end
+    return box
+  end
+
+'''
+match_indent = false
+overwrite = false
