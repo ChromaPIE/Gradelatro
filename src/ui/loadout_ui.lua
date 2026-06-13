@@ -497,7 +497,7 @@ function LoadoutUI.create_entry_definition(namespace)
     if rawget(_G, "CardArea") and rawget(_G, "Card") and rawget(_G, "G") and G.P_CENTERS then
         local area = CardArea(
             G.ROOM.T.x + 0.2 * G.ROOM.T.w / 2, G.ROOM.T.h,
-            3.25 * G.CARD_W, 0.95 * G.CARD_H,
+            3.25 * G.CARD_W, 1.02 * G.CARD_H,
             { card_limit = 3, type = "title", highlight_limit = window.picks, collection = true })
         namespace.loadout_entry_area = area
         for _, card_id in ipairs(window.card_ids) do
@@ -528,7 +528,7 @@ function LoadoutUI.create_entry_definition(namespace)
                 area:emplace(card)
             end
         end
-        nodes[#nodes + 1] = row({ { n = G.UIT.O, config = { object = area } } }, { padding = 0.05, no_fill = true })
+        nodes[#nodes + 1] = row({ { n = G.UIT.O, config = { object = area } } }, { padding = 0.07, no_fill = true })
     end
     nodes[#nodes + 1] = row({
         col({ UICommon.outline_button({

@@ -130,6 +130,71 @@ _G.Card = previous_card
 _G.CardArea = previous_card_area
 _G.G = previous_ui_g
 
+local previous_entry_g = rawget(_G, "G")
+local previous_entry_card_area = rawget(_G, "CardArea")
+local previous_entry_card = rawget(_G, "Card")
+local previous_entry_button = rawget(_G, "UIBox_button")
+local previous_entry_options = rawget(_G, "create_UIBox_generic_options")
+local captured_entry_area = nil
+_G.G = {
+    ROOM = { T = { x = 0, y = 0, w = 10, h = 10 } },
+    CARD_W = 1,
+    CARD_H = 1.4,
+    UIT = { R = "R", C = "C", T = "T", O = "O", ROOT = "ROOT" },
+    C = {
+        WHITE = { 1, 1, 1, 1 },
+        GREEN = { 0, 1, 0, 1 },
+        RED = { 1, 0, 0, 1 },
+        L_BLACK = { 0.2, 0.2, 0.2, 1 },
+        UI = {
+            TEXT_LIGHT = { 1, 1, 1, 1 },
+            TEXT_DARK = { 0, 0, 0, 1 }
+        }
+    },
+    P_CENTERS = { j_joker = { key = "j_joker" } },
+    P_CARDS = { empty = {} }
+}
+_G.CardArea = function(x, y, w, h)
+    local area = { cards = {}, T = { x = x, y = y, w = w, h = h } }
+    function area:emplace(card_obj)
+        self.cards[#self.cards + 1] = card_obj
+    end
+    captured_entry_area = area
+    return area
+end
+_G.Card = function()
+    return { set_edition = function() end }
+end
+_G.UIBox_button = function(args)
+    return { n = G.UIT.C, config = args, nodes = {} }
+end
+_G.create_UIBox_generic_options = function(args) return args end
+namespace.loadout_entry_window = { picks = 1, card_ids = { card.id } }
+local entry_definition = LoadoutUI.create_entry_definition(namespace)
+local function has_entry_area(node)
+    if type(node) ~= "table" then return false end
+    if node.config and node.config.object == captured_entry_area then return true end
+    for _, child in ipairs(node.nodes or {}) do
+        if has_entry_area(child) then return true end
+    end
+    return false
+end
+local entry_card_row = nil
+for _, node in ipairs(entry_definition.contents or {}) do
+    if has_entry_area(node) then entry_card_row = node end
+end
+H.assert_true(captured_entry_area ~= nil, "entry popup creates a card area")
+H.assert_true(entry_card_row ~= nil, "entry popup renders a card row")
+H.assert_near(captured_entry_area.T.h, 1.02 * _G.G.CARD_H, 0.001, "entry card area is a little taller than a card")
+H.assert_equal(entry_card_row.config.padding, 0.07, "entry popup leaves a slightly larger card gap")
+namespace.loadout_entry_window = nil
+namespace.loadout_entry_area = nil
+_G.create_UIBox_generic_options = previous_entry_options
+_G.UIBox_button = previous_entry_button
+_G.Card = previous_entry_card
+_G.CardArea = previous_entry_card_area
+_G.G = previous_entry_g
+
 -- ===== run integration =====
 local previous_run_g = rawget(_G, "G")
 local Proficiency = dofile("src/domain/proficiency.lua")
