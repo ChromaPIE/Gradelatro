@@ -16,6 +16,8 @@ local BASE_LINE_SCALE = 0.27
 local LINE_BUDGET_BYTES = 24
 local COLUMN_GAP = 0.35
 local LINE_HEIGHT = 0.32
+local SIDE_OFFSET_X = 0.03
+local SCREEN_MARGIN = 0.02
 
 function SlabUI.label_args(record, catalog_entry)
     record = record or {}
@@ -75,6 +77,71 @@ function SlabUI.slab_box(record, catalog_entry, opts)
     } }
 end
 
+local function room_rect()
+    local runtime = rawget(_G, "G")
+    return runtime and runtime.ROOM and runtime.ROOM.T or nil
+end
+
+local function overflows_top(box, margin)
+    local room = room_rect()
+    if not room or not box or not box.T then return false end
+    return (box.T.y or 0) < ((room.y or 0) + (margin or SCREEN_MARGIN))
+end
+
+local function side_alignment(major, box, margin)
+    local room = room_rect()
+    local major_t = major and major.T or {}
+    local box_t = box and box.T or {}
+    local room_x = room and (room.x or 0) or 0
+    local room_w = room and (room.w or 0) or 0
+    local major_x = major_t.x or 0
+    local major_w = major_t.w or 0
+    local box_w = box_t.w or 0
+    local left_space = major_x - room_x
+    local right_space = room_x + room_w - (major_x + major_w)
+    local needed = box_w + (margin or SCREEN_MARGIN)
+
+    if left_space >= needed and left_space >= right_space then
+        return "cl", { x = -SIDE_OFFSET_X, y = 0 }
+    end
+    if right_space >= needed then
+        return "cr", { x = SIDE_OFFSET_X, y = 0 }
+    end
+    if left_space > right_space then
+        return "cl", { x = -SIDE_OFFSET_X, y = 0 }
+    end
+    return "cr", { x = SIDE_OFFSET_X, y = 0 }
+end
+
+local function realign_box(box, major, align, offset, bond)
+    if not box then return end
+    if box.config then
+        box.config.align = align
+        box.config.offset = offset
+        box.config.major = major
+    end
+    if box.set_alignment then
+        pcall(box.set_alignment, box, {
+            major = major,
+            type = align,
+            bond = bond or "Strong",
+            offset = offset
+        })
+    elseif box.alignment then
+        box.alignment.type = align
+        box.alignment.offset = offset
+    end
+    if box.align_to_major then pcall(box.align_to_major, box) end
+end
+
+local function adapt_if_top_overflow(box, major, opts)
+    opts = opts or {}
+    local margin = opts.screen_margin or SCREEN_MARGIN
+    if not overflows_top(box, margin) then return end
+    local align, offset = side_alignment(major, box, margin)
+    realign_box(box, major, align, offset, opts.bond or "Strong")
+end
+
 function SlabUI.attach_above(card, record, catalog_entry, opts)
     if not rawget(_G, "UIBox") then return false end
     if not card or not card.children or card.children.grdl_slab then return false end
@@ -92,6 +159,7 @@ function SlabUI.attach_above(card, record, catalog_entry, opts)
             parent = card
         }
     })
+    adapt_if_top_overflow(card.children.grdl_slab, card, opts)
     card.children.grdl_slab.states.collide.can = false
     return true
 end
@@ -155,6 +223,7 @@ local function show_slab(e)
         definition = { n = G.UIT.ROOT, config = { align = "cm", colour = G.C.CLEAR, padding = 0.02 }, nodes = e.config.ref_table },
         config = { offset = { x = 0, y = -0.04 }, align = "tm", parent = e }
     })
+    adapt_if_top_overflow(e.children.info, e)
     e.children.info:align_to_major()
     e.config.ref_table = nil
 end

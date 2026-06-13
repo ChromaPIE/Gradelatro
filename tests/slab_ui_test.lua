@@ -114,6 +114,35 @@ H.assert_equal(attach_args.definition.n, "ROOT", "slab wrapped in clear root")
 H.assert_equal(attach_args.definition.nodes[1].config.colour, _G.G.C.RED, "wrapped root carries the red slab box")
 H.assert_equal(attach_card.children.grdl_slab.states.collide.can, false, "slab does not catch the cursor")
 H.assert_equal(SlabUI.attach_above(attach_card, record, catalog_entry), false, "second attach is a no-op")
+
+local previous_room = _G.G.ROOM
+_G.G.ROOM = { T = { x = 0, y = 0, w = 10, h = 10 } }
+local overflow_attach_args = nil
+_G.UIBox = function(args)
+    overflow_attach_args = args
+    local box = {
+        config = args.config,
+        states = { collide = { can = true } },
+        T = { x = 8, y = -0.4, w = 2.4, h = 1.1 },
+        remove = function() end
+    }
+    function box:set_alignment(args2)
+        self.last_alignment = args2
+        self.config.align = args2.type
+        self.config.offset = args2.offset
+    end
+    function box:align_to_major()
+        self.aligned_to_major = (self.aligned_to_major or 0) + 1
+    end
+    return box
+end
+local right_edge_card = { children = {}, T = { x = 8.2, y = 0.1, w = 1.0, h = 1.4 } }
+H.assert_equal(SlabUI.attach_above(right_edge_card, record, catalog_entry), true, "overflowing slab still attaches")
+H.assert_equal(right_edge_card.children.grdl_slab.last_alignment.type, "cl", "top overflow near right edge moves slab to the left side")
+H.assert_equal(right_edge_card.children.grdl_slab.last_alignment.offset.x, -0.03, "left side slab uses vanilla infotip offset")
+H.assert_true((right_edge_card.children.grdl_slab.aligned_to_major or 0) > 0, "adaptive slab realigns through UIBox")
+H.assert_equal(overflow_attach_args.config.align, "cl", "stored slab config follows adaptive alignment")
+_G.G.ROOM = previous_room
 _G.UIBox = nil
 
 local namespace = {
@@ -191,6 +220,34 @@ H.assert_equal(uibox_args.definition.nodes[1].config.colour, _G.G.C.RED, "wrappe
 
 funcs.grdl_show_slab(anchor_element)
 H.assert_true(anchor_element.children.info ~= nil, "second call is a no-op")
+
+local previous_tooltip_room = _G.G.ROOM
+_G.G.ROOM = { T = { x = 0, y = 0, w = 10, h = 10 } }
+local overflow_anchor = {
+    config = { ref_table = { SlabUI.slab_box(record, catalog_entry) } },
+    children = {},
+    T = { x = 8.1, y = 0.05, w = 0.8, h = 0.5 }
+}
+_G.UIBox = function(args)
+    local box = {
+        config = args.config,
+        T = { x = 8.1, y = -0.35, w = 2.2, h = 1.0 }
+    }
+    function box:set_alignment(args2)
+        self.last_alignment = args2
+        self.config.align = args2.type
+        self.config.offset = args2.offset
+    end
+    function box:align_to_major()
+        self.aligned_to_major = (self.aligned_to_major or 0) + 1
+    end
+    return box
+end
+funcs.grdl_show_slab(overflow_anchor)
+H.assert_equal(overflow_anchor.children.info.last_alignment.type, "cl", "overflowing tooltip slab moves to a side")
+H.assert_equal(overflow_anchor.children.info.last_alignment.offset.x, -0.03, "tooltip slab side offset follows vanilla infotip")
+_G.G.ROOM = previous_tooltip_room
+_G.UIBox = nil
 
 -- ===== proficiency info box and tooltip tint =====
 local tooltip_border_colour = { 0, 0, 0, 1 }
