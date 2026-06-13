@@ -474,7 +474,6 @@ local personalize_button = find_button(inspect_definition, "grdl_prof_personaliz
 H.assert_true(personalize_button ~= nil, "graded inspect renders one personalization button")
 H.assert_equal(find_button(inspect_definition, "grdl_prof_note"), nil, "note button removed from main inspect")
 H.assert_equal(find_button(inspect_definition, "grdl_prof_badge"), nil, "badge button removed from main inspect")
-H.assert_equal(find_button(inspect_definition, "grdl_prof_badge_colour"), nil, "badge colour button removed from main inspect")
 H.assert_equal(find_button(inspect_definition, "grdl_prof_tint"), nil, "tint button removed from main inspect")
 
 member_card.proficiency = { antes = 5 }

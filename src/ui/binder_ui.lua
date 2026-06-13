@@ -1255,9 +1255,6 @@ function BinderUI.install_runtime(namespace, runtime, adapter)
     runtime.FUNCS.grdl_prof_badge = function(event)
         BinderUI.open_badge_input(namespace, event_card_id(event))
     end
-    runtime.FUNCS.grdl_prof_badge_colour = function(event)
-        BinderUI.open_prof_input(namespace, event_card_id(event), "badge_colour")
-    end
     runtime.FUNCS.grdl_prof_tint = function(event)
         BinderUI.open_prof_input(namespace, event_card_id(event), "tint")
     end
