@@ -307,6 +307,14 @@ function BinderUI.inspect_loadout(namespace, card_id)
     return state
 end
 
+function BinderUI.open_personalization(namespace, card_id)
+    if not namespace or not namespace.collection then return nil end
+    local card = Storage.find_card(namespace.collection, card_id)
+    if not card or card.status ~= "graded" then return nil end
+    namespace.personalization_ui_state = { card_id = card_id, feedback = "" }
+    return namespace.personalization_ui_state
+end
+
 function BinderUI.open_prof_input(namespace, card_id, kind)
     local runtime = rawget(_G, "G")
     if not runtime or not runtime.FUNCS or not runtime.FUNCS.overlay_menu then return end
@@ -746,6 +754,48 @@ local function set_state_colour(target, source)
     target[1], target[2], target[3], target[4] = source[1], source[2], source[3], source[4]
 end
 
+local PROF_PERSONALIZATION = {
+    { key = "inscription", button = "grdl_prof_inscription", label = "grdl_b_prof_inscription", level = 2, gate = Proficiency.can_note },
+    { key = "eternal", button = "grdl_prof_eternal", label = "grdl_b_prof_eternal", level = 3, gate = Proficiency.can_eternal },
+    { key = "badge", button = "grdl_prof_badge", label = "grdl_b_prof_badge", level = 4, gate = Proficiency.can_badge },
+    { key = "tint", button = "grdl_prof_tint", label = "grdl_b_prof_tint", level = 5, gate = Proficiency.can_tint }
+}
+
+local function personalization_row(card, state, item, regular_font)
+    local unlocked = item.gate(card)
+    local fill = G.C.CLEAR
+    if item.key == "eternal" then
+        state.eternal_button_text = safe_localize("grdl_b_prof_eternal")
+        state.eternal_button_colour = state.eternal_button_colour or { 0, 0, 0, 0 }
+        set_state_colour(state.eternal_button_colour, (card.proficiency and card.proficiency.eternal) and G.C.GREEN or G.C.CLEAR)
+        fill = state.eternal_button_colour
+    end
+
+    local lines = {
+        { text = safe_localize(item.label), colour = unlocked and G.C.WHITE or G.C.UI.TEXT_INACTIVE }
+    }
+    if not unlocked then
+        lines[#lines + 1] = {
+            text = safe_localize("grdl_k_prof_unlocks_at", { Proficiency.level_label(item.level) }),
+            scale = 0.26,
+            colour = G.C.UI.TEXT_INACTIVE
+        }
+    end
+
+    return UICommon.outline_button({
+        id = item.button,
+        button = item.button,
+        ref = { id = card.id },
+        lines = lines,
+        font = regular_font,
+        minw = 2.6,
+        minh = unlocked and 0.62 or 0.82,
+        colour = fill,
+        outline_colour = unlocked and G.C.WHITE or G.C.UI.TEXT_INACTIVE,
+        disabled = not unlocked
+    })
+end
+
 local function inspect_action_row(namespace, state, entry, regular_font)
     local actions = {}
 
@@ -781,33 +831,9 @@ local function inspect_action_row(namespace, state, entry, regular_font)
     end
 
     if entry.status == "graded" then
-        local card = Storage.find_card(namespace.collection or {}, entry.id)
-        if card and Proficiency.can_note(card) then
-            actions[#actions + 1] = inspect_action_button("grdl_prof_note", entry.id, {
-                { text = safe_localize("grdl_b_prof_note") }
-            }, regular_font)
-        end
-        if card and Proficiency.can_eternal(card) then
-            state.eternal_button_text = safe_localize("grdl_b_prof_eternal")
-            state.eternal_button_colour = state.eternal_button_colour or { 0, 0, 0, 0 }
-            set_state_colour(state.eternal_button_colour, (card.proficiency and card.proficiency.eternal) and G.C.GREEN or G.C.CLEAR)
-            actions[#actions + 1] = inspect_action_button("grdl_prof_eternal", entry.id, {
-                { ref_table = state, ref_value = "eternal_button_text" }
-            }, regular_font, { colour = state.eternal_button_colour, outline_colour = G.C.WHITE })
-        end
-        if card and Proficiency.can_badge(card) then
-            actions[#actions + 1] = inspect_action_button("grdl_prof_badge", entry.id, {
-                { text = safe_localize("grdl_b_prof_badge") }
-            }, regular_font)
-            actions[#actions + 1] = inspect_action_button("grdl_prof_badge_colour", entry.id, {
-                { text = safe_localize("grdl_b_prof_badge_colour") }
-            }, regular_font)
-        end
-        if card and Proficiency.can_tint(card) then
-            actions[#actions + 1] = inspect_action_button("grdl_prof_tint", entry.id, {
-                { text = safe_localize("grdl_b_prof_tint") }
-            }, regular_font)
-        end
+        actions[#actions + 1] = inspect_action_button("grdl_prof_personalize", entry.id, {
+            { text = safe_localize("grdl_b_prof_personalize") }
+        }, regular_font)
     end
 
     if #actions == 0 then return nil end
@@ -820,6 +846,40 @@ local function inspect_action_row(namespace, state, entry, regular_font)
         action_cols[#action_cols + 1] = node
     end
     return action_cols
+end
+
+function BinderUI.create_personalization_definition(namespace)
+    namespace = namespace or rawget(_G, "Gradelatro") or {}
+    local state = namespace.personalization_ui_state
+    if not state then
+        return create_UIBox_generic_options({ back_func = "grdl_open_binder", contents = {} })
+    end
+
+    local card = Storage.find_card(namespace.collection or {}, state.card_id)
+    if not card then
+        return create_UIBox_generic_options({ back_func = "grdl_open_binder", contents = {} })
+    end
+
+    local regular_font = UICommon.noto_regular()
+    local dynamic_state = namespace.inspect_ui_state or state
+    local rows = {
+        row({ ui_text(safe_localize("grdl_b_prof_personalize"), 0.45, G.C.WHITE) }, { padding = 0.05 })
+    }
+    for _, item in ipairs(PROF_PERSONALIZATION) do
+        rows[#rows + 1] = row({ personalization_row(card, dynamic_state, item, regular_font) }, { padding = 0.035 })
+    end
+    rows[#rows + 1] = row({
+        { n = G.UIT.T, config = { ref_table = state, ref_value = "feedback", scale = 0.32, colour = G.C.GOLD } }
+    }, { align = "cm", padding = 0.02 })
+
+    return create_UIBox_generic_options({
+        back_func = "grdl_reopen_inspect",
+        minw = 4.4,
+        padding = 0.12,
+        colour = G.C.L_BLACK,
+        outline_colour = G.C.RED,
+        contents = rows
+    })
 end
 
 function BinderUI.create_inspect_definition(namespace)
@@ -1018,6 +1078,22 @@ function BinderUI.install_runtime(namespace, runtime, adapter)
         end
     end
 
+    runtime.FUNCS.grdl_reopen_inspect = function()
+        local personal = namespace.personalization_ui_state
+        if personal and personal.card_id then reopen_inspect(personal.card_id) end
+    end
+
+    runtime.FUNCS.grdl_prof_personalize = function(event)
+        local card_id = event_card_id(event)
+        local state = BinderUI.open_personalization(namespace, card_id)
+        if state and runtime.FUNCS.overlay_menu then
+            if runtime.SETTINGS then runtime.SETTINGS.paused = true end
+            runtime.FUNCS.overlay_menu({
+                definition = BinderUI.create_personalization_definition(namespace)
+            })
+        end
+    end
+
     runtime.FUNCS.grdl_prof_eternal = function(event)
         local card_id = event_card_id(event)
         local card = Storage.find_card(namespace.collection or {}, card_id)
@@ -1045,8 +1121,17 @@ function BinderUI.install_runtime(namespace, runtime, adapter)
             state.eternal_button_colour = state.eternal_button_colour or { 0, 0, 0, 0 }
             set_state_colour(state.eternal_button_colour, enabled and G.C.GREEN or G.C.CLEAR)
         end
+        local personal_state = namespace.personalization_ui_state
+        if personal_state then
+            personal_state.eternal_button_text = safe_localize("grdl_b_prof_eternal")
+            personal_state.eternal_button_colour = personal_state.eternal_button_colour or { 0, 0, 0, 0 }
+            set_state_colour(personal_state.eternal_button_colour, enabled and G.C.GREEN or G.C.CLEAR)
+        end
     end
 
+    runtime.FUNCS.grdl_prof_inscription = function(event)
+        BinderUI.open_prof_input(namespace, event_card_id(event), "note")
+    end
     runtime.FUNCS.grdl_prof_note = function(event)
         BinderUI.open_prof_input(namespace, event_card_id(event), "note")
     end

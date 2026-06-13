@@ -219,6 +219,14 @@ end
 function UICommon.outline_button(args)
     args = args or {}
     local solid = args.solid
+    local button = args.button
+    local ref = args.ref
+    local focus_args = { nav = "wide" }
+    if args.disabled then
+        button = nil
+        ref = nil
+        focus_args = nil
+    end
     local nodes = {}
     for _, line in ipairs(args.lines or {}) do
         nodes[#nodes + 1] = { n = G.UIT.R, config = { align = "cm", padding = 0.01 }, nodes = {
@@ -241,11 +249,12 @@ function UICommon.outline_button(args)
         colour = solid and (args.colour or G.C.RED) or (args.colour or G.C.CLEAR),
         outline = not solid and 1.2 or nil,
         outline_colour = not solid and (args.outline_colour or G.C.WHITE) or nil,
-        hover = true,
         shadow = solid and true or false,
-        button = args.button,
-        ref_table = args.ref,
-        focus_args = { nav = "wide" }
+        id = args.id or args.button,
+        button = button,
+        ref_table = ref,
+        focus_args = focus_args,
+        hover = args.disabled and false or true
     }, nodes = nodes }
 end
 

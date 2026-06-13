@@ -435,6 +435,7 @@ BinderUI.open_inspect(namespace, member_card.id)
 H.assert_true(type(runtime.FUNCS.grdl_prof_eternal) == "function", "eternal toggle registered")
 local eternal_identity = namespace.inspect_ui_state
 local previous_eternal_g = rawget(_G, "G")
+local previous_eternal_generic_options = rawget(_G, "create_UIBox_generic_options")
 _G.G = {
     ROOM = { T = { w = 10, h = 10 } },
     UIT = { R = "R", C = "C", T = "T", O = "O", ROOT = "ROOT" },
@@ -442,6 +443,7 @@ _G.G = {
         WHITE = { 1, 1, 1, 1 },
         GREEN = { 0, 1, 0, 1 },
         CLEAR = { 0, 0, 0, 0 },
+        L_BLACK = { 0.2, 0.2, 0.2, 1 },
         RED = { 1, 0, 0, 1 },
         GOLD = { 1, 0.8, 0, 1 },
         PURPLE = { 0.5, 0, 1, 1 },
@@ -453,17 +455,51 @@ _G.G = {
     },
     FONTS = {}
 }
+_G.create_UIBox_generic_options = function(args) return args end
 local function find_button(node, button)
     if type(node) ~= "table" then return nil end
-    if node.config and node.config.button == button then return node end
+    if node.config and (node.config.button == button or node.config.id == button) then return node end
     for _, child in ipairs(node.nodes or {}) do
+        local found = find_button(child, button)
+        if found then return found end
+    end
+    for _, child in ipairs(node.contents or {}) do
         local found = find_button(child, button)
         if found then return found end
     end
     return nil
 end
-local eternal_button = find_button(BinderUI.create_inspect_definition(namespace), "grdl_prof_eternal")
-H.assert_true(eternal_button ~= nil, "eternal button rendered")
+local inspect_definition = BinderUI.create_inspect_definition(namespace)
+local personalize_button = find_button(inspect_definition, "grdl_prof_personalize")
+H.assert_true(personalize_button ~= nil, "graded inspect renders one personalization button")
+H.assert_equal(find_button(inspect_definition, "grdl_prof_note"), nil, "note button removed from main inspect")
+H.assert_equal(find_button(inspect_definition, "grdl_prof_badge"), nil, "badge button removed from main inspect")
+H.assert_equal(find_button(inspect_definition, "grdl_prof_badge_colour"), nil, "badge colour button removed from main inspect")
+H.assert_equal(find_button(inspect_definition, "grdl_prof_tint"), nil, "tint button removed from main inspect")
+
+member_card.proficiency = { antes = 5 }
+BinderUI.open_personalization(namespace, member_card.id)
+local personal_definition = BinderUI.create_personalization_definition(namespace)
+local inscription_locked = find_button(personal_definition, "grdl_prof_inscription")
+local eternal_locked = find_button(personal_definition, "grdl_prof_eternal")
+H.assert_true(inscription_locked ~= nil, "inscription row rendered")
+H.assert_true(eternal_locked ~= nil, "eternal row rendered")
+H.assert_equal(inscription_locked.config.button, nil, "locked inscription has no click action")
+H.assert_equal(eternal_locked.config.button, nil, "locked eternal has no click action")
+H.assert_equal(inscription_locked.config.outline_colour, _G.G.C.UI.TEXT_INACTIVE, "locked row grey outline")
+
+member_card.proficiency.antes = 100
+BinderUI.open_personalization(namespace, member_card.id)
+local unlocked_personal_definition = BinderUI.create_personalization_definition(namespace)
+local unlocked_inscription = find_button(unlocked_personal_definition, "grdl_prof_inscription")
+local eternal_button = find_button(unlocked_personal_definition, "grdl_prof_eternal")
+local unlocked_badge = find_button(unlocked_personal_definition, "grdl_prof_badge")
+local unlocked_tint = find_button(unlocked_personal_definition, "grdl_prof_tint")
+H.assert_true(unlocked_inscription ~= nil, "unlocked inscription row rendered")
+H.assert_true(eternal_button ~= nil, "unlocked eternal row rendered")
+H.assert_true(unlocked_badge ~= nil, "unlocked badge row rendered")
+H.assert_true(unlocked_tint ~= nil, "unlocked tint row rendered")
+H.assert_equal(unlocked_inscription.config.button, "grdl_prof_inscription", "unlocked inscription clickable")
 H.assert_equal(eternal_identity.eternal_button_text, "grdl_b_prof_eternal", "eternal button uses neutral label")
 H.assert_equal(eternal_button.config.outline_colour, _G.G.C.WHITE, "eternal off keeps white outline")
 H.assert_equal(eternal_button.config.colour[4], 0, "eternal off has transparent fill")
@@ -473,6 +509,7 @@ H.assert_equal(namespace.inspect_ui_state, eternal_identity, "eternal toggle kee
 H.assert_equal(eternal_identity.eternal_button_text, "grdl_b_prof_eternal", "eternal label stays neutral")
 H.assert_equal(eternal_identity.eternal_button_colour[4], 1, "eternal on fills button")
 H.assert_near(eternal_identity.eternal_button_colour[2], 1, 0.001, "eternal on fill is green")
+_G.create_UIBox_generic_options = previous_eternal_generic_options
 _G.G = previous_eternal_g
 
 -- in-place loadout toggle keeps the overlay state and flips the label
