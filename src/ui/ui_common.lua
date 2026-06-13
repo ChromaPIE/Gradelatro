@@ -13,6 +13,15 @@ local ERROR_TEXT = "ERROR"
 
 local PREVIEW_SCALE = 0.8
 
+local function interpolate_vars(text, vars)
+    if type(text) ~= "string" or type(vars) ~= "table" then return text end
+    return (text:gsub("#(%d+)#", function(index)
+        local value = vars[tonumber(index)]
+        if value == nil then return "#" .. index .. "#" end
+        return tostring(value)
+    end))
+end
+
 function UICommon.localize_text(key, vars)
     if not rawget(_G, "localize") then return key end
     if vars then
@@ -20,7 +29,7 @@ function UICommon.localize_text(key, vars)
         if ok and value and value ~= ERROR_TEXT then return value end
     end
     local ok, value = pcall(localize, key)
-    if ok and value and value ~= ERROR_TEXT then return value end
+    if ok and value and value ~= ERROR_TEXT then return interpolate_vars(value, vars) end
     return key
 end
 

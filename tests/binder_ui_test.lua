@@ -436,6 +436,7 @@ H.assert_true(type(runtime.FUNCS.grdl_prof_eternal) == "function", "eternal togg
 local eternal_identity = namespace.inspect_ui_state
 local previous_eternal_g = rawget(_G, "G")
 local previous_eternal_generic_options = rawget(_G, "create_UIBox_generic_options")
+local previous_localize = rawget(_G, "localize")
 _G.G = {
     ROOM = { T = { w = 10, h = 10 } },
     UIT = { R = "R", C = "C", T = "T", O = "O", ROOT = "ROOT" },
@@ -456,6 +457,18 @@ _G.G = {
     FONTS = {}
 }
 _G.create_UIBox_generic_options = function(args) return args end
+local localization_stub = {
+    grdl_b_prof_personalize = "Personalization",
+    grdl_b_prof_inscription = "Inscription",
+    grdl_b_prof_badge = "Badge",
+    grdl_b_prof_tint = "Tooltip Colour",
+    grdl_b_prof_eternal = "Eternal",
+    grdl_k_prof_unlocks_at = "Unlocks at proficiency level #1#"
+}
+_G.localize = function(arg)
+    if type(arg) == "table" then return "ERROR" end
+    return localization_stub[arg] or arg
+end
 local function find_button(node, button)
     if type(node) ~= "table" then return nil end
     if node.config and (node.config.button == button or node.config.id == button) then return node end
@@ -468,6 +481,19 @@ local function find_button(node, button)
         if found then return found end
     end
     return nil
+end
+local function collect_text(node, out)
+    if type(node) ~= "table" then return end
+    if node.config and type(node.config.text) == "string" then
+        out[#out + 1] = node.config.text
+    end
+    for _, child in ipairs(node.nodes or {}) do collect_text(child, out) end
+    for _, child in ipairs(node.contents or {}) do collect_text(child, out) end
+end
+local function joined_text(node)
+    local out = {}
+    collect_text(node, out)
+    return table.concat(out, "\n")
 end
 local inspect_definition = BinderUI.create_inspect_definition(namespace)
 local personalize_button = find_button(inspect_definition, "grdl_prof_personalize")
@@ -486,6 +512,10 @@ H.assert_true(eternal_locked ~= nil, "eternal row rendered")
 H.assert_equal(inscription_locked.config.button, nil, "locked inscription has no click action")
 H.assert_equal(eternal_locked.config.button, nil, "locked eternal has no click action")
 H.assert_equal(inscription_locked.config.outline_colour, _G.G.C.UI.TEXT_INACTIVE, "locked row grey outline")
+local locked_inscription_text = joined_text(inscription_locked)
+H.assert_true(locked_inscription_text:find("II", 1, true) ~= nil, "locked inscription names the unlock level")
+H.assert_true(locked_inscription_text:find("#1#", 1, true) == nil, "locked inscription interpolates unlock text")
+_G.localize = previous_localize
 
 member_card.proficiency.antes = 100
 BinderUI.open_personalization(namespace, member_card.id)
