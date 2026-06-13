@@ -17,6 +17,7 @@ local Persistence = load_src("core/persistence.lua")
 local Proficiency = load_src("domain/proficiency.lua")
 local SlabUI = load_src("ui/slab_ui.lua")
 local Storage = load_src("core/storage.lua")
+local TextInput = load_src("ui/text_input.lua")
 local UICommon = load_src("ui/ui_common.lua")
 
 local safe_localize = UICommon.localize_text
@@ -315,9 +316,51 @@ function BinderUI.open_personalization(namespace, card_id)
     return namespace.personalization_ui_state
 end
 
+local function preview_text_rows(text, max_lines, scale)
+    local nodes = {}
+    for _, line in ipairs(TextInput.split_lines(text, max_lines)) do
+        nodes[#nodes + 1] = row({ ui_text(line ~= "" and line or " ", scale or 0.32, G.C.UI.TEXT_DARK) }, { padding = 0.02 })
+    end
+    return nodes
+end
+
+function BinderUI.open_text_input(namespace, card_id, kind)
+    local runtime = rawget(_G, "G")
+    if not runtime or not runtime.FUNCS or not runtime.FUNCS.overlay_menu then return end
+    local card = Storage.find_card(namespace.collection or {}, card_id)
+    if not card then return end
+    local meta = card.proficiency or {}
+    local existing = namespace.prof_text_input
+    if not existing or existing.card_id ~= card_id or existing.kind ~= kind then
+        local current = kind == "note" and meta.note or ""
+        namespace.prof_text_input = { card_id = card_id, kind = kind, text = current or "", feedback = "" }
+    end
+    local input = namespace.prof_text_input
+    local nodes = {
+        row({ ui_text(safe_localize("grdl_b_prof_inscription"), 0.4, G.C.WHITE) }),
+        row({ { n = G.UIT.C, config = { minw = 4.2, minh = 0.9, r = 0.08, colour = G.C.WHITE, emboss = 0.04 }, nodes = preview_text_rows(input.text, 4, 0.32) } }, { padding = 0.06 }),
+        row({
+            UICommon.outline_button({ button = "grdl_prof_text_paste", solid = true, minw = 1.35, minh = 0.55, lines = { { text = safe_localize("grdl_b_paste"), scale = 0.3 } } }),
+            UICommon.outline_button({ button = "grdl_prof_text_clear", minw = 1.35, minh = 0.55, lines = { { text = safe_localize("grdl_b_clear"), scale = 0.3 } } }),
+            UICommon.outline_button({ button = "grdl_prof_text_commit", solid = true, minw = 1.35, minh = 0.55, lines = { { text = safe_localize("grdl_b_confirm"), scale = 0.3 } } })
+        }, { padding = 0.05 }),
+        row({ { n = G.UIT.T, config = { ref_table = input, ref_value = "feedback", scale = 0.32, colour = G.C.GOLD } } })
+    }
+    if runtime.SETTINGS then runtime.SETTINGS.paused = true end
+    runtime.FUNCS.overlay_menu({ definition = create_UIBox_generic_options({
+        back_func = "grdl_reopen_personalization",
+        minw = 5.0,
+        padding = 0.12,
+        colour = G.C.L_BLACK,
+        outline_colour = G.C.RED,
+        contents = nodes
+    }) })
+end
+
 function BinderUI.open_prof_input(namespace, card_id, kind)
     local runtime = rawget(_G, "G")
     if not runtime or not runtime.FUNCS or not runtime.FUNCS.overlay_menu then return end
+    if kind == "note" then return BinderUI.open_text_input(namespace, card_id, kind) end
     if not rawget(_G, "create_text_input") then return end
     local card = Storage.find_card(namespace.collection or {}, card_id)
     if not card then return end
@@ -366,8 +409,70 @@ function BinderUI.open_prof_input(namespace, card_id, kind)
     })
     if runtime.SETTINGS then runtime.SETTINGS.paused = true end
     runtime.FUNCS.overlay_menu({ definition = create_UIBox_generic_options({
-        back_func = "grdl_open_binder",
+        back_func = "grdl_reopen_personalization",
         minw = 5.5,
+        padding = 0.12,
+        colour = G.C.L_BLACK,
+        outline_colour = G.C.RED,
+        contents = nodes
+    }) })
+end
+
+function BinderUI.open_badge_input(namespace, card_id)
+    local runtime = rawget(_G, "G")
+    if not runtime or not runtime.FUNCS or not runtime.FUNCS.overlay_menu then return end
+    if not rawget(_G, "create_text_input") then return end
+    local card = Storage.find_card(namespace.collection or {}, card_id)
+    if not card then return end
+    local existing = namespace.prof_badge_input
+    if not existing or existing.card_id ~= card_id then
+        local meta = card.proficiency or {}
+        namespace.prof_badge_input = {
+            card_id = card_id,
+            badge_text = meta.badge_text or "",
+            badge_colour = meta.badge_colour or "",
+            feedback = ""
+        }
+    end
+    local input = namespace.prof_badge_input
+    local nodes = {
+        row({ ui_text(safe_localize("grdl_b_prof_badge"), 0.4, G.C.WHITE) }),
+        row({ { n = G.UIT.C, config = { minw = 4.2, minh = 0.65, r = 0.08, colour = G.C.WHITE, emboss = 0.04 }, nodes = preview_text_rows(input.badge_text, 2, 0.32) } }, { padding = 0.05 }),
+        row({
+            UICommon.outline_button({ button = "grdl_prof_badge_paste", solid = true, minw = 1.35, minh = 0.55, lines = { { text = safe_localize("grdl_b_paste"), scale = 0.3 } } }),
+            UICommon.outline_button({ button = "grdl_prof_badge_clear", minw = 1.35, minh = 0.55, lines = { { text = safe_localize("grdl_b_clear"), scale = 0.3 } } })
+        }, { padding = 0.04 }),
+        row({ ui_text(safe_localize("grdl_b_prof_badge_colour"), 0.34, G.C.WHITE) }),
+        row({ create_text_input({
+            ref_table = input,
+            ref_value = "badge_colour",
+            max_length = 6,
+            all_caps = false,
+            extended_corpus = true,
+            prompt_text = safe_localize("grdl_k_hex_prompt"),
+            w = 3.0
+        }) }, { padding = 0.04 }),
+        row({ { n = G.UIT.C, config = {
+            minw = 1.2,
+            minh = 0.4,
+            r = 0.1,
+            emboss = 0.05,
+            colour = Proficiency.parse_hex(input.badge_colour) or { 0.2, 0.2, 0.2, 1 },
+            func = "grdl_badge_hex_preview"
+        }, nodes = {} } }, { padding = 0.04 }),
+        row({ UICommon.outline_button({
+            button = "grdl_prof_badge_commit",
+            solid = true,
+            minw = 1.6,
+            minh = 0.6,
+            lines = { { text = safe_localize("grdl_b_confirm"), scale = 0.34 } }
+        }) }, { padding = 0.05 }),
+        row({ { n = G.UIT.T, config = { ref_table = input, ref_value = "feedback", scale = 0.32, colour = G.C.GOLD } } })
+    }
+    if runtime.SETTINGS then runtime.SETTINGS.paused = true end
+    runtime.FUNCS.overlay_menu({ definition = create_UIBox_generic_options({
+        back_func = "grdl_reopen_personalization",
+        minw = 5.2,
         padding = 0.12,
         colour = G.C.L_BLACK,
         outline_colour = G.C.RED,
@@ -1083,6 +1188,18 @@ function BinderUI.install_runtime(namespace, runtime, adapter)
         if personal and personal.card_id then reopen_inspect(personal.card_id) end
     end
 
+    runtime.FUNCS.grdl_reopen_personalization = function()
+        local personal = namespace.personalization_ui_state
+        if not (personal and personal.card_id) then return end
+        local state = BinderUI.open_personalization(namespace, personal.card_id)
+        if state and runtime.FUNCS.overlay_menu then
+            if runtime.SETTINGS then runtime.SETTINGS.paused = true end
+            runtime.FUNCS.overlay_menu({
+                definition = BinderUI.create_personalization_definition(namespace)
+            })
+        end
+    end
+
     runtime.FUNCS.grdl_prof_personalize = function(event)
         local card_id = event_card_id(event)
         local state = BinderUI.open_personalization(namespace, card_id)
@@ -1136,13 +1253,87 @@ function BinderUI.install_runtime(namespace, runtime, adapter)
         BinderUI.open_prof_input(namespace, event_card_id(event), "note")
     end
     runtime.FUNCS.grdl_prof_badge = function(event)
-        BinderUI.open_prof_input(namespace, event_card_id(event), "badge")
+        BinderUI.open_badge_input(namespace, event_card_id(event))
     end
     runtime.FUNCS.grdl_prof_badge_colour = function(event)
         BinderUI.open_prof_input(namespace, event_card_id(event), "badge_colour")
     end
     runtime.FUNCS.grdl_prof_tint = function(event)
         BinderUI.open_prof_input(namespace, event_card_id(event), "tint")
+    end
+
+    runtime.FUNCS.grdl_prof_text_paste = function()
+        local input = namespace.prof_text_input
+        local result = TextInput.apply_paste(input)
+        if result.ok then
+            BinderUI.open_text_input(namespace, input.card_id, input.kind)
+        elseif input then
+            input.feedback = safe_localize(reason_key(result.reason))
+        end
+    end
+
+    runtime.FUNCS.grdl_prof_text_clear = function()
+        local input = namespace.prof_text_input
+        if input then
+            TextInput.clear(input)
+            BinderUI.open_text_input(namespace, input.card_id, input.kind)
+        end
+    end
+
+    runtime.FUNCS.grdl_prof_text_commit = function()
+        local input = namespace.prof_text_input
+        if not input then return end
+        local result = BinderUI.commit_prof_text(namespace, input.card_id, input.kind, input.text)
+        if result.ok then
+            if namespace.inspect_ui_state and namespace.inspect_ui_state.loadout_mode then
+                BinderUI.inspect_loadout(namespace, input.card_id)
+            else
+                reopen_inspect(input.card_id)
+            end
+        else
+            input.feedback = safe_localize(reason_key(result.reason))
+        end
+    end
+
+    runtime.FUNCS.grdl_prof_badge_paste = function()
+        local input = namespace.prof_badge_input
+        if not input then return end
+        local temp = { text = input.badge_text }
+        local result = TextInput.apply_paste(temp)
+        if result.ok then
+            input.badge_text = temp.text
+            BinderUI.open_badge_input(namespace, input.card_id)
+        else
+            input.feedback = safe_localize(reason_key(result.reason))
+        end
+    end
+
+    runtime.FUNCS.grdl_prof_badge_clear = function()
+        local input = namespace.prof_badge_input
+        if input then
+            input.badge_text = ""
+            BinderUI.open_badge_input(namespace, input.card_id)
+        end
+    end
+
+    runtime.FUNCS.grdl_prof_badge_commit = function()
+        local input = namespace.prof_badge_input
+        if not input then return end
+        if input.badge_colour ~= "" and not Proficiency.parse_hex(input.badge_colour) then
+            input.feedback = safe_localize(reason_key("invalid_hex"))
+            return
+        end
+        local text_result = BinderUI.commit_prof_text(namespace, input.card_id, "badge", input.badge_text)
+        local colour_result = text_result.ok and BinderUI.commit_prof_text(namespace, input.card_id, "badge_colour", input.badge_colour) or text_result
+        if colour_result.ok then
+            if namespace.inspect_ui_state and namespace.inspect_ui_state.loadout_mode then
+                BinderUI.inspect_loadout(namespace, input.card_id)
+            else
+                reopen_inspect(input.card_id)
+            end
+        else
+            input.feedback = safe_localize(reason_key(colour_result.reason))
+        end
     end
 
     runtime.FUNCS.grdl_prof_commit = function(event)
@@ -1167,6 +1358,16 @@ function BinderUI.install_runtime(namespace, runtime, adapter)
         local input = namespace.prof_input
         if not input or not element or not element.config then return end
         local parsed = Proficiency.parse_hex(input.text)
+        local target = element.config.colour
+        if parsed and type(target) == "table" then
+            target[1], target[2], target[3], target[4] = parsed[1], parsed[2], parsed[3], 1
+        end
+    end
+
+    runtime.FUNCS.grdl_badge_hex_preview = function(element)
+        local input = namespace.prof_badge_input
+        if not input or not element or not element.config then return end
+        local parsed = Proficiency.parse_hex(input.badge_colour)
         local target = element.config.colour
         if parsed and type(target) == "table" then
             target[1], target[2], target[3], target[4] = parsed[1], parsed[2], parsed[3], 1
