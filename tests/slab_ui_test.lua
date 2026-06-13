@@ -221,7 +221,7 @@ local prof_card = {
         status = "graded",
         grade = 9,
         center_key = "kino_air_freshener",
-        proficiency = { antes = 13, note = "my note", tooltip_colour = "FF8000" }
+        proficiency = { antes = 13, note = "my note\nsecond line", tooltip_colour = "FF8000" }
     }
 }
 local prof_popup = prof_env.ui_def.card_h_popup(prof_card)
@@ -235,25 +235,39 @@ H.assert_near(main_frame.config.colour[3], tooltip_border_colour[3], 0.001, "too
 H.assert_near(main_background.config.colour[1], 1, 0.001, "tooltip tint changes background red")
 H.assert_near(main_background.config.colour[2], 0.502, 0.001, "tooltip tint changes background green")
 H.assert_near(main_background.config.colour[3], 0, 0.001, "tooltip tint changes background blue")
-H.assert_equal(#prof_card.ability_UIBox_table.info, 1, "proficiency entry injected into vanilla info queue")
-local info_box = prof_card.ability_UIBox_table.info[1]
-H.assert_equal(info_box.grdl_prof, true, "entry tagged for dedupe")
+H.assert_equal(#prof_card.ability_UIBox_table.info, 2, "inscription and proficiency entries injected")
+local inscription_box = prof_card.ability_UIBox_table.info[1]
+local info_box = prof_card.ability_UIBox_table.info[2]
+H.assert_equal(inscription_box.grdl_inscription, true, "inscription entry inserted first")
+H.assert_equal(inscription_box.name, nil, "inscription entry has no title")
+H.assert_equal(info_box.grdl_prof, true, "proficiency entry still tagged for dedupe")
 H.assert_equal(info_box.name, "grdl_k_prof_title", "entry named for the vanilla info box title")
 prof_env.ui_def.card_h_popup(prof_card)
-H.assert_equal(#prof_card.ability_UIBox_table.info, 1, "repeated hover never duplicates the entry")
+H.assert_equal(#prof_card.ability_UIBox_table.info, 2, "repeated hover never duplicates entries")
 
 local found_level = false
-local found_note = false
+local found_note_in_prof = false
 for _, cells in ipairs(info_box) do
     for _, node in ipairs(cells) do
         if node.config and type(node.config.text) == "string" then
             if node.config.text:find("II", 1, true) then found_level = true end
-            if node.config.text == "my note" then found_note = true end
+            if node.config.text:find("my note", 1, true) then found_note_in_prof = true end
         end
     end
 end
-H.assert_true(found_level, "level label rendered in info box")
-H.assert_true(found_note, "custom note rendered in info box")
+H.assert_true(found_level, "level label rendered in proficiency box")
+H.assert_equal(found_note_in_prof, false, "custom note no longer appears in proficiency box")
+
+local found_note_line = false
+local found_second_line = false
+for _, cells in ipairs(inscription_box) do
+    for _, node in ipairs(cells) do
+        if node.config and node.config.text == "my note" then found_note_line = true end
+        if node.config and node.config.text == "second line" then found_second_line = true end
+    end
+end
+H.assert_true(found_note_line, "inscription first line rendered")
+H.assert_true(found_second_line, "inscription second line rendered")
 
 local tinted = false
 local function find_tint(node)

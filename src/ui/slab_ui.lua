@@ -9,6 +9,7 @@ end
 
 local Label = load_src("domain/label.lua")
 local Proficiency = load_src("domain/proficiency.lua")
+local TextInput = load_src("ui/text_input.lua")
 local UICommon = load_src("ui/ui_common.lua")
 
 local BASE_LINE_SCALE = 0.27
@@ -171,11 +172,41 @@ local function proficiency_rows(record)
         and (UICommon.localize_text("grdl_k_prof_progress") .. " " .. tostring(Proficiency.antes(record)) .. "/" .. tostring(next_threshold))
         or UICommon.localize_text("grdl_k_prof_maxed")
     rows[#rows + 1] = { { n = G.UIT.T, config = { text = progress, scale = 0.3, colour = G.C.UI.TEXT_DARK } } }
-    local note = record.proficiency and record.proficiency.note or nil
-    if note and level >= 2 then
-        rows[#rows + 1] = { { n = G.UIT.T, config = { text = note, scale = 0.3, colour = G.C.UI.TEXT_DARK } } }
-    end
     return rows
+end
+
+local function remove_tagged_info(aut, tag)
+    for index = #(aut.info or {}), 1, -1 do
+        if aut.info[index] and aut.info[index][tag] then
+            table.remove(aut.info, index)
+        end
+    end
+end
+
+local function inscription_rows(record)
+    local note = record.proficiency and record.proficiency.note or nil
+    if not note or note == "" or Proficiency.level(record) < 2 then return nil end
+    local rows = {}
+    for _, line in ipairs(TextInput.split_lines(note, 4)) do
+        rows[#rows + 1] = { { n = G.UIT.T, config = {
+            text = line,
+            scale = 0.3,
+            colour = G.C.UI.TEXT_DARK
+        } } }
+    end
+    rows.grdl_inscription = true
+    rows.background_colour = G.C.WHITE
+    return rows
+end
+
+local function inject_inscription_info(card, record)
+    local aut = card.ability_UIBox_table
+    if type(aut) ~= "table" then return end
+    local entry = inscription_rows(record)
+    if not entry then return end
+    aut.info = aut.info or {}
+    remove_tagged_info(aut, "grdl_inscription")
+    table.insert(aut.info, 1, entry)
 end
 
 -- rides the vanilla info_queue path: entries in ability_UIBox_table.info
@@ -184,9 +215,7 @@ local function inject_proficiency_info(card, record)
     local aut = card.ability_UIBox_table
     if type(aut) ~= "table" then return end
     aut.info = aut.info or {}
-    for _, existing in ipairs(aut.info) do
-        if existing.grdl_prof then return end
-    end
+    remove_tagged_info(aut, "grdl_prof")
     local entry = proficiency_rows(record)
     entry.name = UICommon.localize_text("grdl_k_prof_title")
     entry.grdl_prof = true
@@ -229,6 +258,7 @@ function SlabUI.install(namespace, env)
         if card then
             local record = card.grdl_record or resolve_loadout_record(namespace, card)
             if record and record.status == "graded" then
+                pcall(inject_inscription_info, card, record)
                 pcall(inject_proficiency_info, card, record)
             end
         end
