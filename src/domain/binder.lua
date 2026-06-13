@@ -75,7 +75,9 @@ function Binder.entries(collection, args)
                     acquired_month = card.acquired_month,
                     acquired_day = card.acquired_day,
                     acquired_price = card.acquired_price,
-                    mod_id = card.mod_id
+                    mod_id = card.mod_id,
+                    -- shared reference so tooltips read live proficiency state
+                    proficiency = card.proficiency
                 }
             end
         end

@@ -95,4 +95,19 @@ local empty = Binder.summary(Storage.normalize({}))
 H.assert_equal(empty.total_cards, 0, "empty total")
 H.assert_equal(#Binder.entries(Storage.normalize({})).entries, 0, "empty entries")
 
+-- entries expose the live proficiency table, not a snapshot
+local prof_state = Storage.normalize({})
+local prof_card = Storage.add_raw_card(prof_state, {
+    center_key = "j_prof", local_key = "prof", rarity = "common",
+    edition = "base",
+    condition = { centering = 9, print_quality = 9, corners = 9, edges = 9, surface = 9 },
+    acquired_at = 100
+})
+prof_card.status = "graded"
+prof_card.proficiency = { antes = 100 }
+local prof_entry = Binder.entries(prof_state).entries[1]
+H.assert_equal(prof_entry.proficiency, prof_card.proficiency, "entry shares the card proficiency table")
+prof_card.proficiency.antes = 42
+H.assert_equal(prof_entry.proficiency.antes, 42, "proficiency updates flow through the entry")
+
 print("binder tests ok")
