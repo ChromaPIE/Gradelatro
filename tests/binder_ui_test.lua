@@ -357,6 +357,24 @@ H.assert_equal(sold.price, 159, "gem mint common quote paid")
 H.assert_equal(raw_card.status, "sold", "card sold from inspect")
 H.assert_equal(namespace.collection.currency_g, currency_before_sale + 159, "sale credits the quote")
 
+local sell_exit_card = Storage.add_raw_card(namespace.collection, {
+    center_key = "j_sell_exit", local_key = "sell_exit", rarity = "common",
+    edition = "base", condition = mint_condition, acquired_at = 6002
+})
+BinderUI.open(namespace, 6002)
+BinderUI.open_inspect(namespace, sell_exit_card.id, { close_func = "exit_overlay_menu" })
+local previous_exit_overlay = runtime.FUNCS.exit_overlay_menu
+local exited_inspect = 0
+runtime.FUNCS.exit_overlay_menu = function()
+    exited_inspect = exited_inspect + 1
+end
+runtime.FUNCS.grdl_inspect_sell({ config = { ref_table = { id = sell_exit_card.id } } })
+H.assert_equal(exited_inspect, 0, "first sell confirmation stays in inspect")
+runtime.FUNCS.grdl_inspect_sell({ config = { ref_table = { id = sell_exit_card.id } } })
+H.assert_equal(sell_exit_card.status, "sold", "runtime sell confirms sale")
+H.assert_equal(exited_inspect, 1, "successful runtime sell exits inspect")
+runtime.FUNCS.exit_overlay_menu = previous_exit_overlay
+
 local offer_state = BinderUI.inspect_offer(namespace, {
     slot = 2,
     center_key = "j_offer",

@@ -1165,6 +1165,16 @@ function BinderUI.install_runtime(namespace, runtime, adapter)
         return state
     end
 
+    local function close_inspect(event)
+        local state = namespace.inspect_ui_state
+        local close_func = state and state.close_func or "grdl_open_binder"
+        if runtime.FUNCS[close_func] then
+            runtime.FUNCS[close_func](event or {})
+        elseif runtime.FUNCS.grdl_open_binder then
+            runtime.FUNCS.grdl_open_binder(event or {})
+        end
+    end
+
     runtime.FUNCS.grdl_inspect_submit = function(event)
         local card_id = event_card_id(event)
         local result = BinderUI.submit_grading(namespace, card_id, os.time())
@@ -1185,7 +1195,7 @@ function BinderUI.install_runtime(namespace, runtime, adapter)
         local card_id = event_card_id(event)
         local result = BinderUI.sell_from_inspect(namespace, card_id, os.time())
         if result.ok and not result.pending then
-            reopen_inspect(card_id)
+            close_inspect(event)
         elseif not result.ok and rawget(_G, "play_sound") then
             pcall(play_sound, "tarot2", 0.76, 0.4)
         end
