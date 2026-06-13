@@ -453,6 +453,46 @@ H.assert_equal(member_card.proficiency.badge_text, "OG", "badge stored")
 H.assert_equal(BinderUI.commit_prof_text(namespace, member_card.id, "tint", "1A2B3C").ok, true, "tint commit")
 H.assert_equal(member_card.proficiency.tooltip_colour, "1A2B3C", "tint stored")
 H.assert_equal(BinderUI.commit_prof_text(namespace, member_card.id, "tint", "zzz").reason, "invalid_hex", "bad tint rejected")
+
+local previous_prof_g = rawget(_G, "G")
+local previous_text_input = rawget(_G, "create_text_input")
+local previous_generic_options = rawget(_G, "create_UIBox_generic_options")
+local previous_overlay_menu = runtime.FUNCS.overlay_menu
+local captured_text_input = nil
+local captured_overlay = nil
+_G.G = {
+    FUNCS = runtime.FUNCS,
+    SETTINGS = {},
+    UIT = { R = "R", C = "C", T = "T", O = "O", ROOT = "ROOT" },
+    C = {
+        WHITE = { 1, 1, 1, 1 },
+        GOLD = { 1, 0.8, 0, 1 },
+        L_BLACK = { 0.2, 0.2, 0.2, 1 },
+        RED = { 1, 0, 0, 1 },
+        CLEAR = { 0, 0, 0, 0 }
+    }
+}
+_G.create_text_input = function(args)
+    captured_text_input = args
+    return { n = G.UIT.C, config = { ref_table = args.ref_table, ref_value = args.ref_value }, nodes = {} }
+end
+_G.create_UIBox_generic_options = function(args) return args end
+runtime.FUNCS.overlay_menu = function(args) captured_overlay = args end
+BinderUI.open_prof_input(namespace, member_card.id, "tint")
+H.assert_true(captured_overlay ~= nil, "tint input opens an overlay")
+H.assert_equal(captured_text_input.extended_corpus, true, "tint input allows zeroes for RGB hex")
+H.assert_true(captured_text_input.all_caps ~= true, "tint input keeps digits from remapping to shifted symbols")
+namespace.prof_input.text = "FF8000"
+local swatch = { config = { colour = { 0, 0, 0, 1 } } }
+runtime.FUNCS.grdl_hex_preview(swatch)
+H.assert_near(swatch.config.colour[1], 1, 0.001, "hex preview red channel")
+H.assert_near(swatch.config.colour[2], 0.502, 0.001, "hex preview green channel")
+H.assert_near(swatch.config.colour[3], 0, 0.001, "hex preview blue channel can be zero")
+runtime.FUNCS.overlay_menu = previous_overlay_menu
+_G.create_UIBox_generic_options = previous_generic_options
+_G.create_text_input = previous_text_input
+_G.G = previous_prof_g
+
 local low_card = Storage.add_raw_card(namespace.collection, {
     center_key = "j_low", local_key = "low", rarity = "common",
     edition = "base", condition = mint_condition, acquired_at = 9008

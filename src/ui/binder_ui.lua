@@ -323,7 +323,9 @@ function BinderUI.open_prof_input(namespace, card_id, kind)
             ref_table = namespace.prof_input,
             ref_value = "text",
             max_length = kind == "tint" and 6 or 24,
-            all_caps = kind == "tint",
+            -- extended_corpus needs all_caps off, or digits remap to shifted symbols.
+            all_caps = false,
+            extended_corpus = kind == "tint",
             prompt_text = kind == "tint" and safe_localize("grdl_k_hex_prompt") or nil,
             w = 4
         }) }, { padding = 0.06 })
