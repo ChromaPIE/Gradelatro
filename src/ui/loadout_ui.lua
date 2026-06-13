@@ -95,6 +95,7 @@ local function loadout_cards_row(namespace, state)
             local flags = Catalog.edition_flags(entry.edition)
             if flags then card:set_edition(flags, true, true) end
             card.grdl_record = entry
+            card.grdl_inspect_close_func = "grdl_open_loadout"
             area:emplace(card)
         end
     end

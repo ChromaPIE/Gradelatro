@@ -69,6 +69,14 @@ local function runtime_centers()
     return runtime and runtime.P_CENTERS or nil
 end
 
+local function runtime_in_run()
+    local runtime = rawget(_G, "G")
+    return runtime ~= nil
+        and runtime.STAGE ~= nil
+        and runtime.STAGES ~= nil
+        and runtime.STAGE == runtime.STAGES.RUN
+end
+
 local function suppress_selection(card)
     return UICommon.suppress_selection(card)
 end
@@ -157,7 +165,11 @@ function BinderUI.set_desk_page(namespace, page)
     return state
 end
 
-function BinderUI.open_inspect(namespace, card_id, now)
+function BinderUI.open_inspect(namespace, card_id, now, opts)
+    if type(now) == "table" and opts == nil then
+        opts = now
+        now = nil
+    end
     if not namespace or not namespace.collection or not card_id then return nil end
 
     local entries = namespace.binder_ui_state and namespace.binder_ui_state.entries or nil
@@ -178,15 +190,20 @@ function BinderUI.open_inspect(namespace, card_id, now)
         entry = entry,
         text_keys = copy_text_keys(),
         pending_sell = false,
-        last_reason_text = ""
+        last_reason_text = "",
+        close_func = opts and opts.close_func or "grdl_open_binder"
     }
     return namespace.inspect_ui_state
 end
 
-function BinderUI.inspect_from_card(namespace, card)
+function BinderUI.inspect_from_card(namespace, card, opts)
     local record = card and card.grdl_record or nil
     if not record then return nil end
-    local state = BinderUI.open_inspect(namespace, record.id)
+    opts = opts or {}
+    local close_func = opts.close_func
+        or card.grdl_inspect_close_func
+        or (runtime_in_run() and "exit_overlay_menu" or "grdl_open_binder")
+    local state = BinderUI.open_inspect(namespace, record.id, nil, { close_func = close_func })
     if not state then return nil end
 
     local runtime = rawget(_G, "G")
@@ -220,7 +237,8 @@ function BinderUI.inspect_offer(namespace, offer)
         text_keys = copy_text_keys(),
         offer_mode = true,
         pending_sell = false,
-        last_reason_text = ""
+        last_reason_text = "",
+        close_func = "grdl_open_market"
     }
 
     local runtime = rawget(_G, "G")
@@ -302,8 +320,11 @@ function BinderUI.commit_prof_text(namespace, card_id, kind, text)
     return result
 end
 
-function BinderUI.inspect_loadout(namespace, card_id)
-    local state = BinderUI.open_inspect(namespace, card_id)
+function BinderUI.inspect_loadout(namespace, card_id, opts)
+    opts = opts or {}
+    local state = BinderUI.open_inspect(namespace, card_id, nil, {
+        close_func = opts.close_func or "grdl_open_loadout"
+    })
     if state then state.loadout_mode = true end
     return state
 end
@@ -1053,13 +1074,15 @@ function BinderUI.create_inspect_definition(namespace)
         close_char = "✕"
     end
 
+    local close_func = state.close_func or (state.offer_mode and "grdl_open_market" or "grdl_open_binder")
+
     return {
         n = G.UIT.ROOT,
         config = { align = "cm", minw = G.ROOM.T.w * 5, minh = G.ROOM.T.h * 5, padding = 0.1, colour = { 0, 0, 0, 0.75 } },
         nodes = {
             { n = G.UIT.C, config = { align = "cm", minw = G.ROOM.T.w * 0.96, minh = G.ROOM.T.h * 0.92, padding = 0.1 }, nodes = {
                 { n = G.UIT.R, config = { align = "cr", padding = 0.04 }, nodes = {
-                    { n = G.UIT.C, config = { align = "cm", minw = 0.8, minh = 0.8, r = 0.1, hover = true, colour = G.C.CLEAR, button = state.offer_mode and "grdl_open_market" or "grdl_open_binder", focus_args = { nav = "wide", snap_to = true } }, nodes = {
+                    { n = G.UIT.C, config = { align = "cm", minw = 0.8, minh = 0.8, r = 0.1, hover = true, colour = G.C.CLEAR, button = close_func, focus_args = { nav = "wide", snap_to = true } }, nodes = {
                         { n = G.UIT.T, config = { text = close_char, scale = 0.55, colour = G.C.WHITE, font = regular_font } }
                     } }
                 } },
@@ -1122,9 +1145,17 @@ function BinderUI.install_runtime(namespace, runtime, adapter)
         BinderUI.fill_card_areas(namespace)
     end
 
-    local function reopen_inspect(card_id)
+    local function reopen_inspect(card_id, opts)
+        opts = opts or {}
+        local previous_state = namespace.inspect_ui_state
+        local close_func = opts.close_func or (previous_state and previous_state.close_func) or nil
+        local loadout_mode = opts.loadout_mode
+        if loadout_mode == nil then
+            loadout_mode = previous_state and previous_state.loadout_mode or nil
+        end
         BinderUI.open(namespace)
-        local state = BinderUI.open_inspect(namespace, card_id)
+        local state = BinderUI.open_inspect(namespace, card_id, nil, { close_func = close_func })
+        if state and loadout_mode then state.loadout_mode = true end
         if state and runtime.FUNCS.overlay_menu then
             if runtime.SETTINGS then runtime.SETTINGS.paused = true end
             runtime.FUNCS.overlay_menu({
@@ -1283,7 +1314,9 @@ function BinderUI.install_runtime(namespace, runtime, adapter)
         local result = BinderUI.commit_prof_text(namespace, input.card_id, input.kind, input.text)
         if result.ok then
             if namespace.inspect_ui_state and namespace.inspect_ui_state.loadout_mode then
-                BinderUI.inspect_loadout(namespace, input.card_id)
+                BinderUI.inspect_loadout(namespace, input.card_id, {
+                    close_func = namespace.inspect_ui_state.close_func
+                })
             else
                 reopen_inspect(input.card_id)
             end
@@ -1324,7 +1357,9 @@ function BinderUI.install_runtime(namespace, runtime, adapter)
         local colour_result = text_result.ok and BinderUI.commit_prof_text(namespace, input.card_id, "badge_colour", input.badge_colour) or text_result
         if colour_result.ok then
             if namespace.inspect_ui_state and namespace.inspect_ui_state.loadout_mode then
-                BinderUI.inspect_loadout(namespace, input.card_id)
+                BinderUI.inspect_loadout(namespace, input.card_id, {
+                    close_func = namespace.inspect_ui_state.close_func
+                })
             else
                 reopen_inspect(input.card_id)
             end
@@ -1339,7 +1374,9 @@ function BinderUI.install_runtime(namespace, runtime, adapter)
         local result = BinderUI.commit_prof_text(namespace, input.card_id, input.kind, input.text)
         if result.ok then
             if namespace.inspect_ui_state and namespace.inspect_ui_state.loadout_mode then
-                BinderUI.inspect_loadout(namespace, input.card_id)
+                BinderUI.inspect_loadout(namespace, input.card_id, {
+                    close_func = namespace.inspect_ui_state.close_func
+                })
             else
                 reopen_inspect(input.card_id)
             end

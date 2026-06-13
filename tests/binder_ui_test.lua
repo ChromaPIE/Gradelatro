@@ -655,6 +655,53 @@ BinderUI.open(namespace, 9009)
 local loadout_state = BinderUI.inspect_loadout(namespace, member_card.id)
 H.assert_true(loadout_state ~= nil, "loadout inspect opens")
 H.assert_equal(loadout_state.loadout_mode, true, "loadout mode flagged")
+local previous_context_g = rawget(_G, "G")
+_G.G = {
+    ROOM = { T = { w = 10, h = 10 } },
+    STAGE = 1,
+    STAGES = { RUN = 1 },
+    UIT = { R = "R", C = "C", T = "T", O = "O", ROOT = "ROOT" },
+    C = {
+        WHITE = { 1, 1, 1, 1 },
+        GREEN = { 0, 1, 0, 1 },
+        CLEAR = { 0, 0, 0, 0 },
+        L_BLACK = { 0.2, 0.2, 0.2, 1 },
+        RED = { 1, 0, 0, 1 },
+        GOLD = { 1, 0.8, 0, 1 },
+        PURPLE = { 0.5, 0, 1, 1 },
+        UI = {
+            TEXT_LIGHT = { 1, 1, 1, 1 },
+            TEXT_INACTIVE = { 0.5, 0.5, 0.5, 1 },
+            TEXT_DARK = { 0, 0, 0, 1 }
+        }
+    },
+    FONTS = {}
+}
+local run_context_state = BinderUI.inspect_from_card(namespace, { grdl_record = member_card })
+H.assert_equal(run_context_state.close_func, "exit_overlay_menu", "run inspect closes back to the run")
+local run_context_definition = BinderUI.create_inspect_definition(namespace)
+H.assert_true(find_button(run_context_definition, "exit_overlay_menu") ~= nil, "run inspect X exits overlay")
+H.assert_equal(find_button(run_context_definition, "grdl_open_binder"), nil, "run inspect X does not open binder")
+namespace.personalization_ui_state = { card_id = member_card.id }
+runtime.FUNCS.grdl_reopen_inspect()
+H.assert_equal(namespace.inspect_ui_state.close_func, "exit_overlay_menu", "reopened run inspect keeps close context")
+
+local loadout_context_state = BinderUI.inspect_from_card(namespace, {
+    grdl_record = member_card,
+    grdl_inspect_close_func = "grdl_open_loadout"
+})
+H.assert_equal(loadout_context_state.close_func, "grdl_open_loadout", "marked loadout card returns to loadout")
+local loadout_context_definition = BinderUI.create_inspect_definition(namespace)
+H.assert_true(find_button(loadout_context_definition, "grdl_open_loadout") ~= nil, "loadout inspect X returns to loadout")
+H.assert_equal(find_button(loadout_context_definition, "grdl_open_binder"), nil, "loadout inspect X does not open binder")
+
+local runtime_loadout_state = BinderUI.inspect_loadout(namespace, member_card.id, { close_func = "exit_overlay_menu" })
+H.assert_equal(runtime_loadout_state.close_func, "exit_overlay_menu", "run loadout inspect starts with run close context")
+namespace.prof_input = { card_id = member_card.id, kind = "tint", text = "112233" }
+runtime.FUNCS.grdl_prof_commit()
+H.assert_equal(namespace.inspect_ui_state.close_func, "exit_overlay_menu", "loadout personalization commit keeps close context")
+H.assert_equal(namespace.inspect_ui_state.loadout_mode, true, "loadout personalization commit keeps loadout mode")
+_G.G = previous_context_g
 
 _G.SMODS = previous_smods_global
 

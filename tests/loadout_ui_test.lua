@@ -81,6 +81,55 @@ H.assert_equal(namespace.loadout_ui_state.feedback, "grdl_k_reason_insufficient_
 H.assert_equal(save_count, 4, "failed purchase does not save")
 namespace.collection.currency_g = poor
 
+local previous_ui_g = rawget(_G, "G")
+local previous_card_area = rawget(_G, "CardArea")
+local previous_card = rawget(_G, "Card")
+local previous_ui_button = rawget(_G, "UIBox_button")
+local previous_generic_options = rawget(_G, "create_UIBox_generic_options")
+local captured_area = nil
+_G.G = {
+    ROOM = { T = { x = 0, y = 0, w = 10, h = 10 } },
+    CARD_W = 1,
+    CARD_H = 1.4,
+    UIT = { R = "R", C = "C", T = "T", O = "O", ROOT = "ROOT" },
+    C = {
+        WHITE = { 1, 1, 1, 1 },
+        RED = { 1, 0, 0, 1 },
+        L_BLACK = { 0.2, 0.2, 0.2, 1 },
+        PURPLE = { 0.5, 0, 1, 1 },
+        UI = {
+            TEXT_INACTIVE = { 0.5, 0.5, 0.5, 1 },
+            TEXT_DARK = { 0, 0, 0, 1 }
+        }
+    },
+    P_CENTERS = { j_joker = { key = "j_joker" } },
+    P_CARDS = { empty = {} },
+    FONTS = {}
+}
+_G.CardArea = function(x, y, w, h)
+    local area = { cards = {}, T = { x = x, y = y, w = w, h = h } }
+    function area:emplace(card_obj)
+        self.cards[#self.cards + 1] = card_obj
+    end
+    captured_area = area
+    return area
+end
+_G.Card = function()
+    return { set_edition = function() end }
+end
+_G.UIBox_button = function(args)
+    return { n = G.UIT.C, config = args, nodes = {} }
+end
+_G.create_UIBox_generic_options = function(args) return args end
+LoadoutUI.create_overlay_definition(namespace)
+H.assert_true(captured_area ~= nil, "loadout definition creates a card area")
+H.assert_equal(captured_area.cards[1].grdl_inspect_close_func, "grdl_open_loadout", "loadout UI cards return to loadout inspect context")
+_G.create_UIBox_generic_options = previous_generic_options
+_G.UIBox_button = previous_ui_button
+_G.Card = previous_card
+_G.CardArea = previous_card_area
+_G.G = previous_ui_g
+
 -- ===== run integration =====
 local previous_run_g = rawget(_G, "G")
 local Proficiency = dofile("src/domain/proficiency.lua")

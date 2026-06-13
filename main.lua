@@ -90,7 +90,9 @@ if SMODS and SMODS.Keybind then
             elseif target and target.grdl_offer then
                 BinderUI.inspect_offer(Gradelatro, target.grdl_offer)
             elseif target and target.ability and target.ability.grdl_loadout_id then
-                local state = BinderUI.inspect_loadout(Gradelatro, target.ability.grdl_loadout_id)
+                local state = BinderUI.inspect_loadout(Gradelatro, target.ability.grdl_loadout_id, {
+                    close_func = "exit_overlay_menu"
+                })
                 if state and runtime.FUNCS and runtime.FUNCS.overlay_menu then
                     if runtime.SETTINGS then runtime.SETTINGS.paused = true end
                     runtime.FUNCS.overlay_menu({
