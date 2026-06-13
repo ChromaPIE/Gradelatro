@@ -647,11 +647,18 @@ function MarketUI.install_runtime(namespace, runtime, adapter)
                     if next_center then
                         -- full morph: per-frame center hooks (center.update) and the soul
                         -- draw gate both expect ability and config.center to match the face.
-                        -- set_ability resets T from original_T (the build position), which
-                        -- would teleport the card and ease it back - restore the live spot
+                        -- set_ability resets T from original_T BEFORE rebuilding the sprites,
+                        -- so original_T must be re-anchored to the live slot first or the
+                        -- fresh center sprite is born at the build position offscreen and
+                        -- visibly flies in
                         local keep_x, keep_y, keep_r = card.T.x, card.T.y, card.T.r
+                        if card.original_T then
+                            card.original_T.x, card.original_T.y, card.original_T.r = keep_x, keep_y, keep_r
+                        end
                         pcall(card.set_ability, card, next_center, true)
                         card.T.x, card.T.y, card.T.r = keep_x, keep_y, keep_r
+                        -- soft pulse reads as a deliberate transition instead of a hard cut
+                        if card.juice_up then pcall(card.juice_up, card, 0.05, 0.03) end
                     end
                 end
             end

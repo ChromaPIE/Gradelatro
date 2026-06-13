@@ -208,8 +208,15 @@ local function transport_cell(config_table, state, key)
     }) }, { align = "cm", minw = 1.5 })
 end
 
-local function license_tab_root(nodes)
-    return { n = G.UIT.ROOT, config = { align = "tm", colour = G.C.CLEAR, minw = 7.4, minh = 4.6, padding = 0.05 }, nodes = nodes }
+local function license_tab_root(nodes, opts)
+    opts = opts or {}
+    return { n = G.UIT.ROOT, config = {
+        align = opts.align or "tm",
+        colour = G.C.CLEAR,
+        minw = opts.minw or 7.4,
+        minh = opts.minh or 4.6,
+        padding = 0.05
+    }, nodes = nodes }
 end
 
 local function license_tab_definition(namespace)
@@ -237,7 +244,8 @@ local function transport_tab_definition(namespace)
         for _, key in ipairs(TRANSPORT_ORDER) do
             transports[#transports + 1] = transport_cell(namespace.config, state, key)
         end
-        return license_tab_root({ row(transports, { padding = 0.04 }) })
+        -- a single row of cells: a tight, centred root avoids dead space
+        return license_tab_root({ row(transports, { padding = 0.04 }) }, { align = "cm", minh = 2.2 })
     end
 end
 

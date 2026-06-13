@@ -130,11 +130,13 @@ local trend_card = {
     config = { center = plain_center, center_key = "j_one" },
     children = {},
     T = { x = 5, y = 6, r = 0.1 },
+    original_T = { x = -99, y = -99, r = 0 },
     grdl_carousel = { keys = { "j_one", "j_two" }, index = 1, last = -1e9 },
     set_ability = function(self, center, initial)
         morphs[#morphs + 1] = { center = center, initial = initial }
-        -- the real set_ability teleports T back to the build position
-        self.T.x, self.T.y, self.T.r = -99, -99, 0
+        -- the real set_ability resets T from original_T before rebuilding
+        -- the sprites, so the re-anchor must already have happened here
+        self.T.x, self.T.y, self.T.r = self.original_T.x, self.original_T.y, self.original_T.r
     end
 }
 runtime.FUNCS.grdl_trend_tick({ config = { ref_table = { cards = { trend_card } } } })
@@ -145,6 +147,8 @@ H.assert_equal(trend_card.grdl_carousel.index, 2, "carousel index advanced")
 H.assert_near(trend_card.T.x, 5, 1e-9, "morph keeps the live x position")
 H.assert_near(trend_card.T.y, 6, 1e-9, "morph keeps the live y position")
 H.assert_near(trend_card.T.r, 0.1, 1e-9, "morph keeps the live rotation")
+H.assert_near(trend_card.original_T.x, 5, 1e-9, "original_T re-anchored before the morph")
+H.assert_near(trend_card.original_T.y, 6, 1e-9, "original_T y re-anchored before the morph")
 runtime.FUNCS.grdl_trend_tick({ config = { ref_table = { cards = { trend_card } } } })
 H.assert_equal(#morphs, 1, "fresh morph waits for the interval")
 
