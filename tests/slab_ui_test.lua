@@ -201,6 +201,194 @@ local plain_popup = env.ui_def.card_h_popup({ children = {} })
 H.assert_equal(#plain_popup.nodes[1].nodes, 1, "non binder card untouched")
 H.assert_equal(#badge_calls, 3, "non binder card gets no badge")
 
+local whole_tooltip_namespace = {
+    binder_hover_index = { kino_air_freshener = catalog_entry }
+}
+local whole_tooltip_funcs = {}
+local hover_card_class = {}
+function hover_card_class:align_h_popup()
+    local direction = self.base_popup_direction or "tm"
+    return {
+        type = direction,
+        align = direction,
+        offset = {
+            x = (direction == "cl" and -0.05) or (direction == "cr" and 0.05) or 0,
+            y = direction == "tm" and -0.13 or direction == "bm" and 0.1 or 0
+        },
+        parent = self,
+        major = self
+    }
+end
+local hover_node = {}
+local hover_node_calls = 0
+local whole_tooltip_badge_text_node = nil
+local whole_tooltip_badge_text_object = nil
+function hover_node.hover(card)
+    hover_node_calls = hover_node_calls + 1
+    local column = card.config.h_popup.nodes[1].nodes
+    local popup_box
+    local anchor = {
+        config = column[1].config,
+        children = {},
+        T = { x = 8.1, y = -0.2, w = 1.0, h = 0.4 },
+        VT = { x = 8.1, y = -0.2, w = 1.0, h = 0.4 }
+    }
+    whole_tooltip_badge_text_object = {
+        config = {},
+        states = { hover = { is = false } },
+        T = { x = 7.9, y = -0.1, w = 0.5, h = 0.2 },
+        VT = { x = 7.9, y = -0.1, w = 0.5, h = 0.2 }
+    }
+    function whole_tooltip_badge_text_object:hard_set_T(x, y, w, h)
+        self.T.x, self.T.y, self.T.w, self.T.h = x, y, w, h
+        self.VT.x, self.VT.y, self.VT.w, self.VT.h = x, y, w, h
+    end
+    function whole_tooltip_badge_text_object:move_with_major() self.moved_with_major = true end
+    function whole_tooltip_badge_text_object:align_to_major() self.aligned_to_major = true end
+    whole_tooltip_badge_text_node = {
+        config = { object = whole_tooltip_badge_text_object },
+        children = {},
+        T = { x = 7.9, y = -0.1, w = 0.5, h = 0.2 },
+        VT = { x = 7.9, y = -0.1, w = 0.5, h = 0.2 }
+    }
+    popup_box = {
+        config = card.config.h_popup_config,
+        states = { collide = { can = true }, drag = { can = false } },
+        T = { x = 7.4, y = -0.25, w = 2.5, h = 1.3 },
+        VT = { x = 7.4, y = -0.25, w = 2.5, h = 1.3 },
+        UIRoot = { children = { anchor, whole_tooltip_badge_text_node } }
+    }
+    function popup_box:set_alignment(args2)
+        self.last_alignment = args2
+        self.config.type = args2.type
+        self.config.align = args2.type
+        self.config.offset = args2.offset
+    end
+    function popup_box:align_to_major()
+        self.aligned_to_major = (self.aligned_to_major or 0) + 1
+        if self.last_alignment and self.last_alignment.type == "cl" then
+            self.T.x = self.last_alignment.major.T.x - self.T.w + self.last_alignment.offset.x
+            self.T.y = self.last_alignment.major.T.y + 0.2
+        end
+    end
+    function anchor:move_with_major()
+        self.T.x = popup_box.T.x + 0.7
+        self.T.y = popup_box.T.y + 0.05
+        self.VT.x = self.T.x
+        self.VT.y = self.T.y
+    end
+    function whole_tooltip_badge_text_node:move_with_major()
+        self.T.x = popup_box.T.x + 1.2
+        self.T.y = popup_box.T.y + 0.4
+    end
+    anchor.UIBox = popup_box
+    card.children.h_popup = popup_box
+end
+local whole_tooltip_env = {
+    ui_def = {
+        card_h_popup = function()
+            return fake_popup()
+        end
+    },
+    funcs = whole_tooltip_funcs,
+    node = hover_node,
+    card = hover_card_class
+}
+H.assert_equal(SlabUI.install(whole_tooltip_namespace, whole_tooltip_env), true, "install wraps hover for whole tooltip positioning")
+local previous_whole_tooltip_room = _G.G.ROOM
+_G.G.ROOM = { T = { x = 0, y = 0, w = 10, h = 10 } }
+local whole_tooltip_uibox_calls = 0
+local whole_tooltip_slab = nil
+local whole_tooltip_slab_child = nil
+local whole_tooltip_next_slab_y = -0.35
+_G.UIBox = function(args)
+    whole_tooltip_uibox_calls = whole_tooltip_uibox_calls + 1
+    whole_tooltip_slab_child = {
+        T = { x = 8.1, y = whole_tooltip_next_slab_y, w = 2.2, h = 1.0 },
+        VT = { x = 8.1, y = whole_tooltip_next_slab_y, w = 2.2, h = 1.0 },
+        children = {}
+    }
+    whole_tooltip_slab = {
+        config = args.config,
+        children = {},
+        T = { x = 8.1, y = whole_tooltip_next_slab_y, w = 2.2, h = 1.0 },
+        VT = { x = 8.1, y = whole_tooltip_next_slab_y, w = 2.2, h = 1.0 },
+        UIRoot = { children = { whole_tooltip_slab_child } },
+        align_to_major = function(self)
+            self.aligned_to_major = (self.aligned_to_major or 0) + 1
+            self.last_parent_x = self.config.parent.T.x
+            self.last_parent_y = self.config.parent.T.y
+        end,
+        move_with_major = function(self)
+            self.moved_with_major = (self.moved_with_major or 0) + 1
+            self.T.x = self.config.parent.T.x
+            self.T.y = self.config.parent.T.y - 0.04
+        end
+    }
+    function whole_tooltip_slab_child:move_with_major()
+        self.T.x = whole_tooltip_slab.T.x
+        self.T.y = whole_tooltip_slab.T.y
+    end
+    function whole_tooltip_slab_child:align_to_major()
+        self.aligned_to_major = (self.aligned_to_major or 0) + 1
+    end
+    function whole_tooltip_slab:initialize_VT()
+        if self.UIRoot and self.UIRoot.initialize_VT then
+            self.UIRoot:initialize_VT()
+        end
+    end
+    return whole_tooltip_slab
+end
+local hover_card = {
+    grdl_record = record,
+    children = {},
+    config = {},
+    T = { x = 8.2, y = 1.2, w = 1.0, h = 1.4 }
+}
+setmetatable(hover_card, { __index = hover_card_class })
+hover_card.config.h_popup = whole_tooltip_env.ui_def.card_h_popup(hover_card)
+hover_card.config.h_popup_config = hover_card:align_h_popup()
+whole_tooltip_env.node.hover(hover_card)
+H.assert_equal(hover_node_calls, 1, "original node hover still runs once")
+H.assert_equal(whole_tooltip_uibox_calls, 1, "slab anchor is resolved during hover")
+H.assert_true(hover_card.children.h_popup.last_alignment ~= nil, "hover popup realigns before the first update tick")
+H.assert_equal(hover_card.children.h_popup.last_alignment.type, "cl", "top overflowing slab moves the whole tooltip to the side")
+H.assert_equal(hover_card.children.h_popup.last_alignment.offset.x, -0.03, "whole tooltip uses the slab side offset")
+H.assert_near(hover_card.children.h_popup.VT.x, hover_card.children.h_popup.T.x, 0.000001, "whole tooltip visual position snaps to the side")
+H.assert_true(whole_tooltip_slab.last_parent_x < 7, "slab realigns against the moved tooltip anchor")
+H.assert_near(whole_tooltip_slab_child.VT.x, whole_tooltip_slab.T.x, 0.000001, "slab label contents snap with the moved slab")
+H.assert_near(whole_tooltip_badge_text_object.VT.x, whole_tooltip_badge_text_node.T.x, 0.000001, "badge text object snaps with the moved tooltip node")
+hover_card.children.h_popup:set_alignment(hover_card:align_h_popup())
+H.assert_equal(hover_card.children.h_popup.last_alignment.type, "cl", "next card move keeps the slab overflow side alignment")
+
+local side_hover_card = {
+    grdl_record = record,
+    children = {},
+    config = {},
+    base_popup_direction = "cl",
+    T = { x = 8.2, y = 1.2, w = 1.0, h = 1.4 }
+}
+setmetatable(side_hover_card, { __index = hover_card_class })
+side_hover_card.config.h_popup = whole_tooltip_env.ui_def.card_h_popup(side_hover_card)
+side_hover_card.config.h_popup_config = side_hover_card:align_h_popup()
+whole_tooltip_env.node.hover(side_hover_card)
+H.assert_equal(side_hover_card.children.h_popup.last_alignment, nil, "pre-side vanilla tooltip alignment is not changed")
+
+whole_tooltip_next_slab_y = 0.1
+local popup_only_overflow_card = {
+    grdl_record = record,
+    children = {},
+    config = {},
+    T = { x = 8.2, y = 1.2, w = 1.0, h = 1.4 }
+}
+setmetatable(popup_only_overflow_card, { __index = hover_card_class })
+popup_only_overflow_card.config.h_popup = whole_tooltip_env.ui_def.card_h_popup(popup_only_overflow_card)
+popup_only_overflow_card.config.h_popup_config = popup_only_overflow_card:align_h_popup()
+whole_tooltip_env.node.hover(popup_only_overflow_card)
+H.assert_equal(popup_only_overflow_card.children.h_popup.last_alignment, nil, "popup top overflow alone does not side-align the tooltip")
+_G.G.ROOM = previous_whole_tooltip_room
+_G.UIBox = nil
+
 local uibox_args = nil
 _G.UIBox = function(args)
     uibox_args = args

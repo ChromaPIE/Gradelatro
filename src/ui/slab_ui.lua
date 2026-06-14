@@ -117,6 +117,7 @@ local function realign_box(box, major, align, offset, bond)
     if not box then return end
     if box.config then
         box.config.align = align
+        box.config.type = align
         box.config.offset = offset
         box.config.major = major
     end
@@ -134,12 +135,75 @@ local function realign_box(box, major, align, offset, bond)
     if box.align_to_major then pcall(box.align_to_major, box) end
 end
 
+local function alignment_type(alignment)
+    return type(alignment) == "table" and (alignment.type or alignment.align) or nil
+end
+
+local function copy_offset(offset)
+    return { x = offset and offset.x or 0, y = offset and offset.y or 0 }
+end
+
+local function sync_visual_transform(box)
+    if not box or not box.T or not box.VT then return end
+    for _, key in ipairs({ "x", "y", "w", "h", "r", "scale" }) do
+        if box.T[key] ~= nil then box.VT[key] = box.T[key] end
+    end
+end
+
+local move_child_tree
+
+local function sync_attached_object(node, seen)
+    local object = node and node.config and node.config.object or nil
+    if not object then return end
+    if object.hard_set_T and node.T then
+        pcall(object.hard_set_T, object, node.T.x, node.T.y, node.T.w, node.T.h)
+    else
+        if object.T and node.T then
+            for _, key in ipairs({ "x", "y", "w", "h", "r", "scale" }) do
+                if node.T[key] ~= nil then object.T[key] = node.T[key] end
+            end
+        end
+        sync_visual_transform(object)
+    end
+    if object.move_with_major then pcall(object.move_with_major, object, 0) end
+    if object.alignment then object.alignment.prev_type = "" end
+    if object.align_to_major then pcall(object.align_to_major, object) end
+    sync_visual_transform(object)
+    if object.UIRoot then move_child_tree(object.UIRoot, seen) end
+end
+
+function move_child_tree(node, seen)
+    if type(node) ~= "table" then return end
+    seen = seen or {}
+    if seen[node] then return end
+    seen[node] = true
+    if node.config and node.config.parent and node.align_to_major then
+        pcall(node.align_to_major, node)
+    end
+    if node.move_with_major then pcall(node.move_with_major, node, 0) end
+    sync_visual_transform(node)
+    sync_attached_object(node, seen)
+    if node.UIRoot then move_child_tree(node.UIRoot, seen) end
+    for _, child in pairs(node.children or {}) do
+        move_child_tree(child, seen)
+    end
+end
+
+local function apply_alignment_now(box)
+    if not box then return end
+    if box.align_to_major then pcall(box.align_to_major, box) end
+    if box.move_with_major then pcall(box.move_with_major, box, 0) end
+    sync_visual_transform(box)
+end
+
 local function adapt_if_top_overflow(box, major, opts)
     opts = opts or {}
     local margin = opts.screen_margin or SCREEN_MARGIN
     if not overflows_top(box, margin) then return end
     local align, offset = side_alignment(major, box, margin)
     realign_box(box, major, align, offset, opts.bond or "Strong")
+    apply_alignment_now(box)
+    if box.UIRoot then move_child_tree(box.UIRoot) end
 end
 
 function SlabUI.attach_above(card, record, catalog_entry, opts)
@@ -209,6 +273,7 @@ local function insert_slab_anchor(namespace, popup, card)
             align = "cm",
             padding = 0,
             func = "grdl_show_slab",
+            grdl_side_with_hover = true,
             object = rawget(_G, "Moveable") and Moveable() or nil,
             ref_table = { SlabUI.slab_box(record, catalog_entry) }
         },
@@ -223,9 +288,72 @@ local function show_slab(e)
         definition = { n = G.UIT.ROOT, config = { align = "cm", colour = G.C.CLEAR, padding = 0.02 }, nodes = e.config.ref_table },
         config = { offset = { x = 0, y = -0.04 }, align = "tm", parent = e }
     })
-    adapt_if_top_overflow(e.children.info, e)
+    if not e.config.grdl_side_with_hover then
+        adapt_if_top_overflow(e.children.info, e)
+    end
     e.children.info:align_to_major()
     e.config.ref_table = nil
+end
+
+local function find_slab_anchor(node, seen)
+    if type(node) ~= "table" then return nil end
+    seen = seen or {}
+    if seen[node] then return nil end
+    seen[node] = true
+    if node.config and node.config.func == "grdl_show_slab" then return node end
+    for _, child in pairs(node.children or {}) do
+        local found = find_slab_anchor(child, seen)
+        if found then return found end
+    end
+    return nil
+end
+
+local function adapt_hover_popup_for_slab(card, funcs)
+    local popup = card and card.children and card.children.h_popup or nil
+    local anchor = popup and popup.UIRoot and find_slab_anchor(popup.UIRoot) or nil
+    if card then card.grdl_slab_hover_alignment = nil end
+    if not anchor or not anchor.config or not anchor.config.grdl_side_with_hover then return end
+
+    if anchor.config.ref_table and funcs and type(funcs.grdl_show_slab) == "function" then
+        pcall(funcs.grdl_show_slab, anchor)
+    end
+
+    local planned_alignment = card and card.config and card.config.h_popup_config or nil
+    if alignment_type(planned_alignment) ~= "tm" then return end
+
+    local slab = anchor.children and anchor.children.info or nil
+    local margin = SCREEN_MARGIN
+    if not overflows_top(slab, margin) then return end
+
+    local major = planned_alignment.major
+        or planned_alignment.parent
+        or (popup.config and (popup.config.major or popup.config.parent))
+        or card
+    local align, offset = side_alignment(major, popup, margin)
+    if card then card.grdl_slab_hover_alignment = { type = align, offset = copy_offset(offset) } end
+    realign_box(popup, major, align, offset, "Strong")
+    apply_alignment_now(popup)
+    if popup.UIRoot then move_child_tree(popup.UIRoot) end
+    apply_alignment_now(slab)
+    if slab and slab.UIRoot then move_child_tree(slab.UIRoot) end
+end
+
+local function apply_slab_alignment_override(card, alignment)
+    if type(alignment) ~= "table" then return alignment end
+    if not card or not card.children or not card.children.h_popup then
+        if card then card.grdl_slab_hover_alignment = nil end
+        return alignment
+    end
+    if alignment_type(alignment) ~= "tm" then
+        card.grdl_slab_hover_alignment = nil
+        return alignment
+    end
+    local override = card.grdl_slab_hover_alignment
+    if not override then return alignment end
+    alignment.type = override.type
+    alignment.align = override.type
+    alignment.offset = copy_offset(override.offset)
+    return alignment
 end
 
 local function proficiency_rows(record)
@@ -317,6 +445,8 @@ function SlabUI.install(namespace, env)
     env = env or {}
     local ui_def = env.ui_def or (rawget(_G, "G") and G.UIDEF) or nil
     local funcs = env.funcs or (rawget(_G, "G") and G.FUNCS) or nil
+    local node = env.node or rawget(_G, "Node")
+    local card_class = env.card or rawget(_G, "Card")
     if not namespace or not ui_def or not funcs then return false end
     if type(ui_def.card_h_popup) ~= "function" then return false end
     if namespace.slab_hooks_installed then return true end
@@ -348,6 +478,24 @@ function SlabUI.install(namespace, env)
             end
         end
         return popup
+    end
+
+    if node and type(node.hover) == "function" and not node.grdl_slab_hover_hook_installed then
+        local original_hover = node.hover
+        node.hover = function(self, ...)
+            local result = original_hover(self, ...)
+            pcall(adapt_hover_popup_for_slab, self, funcs)
+            return result
+        end
+        node.grdl_slab_hover_hook_installed = true
+    end
+
+    if card_class and type(card_class.align_h_popup) == "function" and not card_class.grdl_slab_align_hook_installed then
+        local original_align_h_popup = card_class.align_h_popup
+        card_class.align_h_popup = function(self, ...)
+            return apply_slab_alignment_override(self, original_align_h_popup(self, ...))
+        end
+        card_class.grdl_slab_align_hook_installed = true
     end
 
     namespace.slab_hooks_installed = true
