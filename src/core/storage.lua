@@ -17,6 +17,72 @@ local function is_owned_status(status)
     return status ~= "lost" and status ~= "sold"
 end
 
+local function copy_proficiency(proficiency)
+    if type(proficiency) ~= "table" then return nil end
+
+    local clean = {}
+    local any = false
+    local antes = tonumber(proficiency.antes)
+    if antes then
+        clean.antes = antes
+        any = true
+    end
+
+    for _, key in ipairs({ "note", "badge_text", "badge_colour", "tooltip_colour" }) do
+        if proficiency[key] ~= nil then
+            clean[key] = proficiency[key]
+            any = true
+        end
+    end
+
+    if proficiency.eternal ~= nil then
+        clean.eternal = proficiency.eternal and true or false
+        any = true
+    end
+
+    return any and clean or nil
+end
+
+local function sanitize_card(card)
+    card = type(card) == "table" and card or {}
+    local status = card.status
+    if status == "carried" then status = "raw" end
+
+    local clean = {
+        id = card.id,
+        status = status,
+        center_key = card.center_key,
+        local_key = card.local_key,
+        series_key = card.series_key,
+        mod_id = card.mod_id,
+        rarity = card.rarity,
+        edition = card.edition,
+        acquired_at = card.acquired_at,
+        acquired_year = card.acquired_year,
+        acquired_month = card.acquired_month,
+        acquired_day = card.acquired_day,
+        acquired_price = card.acquired_price,
+        source_run_id = card.source_run_id,
+        source_run_started_at = card.source_run_started_at,
+        source = card.source,
+        grade = card.grade,
+        graded_at = card.graded_at,
+        grade_service = card.grade_service,
+        cert_number = card.cert_number,
+        sold_at = card.sold_at,
+        sold_price = card.sold_price,
+        lost_reason = card.lost_reason,
+        wear_count = card.wear_count,
+        proficiency = copy_proficiency(card.proficiency)
+    }
+
+    if type(card.condition) == "table" then
+        clean.condition = copy_condition(card.condition)
+    end
+
+    return clean
+end
+
 function Storage.normalize(input)
     local state = type(input) == "table" and input or {}
     state.schema_version = CURRENT_SCHEMA
@@ -28,8 +94,8 @@ function Storage.normalize(input)
     state.settlements = type(state.settlements) == "table" and state.settlements or {}
     state.market = type(state.market) == "table" and state.market or { series_heat = {} }
     state.market.series_heat = type(state.market.series_heat) == "table" and state.market.series_heat or {}
-    for _, card in ipairs(state.cards) do
-        if card.status == "carried" then card.status = "raw" end
+    for index, card in ipairs(state.cards) do
+        state.cards[index] = sanitize_card(card)
     end
     state.carry = nil
     state.loadout = type(state.loadout) == "table" and state.loadout or {}

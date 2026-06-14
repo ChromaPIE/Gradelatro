@@ -72,4 +72,46 @@ local migrated = Storage.normalize({
 H.assert_equal(migrated.cards[1].status, "raw", "legacy carried card migrates to raw")
 H.assert_equal(migrated.carry, nil, "legacy carry block cleared")
 
+local polluted = Storage.normalize({
+    cards = {
+        {
+            id = "grdl_dirty",
+            status = "graded",
+            center_key = "j_joker",
+            local_key = "joker",
+            edition = "negative",
+            name = "中文牌名",
+            loc_txt = { name = "中文牌名", text = { "中文描述" } },
+            config = { center = { key = "j_joker", loc_txt = { name = "中文牌名" } } },
+            ability_UIBox_table = { main = { "localized ui" } },
+            children = { h_popup = true },
+            grade = 10,
+            cert_number = "000123",
+            proficiency = {
+                antes = 100,
+                note = "刻字\n第二行",
+                badge_text = "徽标中文",
+                badge_colour = "00FF80",
+                tooltip_colour = "1A2B3C",
+                eternal = true,
+                loc_txt = { text = "remove me" }
+            }
+        }
+    }
+})
+local clean = polluted.cards[1]
+H.assert_equal(clean.name, nil, "localized card name stripped")
+H.assert_equal(clean.loc_txt, nil, "localized card loc_txt stripped")
+H.assert_equal(clean.config, nil, "runtime card config stripped")
+H.assert_equal(clean.ability_UIBox_table, nil, "runtime tooltip table stripped")
+H.assert_equal(clean.children, nil, "runtime children stripped")
+H.assert_equal(clean.grade, 10, "grade preserved")
+H.assert_equal(clean.cert_number, "000123", "cert preserved")
+H.assert_equal(clean.proficiency.note, "刻字\n第二行", "custom inscription preserved")
+H.assert_equal(clean.proficiency.badge_text, "徽标中文", "custom badge text preserved")
+H.assert_equal(clean.proficiency.badge_colour, "00FF80", "custom badge colour preserved")
+H.assert_equal(clean.proficiency.tooltip_colour, "1A2B3C", "custom tooltip colour preserved")
+H.assert_equal(clean.proficiency.eternal, true, "custom eternal preserved")
+H.assert_equal(clean.proficiency.loc_txt, nil, "localized proficiency junk stripped")
+
 print("storage tests ok")
