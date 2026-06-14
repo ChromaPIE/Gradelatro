@@ -5,7 +5,7 @@ local Market = dofile("src/domain/market.lua")
 
 local config = Config.normalize({})
 
-H.assert_equal(config.market.refresh_cooldown, 86400, "default refresh cooldown is one real day")
+H.assert_equal(config.market.refresh_cooldown, 90 * 60, "default refresh cooldown is ninety minutes")
 H.assert_true(config.market.raw_sell_factor > 0 and config.market.raw_sell_factor < 1, "raw sell factor is a discount")
 
 local state = Storage.normalize({})
@@ -29,7 +29,10 @@ local cooled = Market.refresh(config, state, { series_ids = { "Balatro" }, now =
 H.assert_equal(cooled.refreshed, false, "refresh inside cooldown is a no-op")
 H.assert_near(Market.heat_for(state, "Balatro"), balatro_heat, 0.000001, "cooldown keeps heat unchanged")
 
-local forced = Market.refresh(config, state, { series_ids = { "Balatro" }, now = 1767225600 + 3600, rng_seed = 7, force = true })
+local after_cooldown = Market.refresh(config, state, { series_ids = { "Balatro" }, now = 1767225600 + 5400 })
+H.assert_equal(after_cooldown.refreshed, true, "refresh runs at the ninety minute boundary")
+
+local forced = Market.refresh(config, state, { series_ids = { "Balatro" }, now = 1767225600 + 7200, rng_seed = 7, force = true })
 H.assert_equal(forced.refreshed, true, "forced refresh runs inside cooldown")
 
 local extreme_config = Config.normalize({ market = { event_chance = 1.0, event_min = 5, event_max = 9 } })
