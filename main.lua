@@ -32,8 +32,11 @@ Bootstrap.attach(Gradelatro, "Condition", Condition)
 local Storage = load_src("core/storage.lua")
 Bootstrap.attach(Gradelatro, "Storage", Storage)
 
-current_mod.config.collection = Storage.normalize(current_mod.config.collection)
-Gradelatro.collection = current_mod.config.collection
+local Persistence = load_src("core/persistence.lua")
+Bootstrap.attach(Gradelatro, "Persistence", Persistence)
+
+Persistence.activate_collection(Gradelatro, Storage, rawget(_G, "G"))
+Persistence.install_profile_refresh(Gradelatro, Storage, rawget(_G, "G"))
 
 local Catalog = load_src("domain/catalog.lua")
 Bootstrap.attach(Gradelatro, "Catalog", Catalog)
@@ -109,9 +112,6 @@ Bootstrap.attach(Gradelatro, "Buyout", Buyout)
 
 local Settlement = load_src("domain/settlement.lua")
 Bootstrap.attach(Gradelatro, "Settlement", Settlement)
-
-local Persistence = load_src("core/persistence.lua")
-Bootstrap.attach(Gradelatro, "Persistence", Persistence)
 
 local BuyoutUI = load_src("ui/buyout_ui.lua")
 Bootstrap.attach(Gradelatro, "BuyoutUI", BuyoutUI)
