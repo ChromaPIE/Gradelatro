@@ -206,10 +206,10 @@ local run_ns = {
 run_ns.collection.loadout.license = 3
 run_ns.collection.loadout.transports.gold = true
 run_ns.collection.loadout.active_transport = "gold"
-local function run_card(key, status, antes)
+local function run_card(key, status, antes, edition)
     local card = Storage.add_raw_card(run_ns.collection, {
         center_key = key, local_key = key, rarity = "common",
-        edition = "negative",
+        edition = edition or "negative",
         condition = { centering = 9.8, print_quality = 9.8, corners = 9.8, edges = 9.8, surface = 9.8 },
         acquired_at = 1
     })
@@ -218,7 +218,7 @@ local function run_card(key, status, antes)
     return card
 end
 local graded_novice = run_card("j_gn", "graded", 0)   -- level 0: spawns editionless
-local graded_adept = run_card("j_ga", "graded", 40)   -- level III + eternal pref
+local graded_adept = run_card("j_ga", "graded", 40, "holographic")   -- level III + eternal pref
 graded_adept.proficiency.eternal = true
 local raw_entry = run_card("j_raw", nil, nil)         -- raw: wears, editionless
 Loadout.add_card(run_ns.collection, graded_novice.id)
@@ -276,7 +276,7 @@ local result = LoadoutUI.spawn_entries(run_ns, { graded_novice.id, graded_adept.
 H.assert_equal(result.ok, true, "entries spawn")
 H.assert_equal(#spawned, 2, "two jokers spawned")
 H.assert_equal(spawned[1].args.no_edition, true, "level zero spawns editionless")
-H.assert_equal(spawned[2].args.edition, "e_negative", "level three keeps its edition")
+H.assert_true(type(spawned[2].args.edition) == "table" and spawned[2].args.edition.holo == true, "level three maps holographic edition for SMODS")
 H.assert_equal(set_eternal_calls[1], true, "eternal preference applied")
 H.assert_equal(spawned[1].joker.ability.grdl_loadout_id, graded_novice.id, "spawn tagged")
 H.assert_equal(#run_state.entered, 2, "entries consumed")

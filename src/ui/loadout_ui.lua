@@ -452,7 +452,12 @@ function LoadoutUI.spawn_entries(namespace, card_ids, now)
         if card and (card.status == "raw" or card.status == "graded") then
             local spawn_args = { key = card.center_key }
             if card.status == "graded" and Proficiency.allows_edition(card) and card.edition ~= "base" then
-                spawn_args.edition = "e_" .. card.edition
+                local edition_flags = Catalog.edition_flags(card.edition)
+                if edition_flags then
+                    spawn_args.edition = edition_flags
+                else
+                    spawn_args.no_edition = true
+                end
             else
                 spawn_args.no_edition = true
             end
