@@ -5,7 +5,7 @@ return {
                 name = "Gradelatro",
                 text = {
                     "Joker card collecting, authentication,",
-                    "grading, and light market systems."
+                    "grading, and (black)market systems."
                 }
             }
         }
@@ -13,7 +13,7 @@ return {
     misc = {
         dictionary = {
             grdl_b_buyout = "Card Buyout",
-            grdl_b_binder = "Gradelatro Binder",
+            grdl_b_binder = "My Binder",
             grdl_b_confirm_buyout = "Buy Out",
             grdl_b_skip_buyout = "Skip",
             grdl_b_select = "Select",
@@ -38,7 +38,7 @@ return {
             grdl_quip_bm_3 = "The mystery slot? All sales final, friend.",
             grdl_quip_bm_4 = "Prices move with the market. Mine move faster.",
             grdl_quip_bm_5 = { "Don't ask where they came from.", "Warehouse surplus." },
-            grdl_quip_bm_6 = "Brought enough G this time?",
+            grdl_quip_bm_6 = "Brought enough G-Credits this time?",
             grdl_k_intel_mod = "Source Mod",
             grdl_k_intel_rarity = "Rarity",
             grdl_k_intel_edition = "Edition",
@@ -153,7 +153,7 @@ return {
             grdl_k_service_priority = "Priority",
             grdl_k_service_express = "Express",
             grdl_k_binder_title = "Gradelatro Binder",
-            grdl_k_binder_empty = "No Gradelatro cards collected.",
+            grdl_k_binder_empty = "No cards collected.",
             grdl_k_edition_base = "Base",
             grdl_k_edition_foil = "Foil",
             grdl_k_edition_holographic = "Holographic",
@@ -166,7 +166,7 @@ return {
             grdl_k_reason_rarity_locked = "Stake gate not high enough.",
             grdl_k_reason_not_in_catalog = "Not in the current Joker catalog.",
             grdl_k_reason_selection_limit = "Selection limit reached.",
-            grdl_k_reason_insufficient_funds = "Not enough G.",
+            grdl_k_reason_insufficient_funds = "Insufficient G-Credits.",
             grdl_k_reason_not_in_offer = "This card is not in the offer.",
             grdl_k_reason_no_selection = "Select at least one card.",
             grdl_k_reason_missing_namespace = "Gradelatro state is unavailable.",
