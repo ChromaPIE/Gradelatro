@@ -187,6 +187,29 @@ H.assert_true(captured_entry_area ~= nil, "entry popup creates a card area")
 H.assert_true(entry_card_row ~= nil, "entry popup renders a card row")
 H.assert_near(captured_entry_area.T.h, 1.02 * _G.G.CARD_H, 0.001, "entry card area is a little taller than a card")
 H.assert_equal(entry_card_row.config.padding, 0.07, "entry popup leaves a slightly larger card gap")
+
+local confirm_area = { cards = { { highlighted = true, grdl_record = card } } }
+local joker_area = { cards = {}, config = { card_limit = 5 } }
+_G.G.GAME = { grdl_loadout = { entered = {} } }
+_G.G.jokers = joker_area
+namespace.loadout_entry_area = confirm_area
+namespace.loadout_entry_window = { picks = 1, card_ids = { card.id } }
+local exit_count = 0
+local spawn_exit_count = nil
+local spawn_saw_entry_area = nil
+local spawn_area = nil
+runtime.FUNCS.exit_overlay_menu = function() exit_count = exit_count + 1 end
+_G.SMODS.add_card = function(args)
+    spawn_exit_count = exit_count
+    spawn_saw_entry_area = namespace.loadout_entry_area ~= nil
+    spawn_area = args.area
+    return { ability = {} }
+end
+runtime.FUNCS.grdl_entry_confirm({})
+H.assert_equal(spawn_exit_count, 1, "entry confirm exits the overlay before spawning jokers")
+H.assert_equal(spawn_saw_entry_area, false, "entry confirm clears the preview area before spawning jokers")
+H.assert_equal(spawn_area, joker_area, "entry spawn targets the live joker area")
+
 namespace.loadout_entry_window = nil
 namespace.loadout_entry_area = nil
 _G.create_UIBox_generic_options = previous_entry_options

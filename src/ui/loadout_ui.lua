@@ -360,12 +360,12 @@ function LoadoutUI.install_runtime(namespace, runtime, adapter)
         for _, card in ipairs((area and area.cards) or {}) do
             if card.highlighted and card.grdl_record then picked[#picked + 1] = card.grdl_record.id end
         end
-        if #picked > 0 then
-            LoadoutUI.spawn_entries(namespace, picked, os.time())
-        end
         namespace.loadout_entry_window = nil
         namespace.loadout_entry_area = nil
         if runtime.FUNCS.exit_overlay_menu then runtime.FUNCS.exit_overlay_menu() end
+        if #picked > 0 then
+            LoadoutUI.spawn_entries(namespace, picked, os.time())
+        end
     end
 
     runtime.FUNCS.grdl_entry_skip = function(event)
@@ -450,7 +450,7 @@ function LoadoutUI.spawn_entries(namespace, card_ids, now)
     for index, card_id in ipairs(card_ids or {}) do
         local card = Storage.find_card(collection, card_id)
         if card and (card.status == "raw" or card.status == "graded") then
-            local spawn_args = { key = card.center_key }
+            local spawn_args = { key = card.center_key, area = runtime.jokers }
             if card.status == "graded" and Proficiency.allows_edition(card) and card.edition ~= "base" then
                 spawn_args.edition = "e_" .. card.edition
             else
