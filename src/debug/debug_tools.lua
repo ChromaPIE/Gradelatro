@@ -191,6 +191,18 @@ function DebugTools.grant_transports(config, state, key)
     return { ok = true, granted = granted }
 end
 
+function DebugTools.reset_transports(state)
+    if not state then return { ok = false, reason = "missing_collection" } end
+    state.loadout = type(state.loadout) == "table" and state.loadout or {}
+    local removed = 0
+    for _ in pairs(state.loadout.transports or {}) do
+        removed = removed + 1
+    end
+    state.loadout.transports = {}
+    state.loadout.active_transport = nil
+    return { ok = true, removed = removed }
+end
+
 function DebugTools.set_proficiency(state, antes)
     if not state then return { ok = false, reason = "missing_collection" } end
     antes = tonumber(antes)
@@ -250,7 +262,7 @@ local HELP_TEXT = table.concat({
     "grdl seed [g|ug] [count] - seed graded/raw test cards",
     "grdl clear - wipe cards and grading queue",
     "grdl license <0-12> - set the loadout license level",
-    "grdl transport all|blue|green|red|purple|gold - grant shipping services",
+    "grdl transport all|blue|green|red|purple|gold|reset - grant or reset shipping services",
     "grdl prof <antes> - set proficiency antes on every graded card",
     "grdl queue - finish all pending gradings now",
     "grdl bm - regenerate the black market offers"
@@ -311,8 +323,14 @@ function DebugTools.dispatch(namespace, args)
     end
 
     if sub == "transport" then
+        if args[2] == "reset" then
+            local result = DebugTools.reset_transports(collection)
+            if not result.ok then return "Transport reset failed: " .. tostring(result.reason), "ERROR" end
+            Persistence.save(namespace)
+            return "Reset transports; removed " .. tostring(result.removed) .. " purchases."
+        end
         local result = DebugTools.grant_transports(config, collection, args[2] or "all")
-        if not result.ok then return "Usage: grdl transport all|blue|green|red|purple|gold (" .. tostring(result.reason) .. ")", "ERROR" end
+        if not result.ok then return "Usage: grdl transport all|blue|green|red|purple|gold|reset (" .. tostring(result.reason) .. ")", "ERROR" end
         Persistence.save(namespace)
         return "Granted transports: " .. table.concat(result.granted, ", ")
     end
