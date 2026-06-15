@@ -2,6 +2,7 @@ local H = dofile("tests/test_helper.lua")
 local Config = dofile("src/core/config.lua")
 local Storage = dofile("src/core/storage.lua")
 local Market = dofile("src/domain/market.lua")
+local rng = H.install_pseudorandom_stub()
 
 local config = Config.normalize({})
 
@@ -15,6 +16,7 @@ local first = Market.refresh(config, state, { series_ids = { "Balatro", "Cryptid
 H.assert_equal(first.ok, true, "refresh succeeds")
 H.assert_equal(first.refreshed, true, "first refresh runs")
 H.assert_equal(state.market.last_refresh, 1767225600, "refresh timestamp stored")
+H.assert_true(rng.has_call("pseudorandom", "grdl_market_"), "market refresh uses native pseudorandom")
 
 local balatro_heat = Market.heat_for(state, "Balatro")
 local cryptid_heat = Market.heat_for(state, "Cryptid")
@@ -22,6 +24,7 @@ H.assert_true(balatro_heat >= config.market.heat_min and balatro_heat <= config.
 H.assert_true(cryptid_heat >= config.market.heat_min and cryptid_heat <= config.market.heat_max, "second series heat stays in band")
 
 local replay_state = Storage.normalize({})
+rng.reset()
 Market.refresh(config, replay_state, { series_ids = { "Balatro", "Cryptid" }, now = 1767225600, rng_seed = 42 })
 H.assert_near(Market.heat_for(replay_state, "Balatro"), balatro_heat, 0.000001, "same seed reproduces heat")
 
@@ -131,4 +134,5 @@ H.assert_equal(slots[2].owned, 0, "unowned series counts zero")
 H.assert_equal(slots[2].trend, "stable", "neutral heat is stable")
 H.assert_equal(slots[2].event_active, false, "no event flag without event")
 
+rng.restore()
 print("market tests ok")

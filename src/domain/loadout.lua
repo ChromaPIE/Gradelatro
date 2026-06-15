@@ -1,13 +1,9 @@
 local Loadout = {}
 
 local function load_src(path)
-    if rawget(_G, "SMODS") and SMODS.load_file then
-        return assert(SMODS.load_file("src/" .. path))()
-    end
-    return dofile("src/" .. path)
+    return assert(SMODS.load_file("src/" .. path))()
 end
 
-local Rng = load_src("core/rng.lua")
 local Storage = load_src("core/storage.lua")
 
 local MAX_LEVEL = 12
@@ -196,7 +192,8 @@ end
 
 function Loadout.roll_wear(config, rng_seed)
     local settings = config.wear
-    local rand = Rng.lcg(rng_seed)
+    local rand_key = "grdl_loadout_wear_" .. tostring(rng_seed or os.time())
+    local function rand() return pseudorandom(rand_key) end
     local roll = rand()
     if roll < settings.minor_chance then
         return "minor", settings.minor_min + rand() * (settings.minor_max - settings.minor_min)

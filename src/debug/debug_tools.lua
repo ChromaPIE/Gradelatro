@@ -1,10 +1,7 @@
 local DebugTools = {}
 
 local function load_src(path)
-    if rawget(_G, "SMODS") and SMODS.load_file then
-        return assert(SMODS.load_file("src/" .. path))()
-    end
-    return dofile("src/" .. path)
+    return assert(SMODS.load_file("src/" .. path))()
 end
 
 local Catalog = load_src("domain/catalog.lua")
@@ -12,7 +9,6 @@ local BlackMarket = load_src("domain/black_market.lua")
 local Economy = load_src("domain/economy.lua")
 local Persistence = load_src("core/persistence.lua")
 local Proficiency = load_src("domain/proficiency.lua")
-local Rng = load_src("core/rng.lua")
 local Storage = load_src("core/storage.lua")
 
 local GRADE_CONDITION = {
@@ -76,7 +72,8 @@ function DebugTools.seed_cards(state, catalog, args)
     local graded = args.graded ~= false
     local count = math.max(1, math.floor(args.count or 10))
     local now = args.now or os.time()
-    local rand = Rng.lcg(args.rng_seed or (now + #(state.cards or {}) * 7919))
+    local rand_key = "grdl_debug_seed_" .. tostring(args.rng_seed or (now + #(state.cards or {}) * 7919))
+    local function rand() return pseudorandom(rand_key) end
 
     local by_mod = {}
     local mod_order = {}
@@ -90,9 +87,10 @@ function DebugTools.seed_cards(state, catalog, args)
     end
     if #mod_order == 0 then return { ok = false, reason = "empty_catalog" } end
 
-    Rng.shuffle(mod_order, rand)
+    pseudoshuffle(mod_order, rand_key .. "_mods")
     for _, bucket in pairs(by_mod) do
-        Rng.shuffle(bucket, rand)
+        local mod_id = bucket[1] and bucket[1].mod_id or "unknown"
+        pseudoshuffle(bucket, rand_key .. "_bucket_" .. tostring(mod_id))
     end
     local grade_phase = math.floor(rand() * #SEED_GRADES)
     local edition_phase = math.floor(rand() * #SEED_EDITIONS)

@@ -2,6 +2,7 @@ local H = dofile("tests/test_helper.lua")
 local Config = dofile("src/core/config.lua")
 local Storage = dofile("src/core/storage.lua")
 local RunEnd = dofile("src/domain/run_end.lua")
+local rng = H.install_pseudorandom_stub()
 
 local config = Config.normalize({})
 
@@ -60,6 +61,7 @@ local namespace = {
 local previous_smods_global = rawget(_G, "SMODS")
 local save_count = 0
 _G.SMODS = {
+    load_file = previous_smods_global.load_file,
     save_mod_config = function(mod)
         H.assert_equal(mod, namespace.mod, "run end saves namespace mod")
         save_count = save_count + 1
@@ -113,6 +115,8 @@ H.assert_equal(offer.eligible[1].center_key, "j_common", "common eligible")
 H.assert_equal(namespace.collection.market.last_refresh, 1800000000, "win capture refreshes market heat")
 H.assert_true(offer.eligible[1].rav >= 35 * 0.75 and offer.eligible[1].rav <= 35 * 1.35, "offer prices through the heat band")
 H.assert_true(namespace.collection.market.black_market ~= nil, "win capture generates black market offers")
+H.assert_true(rng.has_call("pseudorandom", "grdl_market_"), "run end market refresh uses native pseudorandom")
+H.assert_true(rng.has_call("pseudorandom", "grdl_black_market_"), "run end black market uses native pseudorandom")
 H.assert_equal(#namespace.collection.market.black_market.offers, 3, "three black market offers")
 H.assert_equal(namespace.collection.market.black_market.run_id, "RUNSEED", "black market bound to the run")
 H.assert_equal(#offer.blocked, 1, "rare blocked")
@@ -125,4 +129,5 @@ H.assert_equal(duplicate_offer.run_id, "RUNSEED", "duplicate capture still refre
 H.assert_equal(save_count, 1, "duplicate settlement not saved")
 _G.SMODS = previous_smods_global
 
+rng.restore()
 print("run end tests ok")

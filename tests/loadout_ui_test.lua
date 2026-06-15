@@ -3,6 +3,7 @@ local Config = dofile("src/core/config.lua")
 local Storage = dofile("src/core/storage.lua")
 local Loadout = dofile("src/domain/loadout.lua")
 local LoadoutUI = dofile("src/ui/loadout_ui.lua")
+local rng = H.install_pseudorandom_stub()
 
 local config = Config.normalize({})
 local namespace = {
@@ -13,7 +14,10 @@ local namespace = {
 
 local previous_smods = rawget(_G, "SMODS")
 local save_count = 0
-_G.SMODS = { save_mod_config = function() save_count = save_count + 1 return true end }
+_G.SMODS = {
+    load_file = previous_smods.load_file,
+    save_mod_config = function() save_count = save_count + 1 return true end
+}
 
 local runtime = { FUNCS = {} }
 local adapter = { loadout_opened = 0, license_opened = 0 }
@@ -307,6 +311,7 @@ H.assert_equal(#spawned, 3, "raw card spawned")
 H.assert_equal(spawned[3].args.no_edition, true, "raw card spawns editionless")
 H.assert_true(raw_entry.condition.surface < surface_before, "raw card wears on entry")
 H.assert_equal(raw_entry.proficiency, nil, "raw card gains no proficiency block")
+H.assert_true(rng.has_call("pseudorandom", "grdl_loadout_wear_"), "loadout ui wear uses native pseudorandom")
 
 -- non-boss cash-out does nothing
 run_ns.loadout_entry_window = nil
@@ -317,4 +322,5 @@ H.assert_equal(run_ns.loadout_entry_window, nil, "small blind opens no window")
 _G.G = previous_run_g
 
 _G.SMODS = previous_smods
+rng.restore()
 print("loadout ui tests ok")

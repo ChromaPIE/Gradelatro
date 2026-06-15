@@ -2,6 +2,7 @@ local H = dofile("tests/test_helper.lua")
 local Config = dofile("src/core/config.lua")
 local Storage = dofile("src/core/storage.lua")
 local Loadout = dofile("src/domain/loadout.lua")
+local rng = H.install_pseudorandom_stub()
 
 local config = Config.normalize({})
 
@@ -142,8 +143,11 @@ H.assert_equal(Loadout.window(config, state, no_transport, 1), nil, "no transpor
 local tier, intensity = Loadout.roll_wear(config, 42)
 H.assert_true(tier == "minor" or tier == "moderate" or tier == "severe", "wear tier named")
 H.assert_true(intensity > 0, "wear intensity positive")
+rng.reset()
 local tier2, intensity2 = Loadout.roll_wear(config, 42)
 H.assert_equal(tier, tier2, "wear roll deterministic")
 H.assert_near(intensity, intensity2, 1e-9, "wear intensity deterministic")
+H.assert_true(rng.has_call("pseudorandom", "grdl_loadout_wear_"), "wear roll uses native pseudorandom")
 
+rng.restore()
 print("loadout tests ok")

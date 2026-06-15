@@ -1,10 +1,7 @@
 local LoadoutUI = {}
 
 local function load_src(path)
-    if rawget(_G, "SMODS") and SMODS.load_file then
-        return assert(SMODS.load_file("src/" .. path))()
-    end
-    return dofile("src/" .. path)
+    return assert(SMODS.load_file("src/" .. path))()
 end
 
 local Catalog = load_src("domain/catalog.lua")
@@ -436,12 +433,8 @@ end
 
 function LoadoutUI.spawn_entries(namespace, card_ids, now)
     local runtime = rawget(_G, "G")
-    local smods = rawget(_G, "SMODS")
     if not runtime or not runtime.GAME or not runtime.GAME.grdl_loadout then
         return { ok = false, reason = "no_run" }
-    end
-    if not smods or type(smods.add_card) ~= "function" then
-        return { ok = false, reason = "spawn_failed" }
     end
     local run_state = runtime.GAME.grdl_loadout
     local collection = namespace.collection
@@ -461,7 +454,7 @@ function LoadoutUI.spawn_entries(namespace, card_ids, now)
             else
                 spawn_args.no_edition = true
             end
-            local ok, joker = pcall(smods.add_card, spawn_args)
+            local ok, joker = pcall(SMODS.add_card, spawn_args)
             if ok and joker then
                 joker.ability = joker.ability or {}
                 joker.ability.grdl_loadout_id = card.id

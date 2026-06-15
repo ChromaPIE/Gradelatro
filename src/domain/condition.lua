@@ -27,14 +27,6 @@ local function clamp(value, min_value, max_value)
     return value
 end
 
-local function lcg(seed)
-    local state = seed % 2147483647
-    return function()
-        state = (state * 48271) % 2147483647
-        return state / 2147483647
-    end
-end
-
 local function average(condition)
     return (
         condition.centering +
@@ -50,7 +42,8 @@ local function min_mutable(condition)
 end
 
 function Condition.generate(seed, edition)
-    local rand = lcg(seed or os.time())
+    local rand_key = "grdl_condition_" .. tostring(seed or os.time())
+    local function rand() return pseudorandom(rand_key) end
     local edition_surface_penalty = edition == "polychrome" and 0.20 or edition == "negative" and 0.15 or edition == "holographic" and 0.10 or 0
     return {
         centering = clamp(8.4 + rand() * 1.6, 6.0, 10.0),

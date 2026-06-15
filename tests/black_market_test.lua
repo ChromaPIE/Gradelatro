@@ -3,6 +3,7 @@ local Config = dofile("src/core/config.lua")
 local Storage = dofile("src/core/storage.lua")
 local Condition = dofile("src/domain/condition.lua")
 local BlackMarket = dofile("src/domain/black_market.lua")
+local rng = H.install_pseudorandom_stub()
 
 local config = Config.normalize({})
 
@@ -24,6 +25,7 @@ H.assert_equal(generated.ok, true, "generation succeeds")
 H.assert_equal(#state.market.black_market.offers, 3, "three offers generated")
 H.assert_equal(state.market.black_market.run_id, "R1", "run id stored")
 H.assert_equal(state.market.black_market.boss_key, "bl_hook", "boss key stored")
+H.assert_true(rng.has_call("pseudorandom", "grdl_black_market_"), "black market generation uses native pseudorandom")
 
 local offers = BlackMarket.offers(state)
 H.assert_equal(#offers, 3, "offers readable")
@@ -71,6 +73,7 @@ for _, field in ipairs({ "mod", "rarity", "edition", "graded" }) do
 end
 
 local replay_state = Storage.normalize({})
+rng.reset()
 BlackMarket.generate(config, replay_state, { catalog = catalog, run_id = "R1", boss_key = "bl_hook", now = 1767225600, rng_seed = 42 })
 H.assert_equal(replay_state.market.black_market.offers[1].center_key, offers[1].center_key, "same seed reproduces offers")
 H.assert_equal(replay_state.market.black_market.offers[1].price, offers[1].price, "same seed reproduces prices")
@@ -124,4 +127,5 @@ H.assert_equal(state.market.black_market.run_id, "R2", "new run id stored")
 H.assert_equal(state.market.black_market.boss_key, "bl_wall", "new boss stored")
 H.assert_equal(state.market.black_market.offers[1].sold, false, "fresh offers unsold")
 
+rng.restore()
 print("black market tests ok")

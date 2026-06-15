@@ -1,10 +1,7 @@
 local Settlement = {}
 
 local function load_src(path)
-    if rawget(_G, "SMODS") and SMODS.load_file then
-        return assert(SMODS.load_file("src/" .. path))()
-    end
-    return dofile("src/" .. path)
+    return assert(SMODS.load_file("src/" .. path))()
 end
 
 local Economy = load_src("domain/economy.lua")

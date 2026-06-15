@@ -1,15 +1,11 @@
 local Market = {}
 
 local function load_src(path)
-    if rawget(_G, "SMODS") and SMODS.load_file then
-        return assert(SMODS.load_file("src/" .. path))()
-    end
-    return dofile("src/" .. path)
+    return assert(SMODS.load_file("src/" .. path))()
 end
 
 local Condition = load_src("domain/condition.lua")
 local Economy = load_src("domain/economy.lua")
-local Rng = load_src("core/rng.lua")
 local Storage = load_src("core/storage.lua")
 
 local function clamp(value, min_value, max_value)
@@ -69,8 +65,9 @@ function Market.refresh(config, state, args)
         return { ok = true, refreshed = false }
     end
 
-    local rand = Rng.lcg(args.rng_seed or now)
     local day = math.floor(now / 86400)
+    local rand_key = "grdl_market_" .. tostring(args.rng_seed or now)
+    local function rand() return pseudorandom(rand_key) end
 
     for _, series_id in ipairs(args.series_ids or {}) do
         local entry = market.series_heat[series_id]

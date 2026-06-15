@@ -1,5 +1,6 @@
 local H = dofile("tests/test_helper.lua")
 local Condition = dofile("src/domain/condition.lua")
+local rng = H.install_pseudorandom_stub()
 
 local perfect = {
     centering = 9.8,
@@ -46,8 +47,10 @@ H.assert_equal(worn.print_quality, perfect.print_quality, "wear does not alter p
 local generated = Condition.generate(12345, "negative")
 H.assert_true(generated.centering >= 6.0 and generated.centering <= 10.0, "generated centering range")
 H.assert_true(generated.surface >= 6.0 and generated.surface <= 10.0, "generated surface range")
+H.assert_true(rng.has_call("pseudorandom", "grdl_condition_"), "condition generation uses native pseudorandom")
 
 H.assert_near(Condition.grade_multiplier(10), 6.0, 0.000001, "grade 10 multiplier")
 H.assert_near(Condition.grade_multiplier(8), 1.2, 0.000001, "grade 8 multiplier")
 
+rng.restore()
 print("condition tests ok")

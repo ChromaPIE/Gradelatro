@@ -1,10 +1,7 @@
 local MarketUI = {}
 
 local function load_src(path)
-    if rawget(_G, "SMODS") and SMODS.load_file then
-        return assert(SMODS.load_file("src/" .. path))()
-    end
-    return dofile("src/" .. path)
+    return assert(SMODS.load_file("src/" .. path))()
 end
 
 local Binder = load_src("domain/binder.lua")
@@ -527,7 +524,7 @@ local function blackmarket_tab_definition(namespace, state)
         local runtime = rawget(_G, "G")
         local dealer_nodes = {}
         local blind = runtime and runtime.P_BLINDS and state.bm_boss_key and runtime.P_BLINDS[state.bm_boss_key] or nil
-        if blind and rawget(_G, "SMODS") and SMODS.create_sprite then
+        if blind then
             local ok_sprite, sprite = pcall(SMODS.create_sprite, 0, 0, 1.3, 1.3, blind.atlas or "blind_chips", blind.pos)
             if ok_sprite and sprite then
                 -- fidget flags copied from the in-run blind chip

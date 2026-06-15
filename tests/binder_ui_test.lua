@@ -30,6 +30,7 @@ local raw_card = Storage.add_raw_card(namespace.collection, {
 local previous_smods_global = rawget(_G, "SMODS")
 local save_count = 0
 _G.SMODS = {
+    load_file = previous_smods_global.load_file,
     save_mod_config = function(mod)
         H.assert_equal(mod, namespace.mod, "binder saves namespace mod")
         save_count = save_count + 1

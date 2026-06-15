@@ -2,6 +2,7 @@ local H = dofile("tests/test_helper.lua")
 local Config = dofile("src/core/config.lua")
 local Storage = dofile("src/core/storage.lua")
 local BuyoutUI = dofile("src/ui/buyout_ui.lua")
+local rng = H.install_pseudorandom_stub()
 
 local config = Config.normalize({})
 
@@ -94,6 +95,7 @@ local success_namespace = {
 local previous_smods_global = rawget(_G, "SMODS")
 local save_count = 0
 _G.SMODS = {
+    load_file = previous_smods_global.load_file,
     save_mod_config = function(mod)
         H.assert_equal(mod, success_namespace.mod, "buyout saves namespace mod")
         save_count = save_count + 1
@@ -113,6 +115,7 @@ H.assert_equal(success_namespace.collection.cards[1].source_run_id, "RUNSEED", "
 H.assert_equal(success_namespace.pending_buyout_offer, nil, "success clears pending offer")
 H.assert_equal(success_namespace.last_buyout_result, success_result, "success stores last result")
 H.assert_equal(save_count, 1, "success saves collection")
+H.assert_true(rng.has_call("pseudorandom", "grdl_condition_"), "buyout ui condition uses native pseudorandom")
 _G.SMODS = previous_smods_global
 
 success_namespace.pending_buyout_offer = offer
@@ -167,4 +170,5 @@ runtime.FUNCS.grdl_skip_buyout()
 H.assert_equal(runtime_namespace.pending_buyout_offer, nil, "runtime skip clears offer")
 H.assert_equal(adapter.closed, 2, "runtime skip closes overlay")
 
+rng.restore()
 print("buyout ui tests ok")

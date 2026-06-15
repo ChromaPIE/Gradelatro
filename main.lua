@@ -1,14 +1,7 @@
-local current_mod = SMODS and SMODS.current_mod or {
-    path = ".",
-    version = "0.1.0",
-    config = {}
-}
+local current_mod = SMODS.current_mod
 
 local function load_src(path)
-    if SMODS and SMODS.load_file then
-        return assert(SMODS.load_file("src/" .. path))()
-    end
-    return dofile("src/" .. path)
+    return assert(SMODS.load_file("src/" .. path))()
 end
 
 local Bootstrap = load_src("core/bootstrap.lua")
@@ -81,31 +74,29 @@ local MarketUI = load_src("ui/market_ui.lua")
 Bootstrap.attach(Gradelatro, "MarketUI", MarketUI)
 MarketUI.install_runtime(Gradelatro, rawget(_G, "G"))
 
-if SMODS and SMODS.Keybind then
-    pcall(SMODS.Keybind, {
-        key_pressed = "g",
-        event = "pressed",
-        action = function()
-            local runtime = rawget(_G, "G")
-            local target = runtime and runtime.CONTROLLER and runtime.CONTROLLER.hovering and runtime.CONTROLLER.hovering.target or nil
-            if target and target.grdl_record then
-                BinderUI.inspect_from_card(Gradelatro, target)
-            elseif target and target.grdl_offer then
-                BinderUI.inspect_offer(Gradelatro, target.grdl_offer)
-            elseif target and target.ability and target.ability.grdl_loadout_id then
-                local state = BinderUI.inspect_loadout(Gradelatro, target.ability.grdl_loadout_id, {
-                    close_func = "exit_overlay_menu"
+SMODS.Keybind({
+    key_pressed = "g",
+    event = "pressed",
+    action = function()
+        local runtime = rawget(_G, "G")
+        local target = runtime and runtime.CONTROLLER and runtime.CONTROLLER.hovering and runtime.CONTROLLER.hovering.target or nil
+        if target and target.grdl_record then
+            BinderUI.inspect_from_card(Gradelatro, target)
+        elseif target and target.grdl_offer then
+            BinderUI.inspect_offer(Gradelatro, target.grdl_offer)
+        elseif target and target.ability and target.ability.grdl_loadout_id then
+            local state = BinderUI.inspect_loadout(Gradelatro, target.ability.grdl_loadout_id, {
+                close_func = "exit_overlay_menu"
+            })
+            if state and runtime.FUNCS and runtime.FUNCS.overlay_menu then
+                if runtime.SETTINGS then runtime.SETTINGS.paused = true end
+                runtime.FUNCS.overlay_menu({
+                    definition = BinderUI.create_inspect_definition(Gradelatro)
                 })
-                if state and runtime.FUNCS and runtime.FUNCS.overlay_menu then
-                    if runtime.SETTINGS then runtime.SETTINGS.paused = true end
-                    runtime.FUNCS.overlay_menu({
-                        definition = BinderUI.create_inspect_definition(Gradelatro)
-                    })
-                end
             end
         end
-    })
-end
+    end
+})
 
 local Buyout = load_src("domain/buyout.lua")
 Bootstrap.attach(Gradelatro, "Buyout", Buyout)

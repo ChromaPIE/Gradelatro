@@ -1,16 +1,12 @@
 local BlackMarket = {}
 
 local function load_src(path)
-    if rawget(_G, "SMODS") and SMODS.load_file then
-        return assert(SMODS.load_file("src/" .. path))()
-    end
-    return dofile("src/" .. path)
+    return assert(SMODS.load_file("src/" .. path))()
 end
 
 local Condition = load_src("domain/condition.lua")
 local Economy = load_src("domain/economy.lua")
 local Market = load_src("domain/market.lua")
-local Rng = load_src("core/rng.lua")
 local Storage = load_src("core/storage.lua")
 
 local EDITION_ORDER = { "base", "foil", "holographic", "polychrome", "negative" }
@@ -57,7 +53,8 @@ function BlackMarket.generate(config, state, args)
     end
 
     local now = args.now or os.time()
-    local rand = Rng.lcg(args.rng_seed or now)
+    local rand_key = "grdl_black_market_" .. run_id .. "_" .. tostring(args.rng_seed or now)
+    local function rand() return pseudorandom(rand_key) end
     local settings = config.black_market
     local sell_min = config.market.system_sell_min
     local sell_max = config.market.system_sell_max
@@ -66,7 +63,7 @@ function BlackMarket.generate(config, state, args)
     for slot = 1, 3 do
         local entry = catalog[math.floor(rand() * #catalog) + 1]
         local edition = roll_edition(config, rand)
-        local condition = Condition.generate(math.floor(rand() * 2147483646) + 1, edition)
+        local condition = Condition.generate(rand_key .. "_condition_" .. tostring(slot), edition)
         local graded = rand() < settings.graded_chance
         local mystery = slot == 3
 

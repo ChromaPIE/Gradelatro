@@ -2,6 +2,7 @@ local H = dofile("tests/test_helper.lua")
 local Storage = dofile("src/core/storage.lua")
 local Condition = dofile("src/domain/condition.lua")
 local DebugTools = dofile("src/debug/debug_tools.lua")
+local rng = H.install_pseudorandom_stub()
 
 for _, grade in ipairs({ 10, 9, 8, 7, 6, 5 }) do
     local condition = DebugTools.condition_for_grade(grade)
@@ -41,6 +42,8 @@ local seeded = DebugTools.seed_cards(seed_state, catalog, { count = 4, now = 176
 H.assert_equal(seeded.ok, true, "seeding succeeds")
 H.assert_equal(#seeded.cards, 4, "requested count created")
 H.assert_equal(#seed_state.cards, 4, "cards stored in collection")
+H.assert_true(rng.has_call("pseudorandom", "grdl_debug_seed_"), "debug seeding uses native pseudorandom")
+H.assert_true(rng.has_call("pseudoshuffle", "grdl_debug_seed_"), "debug seeding uses native pseudoshuffle")
 
 local GRADE_SET = { [10] = true, [9] = true, [8] = true, [7] = true, [6] = true }
 local EDITION_SET = { base = true, foil = true, holographic = true, polychrome = true, negative = true }
@@ -78,6 +81,7 @@ local function batch_signature(cards)
     return table.concat(parts, "|")
 end
 
+rng.reset()
 local replay = DebugTools.seed_cards(Storage.normalize({}), catalog, { count = 4, now = 1767225600, rng_seed = 42, config = seed_config })
 H.assert_equal(batch_signature(replay.cards), batch_signature(seeded.cards), "same seed reproduces the batch")
 
@@ -190,7 +194,10 @@ H.assert_true(queue_state.grading_queue[1].due_at <= 5000, "due time pulled to n
 -- ===== dispatch routing (headless paths) =====
 local ns = { config = seed_config, mod = { id = "Gradelatro", config = {} }, collection = Storage.normalize({ currency_g = 5 }) }
 local previous_dispatch_smods = rawget(_G, "SMODS")
-_G.SMODS = { save_mod_config = function() return true end }
+_G.SMODS = {
+    load_file = previous_dispatch_smods.load_file,
+    save_mod_config = function() return true end
+}
 local message = DebugTools.dispatch(ns, {})
 H.assert_true(message:find("grdl", 1, true) ~= nil, "bare command prints help")
 message = DebugTools.dispatch(ns, { "help" })
@@ -223,4 +230,5 @@ DebugTools.dispatch(ns, { "clear" })
 H.assert_equal(#ns.collection.cards, 0, "clear dispatch wipes")
 _G.SMODS = previous_dispatch_smods
 
+rng.restore()
 print("debug tools tests ok")

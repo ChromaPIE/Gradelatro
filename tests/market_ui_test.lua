@@ -63,6 +63,7 @@ H.assert_equal(state.bm_text, "", "no purchase feedback initially")
 local previous_smods = rawget(_G, "SMODS")
 local save_count = 0
 _G.SMODS = {
+    load_file = previous_smods.load_file,
     save_mod_config = function() save_count = save_count + 1 return true end
 }
 

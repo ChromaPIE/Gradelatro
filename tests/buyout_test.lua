@@ -3,6 +3,7 @@ local Config = dofile("src/core/config.lua")
 local Catalog = dofile("src/domain/catalog.lua")
 local Storage = dofile("src/core/storage.lua")
 local Buyout = dofile("src/domain/buyout.lua")
+local rng = H.install_pseudorandom_stub()
 
 local config = Config.normalize({})
 local centers = {
@@ -127,6 +128,7 @@ H.assert_equal(buy_state.cards[1].acquired_price, 149, "purchase price stored")
 H.assert_equal(buy_state.cards[1].source_run_id, "run_1", "purchase run id stored")
 H.assert_equal(buy_state.cards[1].source_run_started_at, 900, "purchase run start stored")
 H.assert_true(buy_state.cards[1].condition.surface ~= nil, "condition generated")
+H.assert_true(rng.has_call("pseudorandom", "grdl_condition_"), "buyout condition uses native pseudorandom")
 
 local gold_offer = Buyout.prepare_offer(config, Storage.normalize({ currency_g = 1000 }), {
     catalog = catalog,
@@ -136,4 +138,5 @@ local gold_offer = Buyout.prepare_offer(config, Storage.normalize({ currency_g =
 })
 H.assert_equal(#gold_offer.eligible, 1, "gold plus allows exotic")
 
+rng.restore()
 print("buyout tests ok")
