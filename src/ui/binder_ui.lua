@@ -888,15 +888,9 @@ local function build_inspect_card(namespace, entry, catalog_entry)
         CARD_INSPECT_SCALE * G.CARD_W,
         CARD_INSPECT_SCALE * G.CARD_H,
         { card_limit = 1, type = "title", highlight_limit = 0, collection = true })
-    local card = Card(area.T.x, area.T.y, CARD_INSPECT_SCALE * G.CARD_W, CARD_INSPECT_SCALE * G.CARD_H, (G.P_CARDS and G.P_CARDS.empty or nil), center)
+    local card = Card(area.T.x + area.T.w / 2, area.T.y, CARD_INSPECT_SCALE * G.CARD_W, CARD_INSPECT_SCALE * G.CARD_H, (G.P_CARDS and G.P_CARDS.empty or nil), center)
     local edition_flag = Catalog.edition_flags(entry.edition)
     if edition_flag then card:set_edition(edition_flag, true, true) end
-    card.hover = function(self)
-        if rawget(_G, "Node") then Node.hover(self) end
-    end
-    card.stop_hover = function(self)
-        if rawget(_G, "Node") then Node.stop_hover(self) end
-    end
     suppress_selection(card)
     area:emplace(card)
     if entry.status == "graded" and not entry.offer_slot then

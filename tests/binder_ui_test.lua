@@ -196,6 +196,73 @@ H.assert_equal(#fill_namespace.binder_areas[1].cards, 1, "refill replaces cards 
 _G.G = previous_fill_g
 _G.Card = previous_fill_card
 
+local previous_inspect_g = rawget(_G, "G")
+local previous_inspect_card = rawget(_G, "Card")
+local previous_inspect_area = rawget(_G, "CardArea")
+local previous_inspect_uibox = rawget(_G, "UIBox")
+local captured_inspect_card = nil
+local inspect_area = {
+    cards = {},
+    T = { x = 2.0, y = 3.0, w = 3.168, h = 4.18 },
+    emplace = function(self, card) self.cards[#self.cards + 1] = card end
+}
+_G.G = {
+    ROOM = { T = { x = 0, y = 0, w = 10, h = 10 } },
+    P_CENTERS = { j_joker = { key = "j_joker", set = "Joker" } },
+    P_CARDS = { empty = {} },
+    CARD_W = 1.44,
+    CARD_H = 1.9,
+    UIT = { R = "R", C = "C", T = "T", O = "O", ROOT = "ROOT" },
+    C = {
+        WHITE = { 1, 1, 1, 1 },
+        CLEAR = { 0, 0, 0, 0 },
+        L_BLACK = { 0.2, 0.2, 0.2, 1 },
+        RED = { 1, 0, 0, 1 },
+        GOLD = { 1, 0.8, 0, 1 },
+        PURPLE = { 0.5, 0, 1, 1 },
+        UI = {
+            TEXT_LIGHT = { 1, 1, 1, 1 },
+            TEXT_INACTIVE = { 0.5, 0.5, 0.5, 1 },
+            TEXT_DARK = { 0, 0, 0, 1 }
+        }
+    },
+    FONTS = {}
+}
+_G.CardArea = function()
+    return inspect_area
+end
+_G.Card = function(x, y, w, h, front, center)
+    captured_inspect_card = {
+        x = x,
+        y = y,
+        w = w,
+        h = h,
+        front = front,
+        center = center,
+        children = {},
+        states = {},
+        set_edition = function() end,
+        juice_up = function() end
+    }
+    return captured_inspect_card
+end
+_G.UIBox = function()
+    return {
+        states = { collide = { can = true } },
+        remove = function() end
+    }
+end
+BinderUI.open_inspect(namespace, raw_card.id)
+BinderUI.create_inspect_definition(namespace)
+H.assert_near(captured_inspect_card.x, inspect_area.T.x + inspect_area.T.w / 2, 0.000001, "inspect card starts at CardArea center")
+H.assert_near(captured_inspect_card.y, inspect_area.T.y, 0.000001, "inspect card keeps CardArea y")
+H.assert_equal(captured_inspect_card.w, 2.2 * _G.G.CARD_W, "inspect card width follows inspect scale")
+H.assert_equal(captured_inspect_card.h, 2.2 * _G.G.CARD_H, "inspect card height follows inspect scale")
+_G.UIBox = previous_inspect_uibox
+_G.CardArea = previous_inspect_area
+_G.Card = previous_inspect_card
+_G.G = previous_inspect_g
+
 H.assert_equal(BinderUI.countdown_text(0), "grdl_k_grading_ready", "zero countdown falls back to ready key")
 H.assert_equal(BinderUI.countdown_text(95), "1:35", "minute countdown format")
 H.assert_equal(BinderUI.countdown_text(3725), "1:02:05", "hour countdown format")
