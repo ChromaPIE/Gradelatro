@@ -886,6 +886,8 @@ local function build_inspect_card(namespace, entry, catalog_entry)
         CARD_INSPECT_SCALE * G.CARD_H,
         { card_limit = 1, type = "title", highlight_limit = 0, collection = true })
     local card = Card(area.T.x + area.T.w / 2, area.T.y, CARD_INSPECT_SCALE * G.CARD_W, CARD_INSPECT_SCALE * G.CARD_H, (G.P_CARDS and G.P_CARDS.empty or nil), center)
+    card.mouse_damping = CARD_INSPECT_SCALE
+    card.ambient_tilt = 0
     local edition_flag = Catalog.edition_flags(entry.edition)
     if edition_flag then card:set_edition(edition_flag, true, true) end
     suppress_selection(card)

@@ -259,6 +259,8 @@ H.assert_near(captured_inspect_card.x, inspect_area.T.x + inspect_area.T.w / 2, 
 H.assert_near(captured_inspect_card.y, inspect_area.T.y, 0.000001, "inspect card keeps CardArea y")
 H.assert_equal(captured_inspect_card.w, 2.2 * _G.G.CARD_W, "inspect card width follows inspect scale")
 H.assert_equal(captured_inspect_card.h, 2.2 * _G.G.CARD_H, "inspect card height follows inspect scale")
+H.assert_equal(captured_inspect_card.mouse_damping, 2.2, "inspect card damps vanilla mouse tilt for its display scale")
+H.assert_equal(captured_inspect_card.ambient_tilt, 0, "inspect card disables default ambient tilt while preserving hover")
 _G.UIBox = previous_inspect_uibox
 _G.CardArea = previous_inspect_area
 _G.Card = previous_inspect_card
