@@ -43,9 +43,12 @@ H.assert_equal(state.text_keys.title, "grdl_k_buyout_title", "title uses localiz
 H.assert_equal(state.text_keys.confirm, "grdl_b_confirm_buyout", "confirm uses localization key")
 H.assert_equal(state.max_selection, 2, "state uses offer max")
 H.assert_equal(state.page, 1, "state starts on page one")
+H.assert_equal(state.blocked_page, 1, "state starts blocked list on page one")
 H.assert_equal(#state.selected_ids, 0, "state starts empty")
 BuyoutUI.set_page(state, 99)
 H.assert_equal(state.page, 1, "page clamps within the eligible list")
+BuyoutUI.set_blocked_page(state, 99)
+H.assert_equal(state.blocked_page, 1, "blocked page clamps within the blocked list")
 H.assert_equal(BuyoutUI.total_selected_price(state), 0, "empty total")
 
 H.assert_true(BuyoutUI.toggle_selection(state, "one"), "first selection accepted")
@@ -59,6 +62,83 @@ H.assert_equal(BuyoutUI.is_selected(state, "one"), false, "first id unselected")
 H.assert_equal(BuyoutUI.total_selected_price(state), 40, "total updates after deselect")
 H.assert_equal(BuyoutUI.toggle_selection(state, "missing"), false, "missing candidate rejected")
 H.assert_equal(state.last_reason, "not_in_offer", "missing candidate reason stored")
+
+local previous_ui_g = rawget(_G, "G")
+local previous_tabs = rawget(_G, "create_tabs")
+local previous_cycle = rawget(_G, "create_option_cycle")
+local previous_button = rawget(_G, "UIBox_button")
+local previous_options = rawget(_G, "create_UIBox_generic_options")
+local captured_tabs = nil
+_G.G = {
+    UIT = { R = "R", C = "C", T = "T", O = "O", ROOT = "ROOT" },
+    C = {
+        WHITE = "WHITE",
+        BLUE = "BLUE",
+        GREEN = "GREEN",
+        RED = "RED",
+        CLEAR = "CLEAR",
+        L_BLACK = "L_BLACK",
+        UI = { TEXT_LIGHT = "TEXT_LIGHT", TEXT_INACTIVE = "TEXT_INACTIVE", TEXT_DARK = "TEXT_DARK" }
+    }
+}
+_G.create_tabs = function(args)
+    captured_tabs = args.tabs
+    return { n = "tabs", config = args, nodes = {} }
+end
+_G.create_option_cycle = function(args)
+    return { n = "cycle", config = args, nodes = {} }
+end
+_G.UIBox_button = function(args)
+    return { n = "button", config = args, nodes = {} }
+end
+_G.create_UIBox_generic_options = function(args) return args end
+
+local function collect_callbacks(node, out)
+    if type(node) ~= "table" then return end
+    if node.config and node.config.opt_callback then
+        out[#out + 1] = node.config.opt_callback
+    end
+    for _, child in ipairs(node.nodes or {}) do collect_callbacks(child, out) end
+    for _, child in ipairs(node.contents or {}) do collect_callbacks(child, out) end
+end
+
+local paged_offer = { eligible = {}, blocked = {}, max_selection = 2 }
+for index = 1, 7 do
+    paged_offer.eligible[#paged_offer.eligible + 1] = candidate("eligible_" .. tostring(index), 10 + index)
+    paged_offer.blocked[#paged_offer.blocked + 1] = candidate("blocked_" .. tostring(index), 0)
+    paged_offer.blocked[index].reason = "rarity_locked"
+end
+local ui_namespace = {
+    config = config,
+    collection = Storage.normalize({ currency_g = 100 }),
+    pending_buyout_offer = paged_offer
+}
+ui_namespace.buyout_ui_state = BuyoutUI.default_state(paged_offer)
+BuyoutUI.create_overlay_definition(ui_namespace)
+H.assert_equal(#captured_tabs, 2, "buyout overlay renders eligible and blocked tabs")
+H.assert_equal(captured_tabs[1].chosen, true, "eligible tab chosen by default")
+H.assert_equal(captured_tabs[2].label, "grdl_k_buyout_blocked", "blocked tab reuses unavailable label")
+local blocked_definition = captured_tabs[2].tab_definition_function()
+local callbacks = {}
+collect_callbacks(blocked_definition, callbacks)
+H.assert_equal(callbacks[1], "grdl_buyout_blocked_page", "blocked tab has its own page callback")
+
+local tab_runtime = { FUNCS = {} }
+local tab_adapter = { refreshed = 0 }
+function tab_adapter.refresh_overlay()
+    tab_adapter.refreshed = tab_adapter.refreshed + 1
+end
+BuyoutUI.install_runtime(ui_namespace, tab_runtime, tab_adapter)
+H.assert_true(type(tab_runtime.FUNCS.grdl_buyout_blocked_page) == "function", "blocked page callback registered")
+tab_runtime.FUNCS.grdl_buyout_blocked_page({ cycle_config = { current_option = 2 } })
+H.assert_equal(ui_namespace.buyout_ui_state.blocked_page, 2, "blocked page callback applies cycle option")
+H.assert_equal(tab_adapter.refreshed, 1, "blocked page callback refreshes overlay headless")
+
+_G.create_UIBox_generic_options = previous_options
+_G.UIBox_button = previous_button
+_G.create_option_cycle = previous_cycle
+_G.create_tabs = previous_tabs
+_G.G = previous_ui_g
 
 local empty_namespace = {
     config = config,

@@ -71,6 +71,8 @@ function BuyoutUI.default_state(offer)
         max_selection = (offer and offer.max_selection) or 5,
         text_keys = copy_text_keys(),
         page = 1,
+        blocked_page = 1,
+        buyout_tab = "eligible",
         last_reason = nil,
         confirmed = false
     }
@@ -79,6 +81,12 @@ end
 function BuyoutUI.set_page(state, page)
     if not state then return nil end
     state.page = Binder.page((state.offer and state.offer.eligible) or {}, page, BUYOUT_PAGE_SIZE).page
+    return state
+end
+
+function BuyoutUI.set_blocked_page(state, page)
+    if not state then return nil end
+    state.blocked_page = Binder.page((state.offer and state.offer.blocked) or {}, page, BUYOUT_PAGE_SIZE).page
     return state
 end
 
@@ -174,17 +182,52 @@ local function blocked_row(candidate)
     }, { align = "cm", padding = 0.03 })
 end
 
-local function buyout_tab_definition(namespace, state)
+local function action_buttons(state, summary)
+    return row({
+        UIBox_button({
+            button = "grdl_confirm_buyout",
+            label = {
+                safe_localize(state.text_keys.confirm),
+                safe_localize(state.text_keys.total, { summary.total_price })
+            },
+            minw = 2.6,
+            maxw = 2.6,
+            minh = 0.9,
+            scale = 0.36,
+            colour = G.C.GREEN,
+            focus_args = { nav = "wide", snap_to = true }
+        }),
+        UIBox_button({
+            button = "grdl_skip_buyout",
+            label = { safe_localize(state.text_keys.skip) },
+            minw = 2.6,
+            maxw = 2.6,
+            minh = 0.9,
+            scale = 0.36,
+            colour = G.C.RED,
+            focus_args = { nav = "wide" }
+        })
+    }, { align = "cm", padding = 0.08 })
+end
+
+local function summary_row(state, summary)
+    return row({
+        UICommon.stat_chip(safe_localize(state.text_keys.selected, { summary.selected_count, summary.max_selection })),
+        UICommon.stat_chip(safe_localize(state.text_keys.total, { summary.total_price })),
+        UICommon.stat_chip(safe_localize("grdl_k_stat_g", { summary.currency_g }))
+    }, { padding = 0.08 })
+end
+
+local function tab_root(nodes)
+    return { n = G.UIT.ROOT, config = { align = "tm", colour = G.C.CLEAR, minw = 7.0, minh = 5.4, padding = 0.05 }, nodes = nodes }
+end
+
+local function eligible_tab_definition(namespace, state)
     return function()
+        state.buyout_tab = "eligible"
         local offer = state.offer or {}
         local summary = BuyoutUI.summary(state, namespace.collection)
-        local nodes = {
-            row({
-                UICommon.stat_chip(safe_localize(state.text_keys.selected, { summary.selected_count, summary.max_selection })),
-                UICommon.stat_chip(safe_localize(state.text_keys.total, { summary.total_price })),
-                UICommon.stat_chip(safe_localize("grdl_k_stat_g", { summary.currency_g }))
-            }, { padding = 0.08 })
-        }
+        local nodes = { summary_row(state, summary) }
 
         local view = Binder.page(offer.eligible or {}, state.page or 1, BUYOUT_PAGE_SIZE)
         state.page = view.page
@@ -202,40 +245,31 @@ local function buyout_tab_definition(namespace, state)
             nodes[#nodes + 1] = row({ ui_text(safe_localize(reason_key(state.last_reason)), 0.34, G.C.RED) })
         end
 
-        if #(offer.blocked or {}) > 0 then
-            nodes[#nodes + 1] = row({ ui_text(safe_localize(state.text_keys.blocked), 0.36, G.C.UI.TEXT_LIGHT) }, { padding = 0.04 })
-            for _, candidate in ipairs(offer.blocked or {}) do
+        nodes[#nodes + 1] = action_buttons(state, summary)
+
+        return tab_root(nodes)
+    end
+end
+
+local function blocked_tab_definition(namespace, state)
+    return function()
+        state.buyout_tab = "blocked"
+        local offer = state.offer or {}
+        local summary = BuyoutUI.summary(state, namespace.collection)
+        local nodes = { summary_row(state, summary) }
+        local view = Binder.page(offer.blocked or {}, state.blocked_page or 1, BUYOUT_PAGE_SIZE)
+        state.blocked_page = view.page
+        if view.total == 0 then
+            nodes[#nodes + 1] = row({ ui_text(safe_localize(state.text_keys.empty), 0.36, G.C.UI.TEXT_INACTIVE) }, { padding = 0.3 })
+        else
+            for _, candidate in ipairs(view.items) do
                 nodes[#nodes + 1] = blocked_row(candidate)
             end
         end
-
-        nodes[#nodes + 1] = row({
-            UIBox_button({
-                button = "grdl_confirm_buyout",
-                label = {
-                    safe_localize(state.text_keys.confirm),
-                    safe_localize(state.text_keys.total, { summary.total_price })
-                },
-                minw = 2.6,
-                maxw = 2.6,
-                minh = 0.9,
-                scale = 0.36,
-                colour = G.C.GREEN,
-                focus_args = { nav = "wide", snap_to = true }
-            }),
-            UIBox_button({
-                button = "grdl_skip_buyout",
-                label = { safe_localize(state.text_keys.skip) },
-                minw = 2.6,
-                maxw = 2.6,
-                minh = 0.9,
-                scale = 0.36,
-                colour = G.C.RED,
-                focus_args = { nav = "wide" }
-            })
-        }, { align = "cm", padding = 0.08 })
-
-        return { n = G.UIT.ROOT, config = { align = "tm", colour = G.C.CLEAR, minw = 7.0, minh = 5.4, padding = 0.05 }, nodes = nodes }
+        local cycle = UICommon.page_cycle(view, "grdl_buyout_blocked_page")
+        if cycle then nodes[#nodes + 1] = row({ cycle }, { padding = 0.04 }) end
+        nodes[#nodes + 1] = action_buttons(state, summary)
+        return tab_root(nodes)
     end
 end
 
@@ -250,8 +284,13 @@ function BuyoutUI.create_overlay_definition(namespace)
                 tabs = {
                     {
                         label = safe_localize(state.text_keys.tab),
-                        chosen = true,
-                        tab_definition_function = buyout_tab_definition(namespace, state)
+                        chosen = state.buyout_tab ~= "blocked",
+                        tab_definition_function = eligible_tab_definition(namespace, state)
+                    },
+                    {
+                        label = safe_localize(state.text_keys.blocked),
+                        chosen = state.buyout_tab == "blocked",
+                        tab_definition_function = blocked_tab_definition(namespace, state)
                     }
                 },
                 text_scale = 0.4
@@ -310,7 +349,8 @@ function BuyoutUI.install_runtime(namespace, runtime, adapter)
     UICommon.install_preview(runtime.FUNCS)
 
     local function refresh_tab(state, event)
-        if not UICommon.swap_tab_contents(buyout_tab_definition(namespace, state)) then
+        local definition = state and state.buyout_tab == "blocked" and blocked_tab_definition(namespace, state) or eligible_tab_definition(namespace, state)
+        if not UICommon.swap_tab_contents(definition) then
             if adapter.refresh_overlay then adapter.refresh_overlay(namespace, state, event) end
         end
     end
@@ -332,6 +372,15 @@ function BuyoutUI.install_runtime(namespace, runtime, adapter)
         local state = namespace.buyout_ui_state
         if not state then return end
         BuyoutUI.set_page(state, event.cycle_config.current_option)
+        refresh_tab(state, event)
+    end
+
+    runtime.FUNCS.grdl_buyout_blocked_page = function(event)
+        if not event or not event.cycle_config then return end
+        local state = namespace.buyout_ui_state
+        if not state then return end
+        BuyoutUI.set_blocked_page(state, event.cycle_config.current_option)
+        state.buyout_tab = "blocked"
         refresh_tab(state, event)
     end
 
