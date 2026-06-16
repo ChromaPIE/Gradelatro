@@ -85,6 +85,129 @@ H.assert_equal(namespace.binder_ui_state.page, 2, "page switched")
 H.assert_equal(#namespace.binder_ui_state.page_view.items, 3, "second page remainder")
 BinderUI.set_page(namespace, 99)
 H.assert_equal(namespace.binder_ui_state.page, 2, "page clamps to max")
+local binder_opened_before_page = adapter.binder_opened
+runtime.FUNCS.grdl_binder_page({ cycle_config = { current_option = 1 } })
+H.assert_equal(namespace.binder_ui_state.page, 1, "binder page callback switches page")
+H.assert_equal(adapter.binder_opened, binder_opened_before_page + 1, "binder page callback rebuilds overlay")
+
+local previous_grid_g = rawget(_G, "G")
+local previous_grid_card = rawget(_G, "Card")
+local previous_grid_area = rawget(_G, "CardArea")
+local previous_grid_button = rawget(_G, "UIBox_button")
+local previous_grid_cycle = rawget(_G, "create_option_cycle")
+local previous_grid_options = rawget(_G, "create_UIBox_generic_options")
+local grid_areas = {}
+_G.G = {
+    ROOM = { T = { x = 0, y = 0, w = 10, h = 10 } },
+    P_CENTERS = {
+        j_short_name = { key = "j_short_name", set = "Joker" },
+        j_very_long_name = { key = "j_very_long_name", set = "Joker" }
+    },
+    P_CARDS = { empty = {} },
+    CARD_W = 1.44,
+    CARD_H = 1.9,
+    UIT = { R = "R", C = "C", T = "T", O = "O", ROOT = "ROOT" },
+    C = {
+        WHITE = "WHITE",
+        BLACK = "BLACK",
+        CLEAR = "CLEAR",
+        L_BLACK = "L_BLACK",
+        RED = "RED",
+        BLUE = "BLUE",
+        GREEN = "GREEN",
+        PURPLE = "PURPLE",
+        UI = { TEXT_LIGHT = "TEXT_LIGHT", TEXT_INACTIVE = "TEXT_INACTIVE", TEXT_DARK = "TEXT_DARK" }
+    }
+}
+_G.CardArea = function(x, y, w, h, args)
+    local area = {
+        T = { x = x, y = y, w = w, h = h },
+        cards = {},
+        config = args,
+        remove_card = function(self, card)
+            for index, value in ipairs(self.cards) do
+                if value == card then
+                    table.remove(self.cards, index)
+                    return card
+                end
+            end
+        end,
+        emplace = function(self, card) self.cards[#self.cards + 1] = card end
+    }
+    grid_areas[#grid_areas + 1] = area
+    return area
+end
+_G.Card = function(x, y, w, h, front, center)
+    return {
+        center = center,
+        children = {},
+        states = {},
+        set_edition = function() end,
+        remove = function() end
+    }
+end
+_G.UIBox_button = function(args) return { n = "button", config = args, nodes = {} } end
+_G.create_option_cycle = function(args) return { n = "cycle", config = args, nodes = {} } end
+_G.create_UIBox_generic_options = function(args) return args end
+local previous_grid_localize = rawget(_G, "localize")
+_G.localize = function(arg)
+    if type(arg) == "table" and arg.type == "name_text" and arg.key == "j_short_name" then return "Short" end
+    if type(arg) == "table" and arg.type == "name_text" and arg.key == "j_very_long_name" then return "ExtremelyLongLocalizedJokerName" end
+    if type(arg) == "table" then return "ERROR" end
+    return arg
+end
+
+local grid_namespace = {
+    config = config,
+    collection = Storage.normalize({ currency_g = 0 })
+}
+Storage.add_raw_card(grid_namespace.collection, {
+    center_key = "j_short_name", local_key = "short", rarity = "common",
+    edition = "base", condition = mint_condition, acquired_at = 3001
+})
+Storage.add_raw_card(grid_namespace.collection, {
+    center_key = "j_very_long_name", local_key = "long", rarity = "common",
+    edition = "base", condition = mint_condition, acquired_at = 3002
+})
+BinderUI.open(grid_namespace, 3003)
+local grid_definition = BinderUI.create_overlay_definition(grid_namespace)
+local function collect_text_nodes(node, out)
+    if type(node) ~= "table" then return end
+    if node.n == _G.G.UIT.T and node.config and type(node.config.text) == "string" then
+        out[#out + 1] = node.config
+    end
+    for _, child in ipairs(node.nodes or {}) do collect_text_nodes(child, out) end
+    for _, child in ipairs(node.contents or {}) do collect_text_nodes(child, out) end
+end
+local grid_texts = {}
+collect_text_nodes(grid_definition, grid_texts)
+local short_text, long_text = nil, nil
+local empty_texts = 0
+for _, text in ipairs(grid_texts) do
+    if text.text == "Short" then short_text = text end
+    if text.text == "ExtremelyLongLocalizedJokerName" then long_text = text end
+    if text.text == "空" then
+        empty_texts = empty_texts + 1
+        H.assert_equal(text.colour, _G.G.C.UI.TEXT_INACTIVE, "empty binder slot label is inactive")
+    end
+end
+H.assert_true(short_text ~= nil, "binder card tile shows localized card name")
+H.assert_true(long_text ~= nil, "binder card tile shows long localized card name")
+H.assert_true(long_text.scale < short_text.scale, "long binder card names shrink instead of widening the tile")
+H.assert_equal(empty_texts, 8, "binder grid keeps empty slots with placeholder titles")
+H.assert_equal(#grid_namespace.binder_areas, 10, "binder grid creates one fixed slot area per page slot")
+H.assert_equal(grid_namespace.binder_areas[1].config.card_limit, 1, "each binder tile card area holds one card")
+H.assert_equal(#grid_namespace.binder_areas[1].cards, 1, "first binder tile receives a card")
+H.assert_equal(#grid_namespace.binder_areas[2].cards, 1, "second binder tile receives a card")
+H.assert_equal(#grid_namespace.binder_areas[3].cards, 0, "empty binder tile receives no card")
+H.assert_equal(grid_namespace.binder_areas[1].T.w, grid_namespace.binder_areas[2].T.w, "binder tile card areas keep fixed width")
+_G.localize = previous_grid_localize
+_G.create_UIBox_generic_options = previous_grid_options
+_G.create_option_cycle = previous_grid_cycle
+_G.UIBox_button = previous_grid_button
+_G.CardArea = previous_grid_area
+_G.Card = previous_grid_card
+_G.G = previous_grid_g
 
 runtime.FUNCS.grdl_open_desk()
 local desk_state = namespace.desk_ui_state

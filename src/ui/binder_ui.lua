@@ -29,6 +29,9 @@ local PAGE_ROWS = { 5, 5 }
 local DESK_PAGE_SIZE = 7
 
 local CARD_INSPECT_SCALE = 2.2
+local BINDER_TILE_W = 2.25
+local BINDER_TILE_H = 2.75
+local BINDER_NAME_BYTES = 22
 local TRANSIENT_FEEDBACK_SECONDS = 2
 
 local TEXT_KEYS = {
@@ -589,42 +592,70 @@ function BinderUI.fill_card_areas(namespace)
     end
 
     local items = state.page_view and state.page_view.items or {}
-    local slot = 0
-    for j = 1, #areas do
-        local area = areas[j]
-        for _ = 1, (PAGE_ROWS[j] or 0) do
-            slot = slot + 1
-            local entry = items[slot]
-            if entry then
-                local center = G.P_CENTERS and G.P_CENTERS[entry.center_key] or nil
-                if center then
-                    local card = Card(area.T.x + area.T.w / 2, area.T.y, G.CARD_W, G.CARD_H, (G.P_CARDS and G.P_CARDS.empty or nil), center)
-                    local edition_flag = Catalog.edition_flags(entry.edition)
-                    if edition_flag then card:set_edition(edition_flag, true, true) end
-                    card.grdl_record = entry
-                    suppress_selection(card)
-                    area:emplace(card)
-                end
+    for slot, area in ipairs(areas) do
+        local entry = items[slot]
+        if entry then
+            local center = G.P_CENTERS and G.P_CENTERS[entry.center_key] or nil
+            if center then
+                local card = Card(area.T.x + area.T.w / 2, area.T.y, G.CARD_W, G.CARD_H, (G.P_CARDS and G.P_CARDS.empty or nil), center)
+                local edition_flag = Catalog.edition_flags(entry.edition)
+                if edition_flag then card:set_edition(edition_flag, true, true) end
+                card.grdl_record = entry
+                suppress_selection(card)
+                area:emplace(card)
             end
         end
     end
 end
 
+local function binder_card_tile(area, entry)
+    local is_empty = entry == nil
+    local name = is_empty and "空" or center_name(entry)
+    local colour = is_empty and G.C.UI.TEXT_INACTIVE or G.C.WHITE
+    return col({
+        row({ ui_text(name, UICommon.fit_scale(name, 0.34, BINDER_NAME_BYTES), colour) }, {
+            padding = 0.01,
+            minh = 0.34,
+            minw = BINDER_TILE_W - 0.16,
+            maxw = BINDER_TILE_W - 0.16
+        }),
+        row({ { n = G.UIT.O, config = { object = area } } }, { padding = 0.02, no_fill = true })
+    }, {
+        align = "cm",
+        padding = 0.07,
+        r = 0.12,
+        colour = G.C.L_BLACK,
+        emboss = 0.05,
+        shadow = true,
+        minw = BINDER_TILE_W,
+        maxw = BINDER_TILE_W,
+        minh = BINDER_TILE_H
+    })
+end
+
 local function build_card_grid(namespace)
     local areas = {}
-    local deck_tables = {}
-    for j = 1, #PAGE_ROWS do
-        local area = CardArea(
-            G.ROOM.T.x + 0.2 * G.ROOM.T.w / 2, G.ROOM.T.h,
-            (PAGE_ROWS[j] + 0.25) * G.CARD_W,
-            0.95 * G.CARD_H,
-            { card_limit = PAGE_ROWS[j], type = "title", highlight_limit = 0, collection = true })
-        areas[j] = area
-        deck_tables[#deck_tables + 1] = row({ { n = G.UIT.O, config = { object = area } } }, { padding = 0.07, no_fill = true })
+    local grid_rows = {}
+    local items = (namespace.binder_ui_state and namespace.binder_ui_state.page_view and namespace.binder_ui_state.page_view.items) or {}
+    local slot = 0
+    for row_index = 1, #PAGE_ROWS do
+        local cells = {}
+        for _ = 1, PAGE_ROWS[row_index] do
+            slot = slot + 1
+            local entry = items[slot]
+            local area = CardArea(
+                G.ROOM.T.x + 0.2 * G.ROOM.T.w / 2, G.ROOM.T.h,
+                G.CARD_W,
+                0.95 * G.CARD_H,
+                { card_limit = 1, type = "title", highlight_limit = 0, collection = true })
+            areas[#areas + 1] = area
+            cells[#cells + 1] = binder_card_tile(area, entry)
+        end
+        grid_rows[#grid_rows + 1] = row(cells, { padding = 0.06 })
     end
     namespace.binder_areas = areas
     BinderUI.fill_card_areas(namespace)
-    return deck_tables
+    return grid_rows
 end
 
 local function summary_row(state)
@@ -1178,8 +1209,8 @@ function BinderUI.install_runtime(namespace, runtime, adapter)
 
     runtime.FUNCS.grdl_binder_page = function(event)
         if not event or not event.cycle_config then return end
-        BinderUI.set_page(namespace, event.cycle_config.current_option)
-        BinderUI.fill_card_areas(namespace)
+        local state = BinderUI.set_page(namespace, event.cycle_config.current_option)
+        if state and adapter.open_binder then adapter.open_binder(namespace, state, event) end
     end
 
     local function reopen_inspect(card_id, opts)
