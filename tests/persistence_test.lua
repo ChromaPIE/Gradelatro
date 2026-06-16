@@ -19,12 +19,14 @@ H.assert_equal(profile_ns.save_key, "profile_1", "active profile key stored")
 H.assert_equal(profile_one.currency_g, 77, "legacy collection migrates to active profile")
 H.assert_equal(legacy_config.collection, nil, "legacy collection removed after migration")
 H.assert_equal(legacy_config.saves.profile_1.collection, profile_one, "profile collection stored under save key")
+H.assert_equal(profile_ns.collection_migrated, true, "legacy collection migration requests a config save")
 
 profile_one.currency_g = 88
 local profile_two_ns = { mod = profile_mod, config = legacy_config }
 local profile_two = Persistence.activate_collection(profile_two_ns, Storage, { SETTINGS = { profile = 2 } })
 H.assert_equal(profile_two.currency_g, 222, "second profile keeps its own collection")
 H.assert_true(profile_two ~= profile_one, "profile collections are distinct tables")
+H.assert_equal(profile_two_ns.collection_migrated, nil, "normal profile activation does not request migration save")
 
 profile_ns.Storage = Storage
 profile_ns.collection.currency_g = 99
@@ -44,14 +46,15 @@ local hook_config = {
     }
 }
 local hook_ns = { mod = { id = "Gradelatro", config = hook_config }, config = hook_config, Storage = Storage }
-local hook_runtime = { SETTINGS = { profile = 1 }, FUNCS = {} }
-hook_runtime.FUNCS.load_profile = function()
-    hook_runtime.SETTINGS.profile = 2
+local hook_runtime = { SETTINGS = { profile = 1 } }
+local hook_game = {}
+function hook_game:load_profile(profile)
+    hook_runtime.SETTINGS.profile = profile
     return "loaded"
 end
 Persistence.activate_collection(hook_ns, Storage, hook_runtime)
-H.assert_equal(Persistence.install_profile_refresh(hook_ns, Storage, hook_runtime), true, "profile refresh hook installs")
-H.assert_equal(hook_runtime.FUNCS.load_profile(), "loaded", "profile refresh hook preserves load result")
+H.assert_equal(Persistence.install_profile_refresh(hook_ns, Storage, hook_runtime, hook_game), true, "profile refresh hook installs on Game.load_profile")
+H.assert_equal(hook_game:load_profile(2), "loaded", "profile refresh hook preserves load result")
 H.assert_equal(hook_ns.save_key, "profile_2", "profile refresh hook updates save key")
 H.assert_equal(hook_ns.collection.currency_g, 22, "profile refresh hook switches collection")
 

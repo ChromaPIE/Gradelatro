@@ -17,8 +17,10 @@ function Persistence.activate_collection(namespace, storage, runtime)
     local slot = type(config.saves[key]) == "table" and config.saves[key] or {}
     config.saves[key] = slot
 
+    namespace.collection_migrated = nil
     if type(slot.collection) ~= "table" and type(config.collection) == "table" then
         slot.collection = config.collection
+        namespace.collection_migrated = true
     end
     config.collection = nil
 
@@ -55,15 +57,15 @@ function Persistence.ensure_active_collection(namespace, storage, runtime)
     return Persistence.activate_collection(namespace, storage, runtime)
 end
 
-function Persistence.install_profile_refresh(namespace, storage, runtime)
+function Persistence.install_profile_refresh(namespace, storage, runtime, game_class)
     runtime = runtime or rawget(_G, "G")
-    local funcs = runtime and runtime.FUNCS or nil
-    if not namespace or not funcs or type(funcs.load_profile) ~= "function" then return false end
+    game_class = game_class or rawget(_G, "Game")
+    if not namespace or not game_class or type(game_class.load_profile) ~= "function" then return false end
     if namespace.profile_refresh_installed then return true end
 
-    local original = funcs.load_profile
-    funcs.load_profile = function(...)
-        local result = { original(...) }
+    local original = game_class.load_profile
+    game_class.load_profile = function(self, ...)
+        local result = { original(self, ...) }
         Persistence.ensure_active_collection(namespace, storage, runtime)
         return unpack(result)
     end
@@ -80,7 +82,9 @@ function Persistence.save(namespace, smods)
         Persistence.ensure_active_collection(namespace, namespace.Storage)
     end
     sync_collection(namespace)
-    return smods.save_mod_config(namespace.mod) == true
+    local saved = smods.save_mod_config(namespace.mod) == true
+    if saved then namespace.collection_migrated = nil end
+    return saved
 end
 
 return Persistence

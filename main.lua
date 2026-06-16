@@ -29,7 +29,10 @@ local Persistence = load_src("core/persistence.lua")
 Bootstrap.attach(Gradelatro, "Persistence", Persistence)
 
 Persistence.activate_collection(Gradelatro, Storage, rawget(_G, "G"))
-Persistence.install_profile_refresh(Gradelatro, Storage, rawget(_G, "G"))
+Persistence.install_profile_refresh(Gradelatro, Storage, rawget(_G, "G"), rawget(_G, "Game"))
+if Gradelatro.collection_migrated then
+    Persistence.save(Gradelatro)
+end
 
 local Catalog = load_src("domain/catalog.lua")
 Bootstrap.attach(Gradelatro, "Catalog", Catalog)
