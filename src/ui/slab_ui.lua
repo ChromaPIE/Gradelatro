@@ -208,11 +208,21 @@ local function apply_alignment_now(box)
     sync_visual_transform(box)
 end
 
+local find_infotip_trigger
+
 local function align_side_info_popups(card, popup, align)
     if align ~= "cl" and align ~= "cr" then return end
+    local offset = align == "cl" and { x = -SIDE_OFFSET_X, y = 0 } or { x = SIDE_OFFSET_X, y = 0 }
+    local trigger = find_infotip_trigger(popup and popup.UIRoot or popup)
+    local embedded_info = trigger and trigger.children and trigger.children.info or nil
+    if embedded_info and (embedded_info.set_alignment or embedded_info.align_to_major) then
+        realign_box(embedded_info, popup, align, copy_offset(offset), "Strong")
+        apply_alignment_now(embedded_info)
+        if embedded_info.UIRoot then move_child_tree(embedded_info.UIRoot) end
+    end
+
     local children = card and card.children or nil
     if type(children) ~= "table" then return end
-    local offset = align == "cl" and { x = -SIDE_OFFSET_X, y = 0 } or { x = SIDE_OFFSET_X, y = 0 }
     for key, child in pairs(children) do
         local key_text = tostring(key)
         if child ~= popup
@@ -337,6 +347,40 @@ local function find_slab_anchor(node, seen)
         if found then return found end
     end
     return nil
+end
+
+find_infotip_trigger = function(node, seen)
+    if type(node) ~= "table" then return nil end
+    seen = seen or {}
+    if seen[node] then return nil end
+    seen[node] = true
+    if node.config and node.config.func == "show_infotip" then return node end
+    for _, child in ipairs(node.nodes or {}) do
+        local found = find_infotip_trigger(child, seen)
+        if found then return found end
+    end
+    for _, child in pairs(node.children or {}) do
+        local found = find_infotip_trigger(child, seen)
+        if found then return found end
+    end
+    return nil
+end
+
+local function align_vanilla_info_queue_side(popup, card)
+    if not popup or not card or type(card.align_h_popup) ~= "function" then return end
+    local ok, planned = pcall(card.align_h_popup, card)
+    if not ok then return end
+    local planned_type = alignment_type(planned)
+    if planned_type ~= "cl" and planned_type ~= "cr" then return end
+    local trigger = find_infotip_trigger(popup)
+    local info_root = trigger and trigger.config and trigger.config.ref_table and trigger.config.ref_table[1] or nil
+    if not info_root or not info_root.config then return end
+    if planned_type == "cr" then
+        info_root.config.card_pos = 0
+    else
+        local room = room_rect()
+        info_root.config.card_pos = room and (room.w or 0) or 999
+    end
 end
 
 local function adapt_hover_popup_for_slab(card, funcs)
@@ -499,8 +543,9 @@ function SlabUI.install(namespace, env)
 
     local original_popup = ui_def.card_h_popup
     ui_def.card_h_popup = function(card)
+        local record = nil
         if card then
-            local record = card.grdl_record or resolve_loadout_record(namespace, card)
+            record = card.grdl_record or resolve_loadout_record(namespace, card)
             if record and record.status == "graded" then
                 pcall(inject_inscription_info, card, record)
                 pcall(inject_proficiency_info, card, record)
@@ -508,6 +553,7 @@ function SlabUI.install(namespace, env)
         end
         local popup = original_popup(card)
         if not popup or not card then return popup end
+        if record then pcall(align_vanilla_info_queue_side, popup, card) end
         if card.grdl_record then
             pcall(append_badge, popup, card.grdl_record)
             if card.grdl_record.status == "graded" then

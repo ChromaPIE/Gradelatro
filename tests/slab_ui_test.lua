@@ -258,6 +258,15 @@ function hover_node.hover(card)
         VT = { x = 7.4, y = -0.25, w = 2.5, h = 1.3 },
         UIRoot = { children = { anchor, whole_tooltip_badge_text_node } }
     }
+    if card.extra_embedded_info_popup then
+        table.insert(popup_box.UIRoot.children, 1, {
+            config = card.extra_embedded_info_consumed and { func = "show_infotip" }
+                or { func = "show_infotip", ref_table = { { config = { card_pos = card.T.x }, nodes = {} } } },
+            children = { info = card.extra_embedded_info_popup },
+            T = { x = 7.4, y = -0.25, w = 0.2, h = 0.2 },
+            VT = { x = 7.4, y = -0.25, w = 0.2, h = 0.2 }
+        })
+    end
     function popup_box:set_alignment(args2)
         self.last_alignment = args2
         self.config.type = args2.type
@@ -303,19 +312,20 @@ _G.G.ROOM = { T = { x = 0, y = 0, w = 10, h = 10 } }
 local whole_tooltip_uibox_calls = 0
 local whole_tooltip_slab = nil
 local whole_tooltip_slab_child = nil
+local whole_tooltip_next_slab_x = 8.1
 local whole_tooltip_next_slab_y = -0.35
 _G.UIBox = function(args)
     whole_tooltip_uibox_calls = whole_tooltip_uibox_calls + 1
     whole_tooltip_slab_child = {
-        T = { x = 8.1, y = whole_tooltip_next_slab_y, w = 2.2, h = 1.0 },
-        VT = { x = 8.1, y = whole_tooltip_next_slab_y, w = 2.2, h = 1.0 },
+        T = { x = whole_tooltip_next_slab_x, y = whole_tooltip_next_slab_y, w = 2.2, h = 1.0 },
+        VT = { x = whole_tooltip_next_slab_x, y = whole_tooltip_next_slab_y, w = 2.2, h = 1.0 },
         children = {}
     }
     whole_tooltip_slab = {
         config = args.config,
         children = {},
-        T = { x = 8.1, y = whole_tooltip_next_slab_y, w = 2.2, h = 1.0 },
-        VT = { x = 8.1, y = whole_tooltip_next_slab_y, w = 2.2, h = 1.0 },
+        T = { x = whole_tooltip_next_slab_x, y = whole_tooltip_next_slab_y, w = 2.2, h = 1.0 },
+        VT = { x = whole_tooltip_next_slab_x, y = whole_tooltip_next_slab_y, w = 2.2, h = 1.0 },
         UIRoot = { children = { whole_tooltip_slab_child } },
         align_to_major = function(self)
             self.aligned_to_major = (self.aligned_to_major or 0) + 1
@@ -408,6 +418,37 @@ H.assert_equal(whole_tooltip_slab.config.parent, right_side_hover_card.children.
 H.assert_equal(right_side_hover_card.children.info_queue.last_alignment.type, "cr", "right-side tooltip keeps vanilla info queue on the right side")
 H.assert_equal(right_side_hover_card.children.info_queue.config.parent, right_side_hover_card.children.h_popup, "right-side info queue follows the tooltip box")
 
+local vanilla_info_namespace = { binder_hover_index = { kino_air_freshener = catalog_entry } }
+local vanilla_info_popup = {
+    nodes = { {
+        nodes = { {
+            config = {
+                func = "show_infotip",
+                ref_table = { { config = { card_pos = 8.0 }, nodes = {} } }
+            },
+            nodes = { { name = "main_box" } }
+        } }
+    } }
+}
+local vanilla_info_env = {
+    ui_def = { card_h_popup = function() return vanilla_info_popup end },
+    funcs = {},
+    card = {}
+}
+H.assert_equal(SlabUI.install(vanilla_info_namespace, vanilla_info_env), true, "vanilla info queue side test installs wrapper")
+local vanilla_info_card = {
+    grdl_record = record,
+    children = {},
+    config = {},
+    T = { x = 5.0, y = 1.2, w = 1.0, h = 1.4 },
+    align_h_popup = function()
+        return { type = "cr", align = "cr", parent = vanilla_info_card, major = vanilla_info_card }
+    end
+}
+vanilla_info_env.ui_def.card_h_popup(vanilla_info_card)
+H.assert_equal(vanilla_info_popup.nodes[1].nodes[2].config.ref_table[1].config.card_pos, 0, "right-side card popup forces vanilla info queue to the right of the tooltip")
+
+whole_tooltip_next_slab_x = 8.1
 whole_tooltip_next_slab_y = 2.15
 local below_hover_card = {
     grdl_record = record,
@@ -425,6 +466,66 @@ H.assert_equal(below_hover_card.children.h_popup.last_alignment.type, "cl", "bel
 below_hover_card.children.h_popup:set_alignment(below_hover_card:align_h_popup())
 H.assert_equal(below_hover_card.children.h_popup.last_alignment.type, "cl", "below-card slab overlap keeps the side alignment on later movement")
 
+whole_tooltip_next_slab_x = 1.2
+whole_tooltip_next_slab_y = 2.15
+local below_right_hover_card = {
+    grdl_record = record,
+    children = {},
+    config = {},
+    base_popup_direction = "bm",
+    T = { x = 1.0, y = 1.2, w = 1.0, h = 1.4 },
+    extra_embedded_info_popup = {
+        config = { align = "cl", parent = nil },
+        T = { x = 0, y = 0, w = 1, h = 1 },
+        set_alignment = function(self, args)
+            self.last_alignment = args
+            self.config.align = args.type
+            self.config.offset = args.offset
+            self.config.parent = args.major
+        end,
+        align_to_major = function(self) self.aligned_to_major = true end,
+        move_with_major = function(self) self.moved_with_major = true end
+    }
+}
+setmetatable(below_right_hover_card, { __index = hover_card_class })
+below_right_hover_card.config.h_popup = whole_tooltip_env.ui_def.card_h_popup(below_right_hover_card)
+below_right_hover_card.config.h_popup_config = below_right_hover_card:align_h_popup()
+whole_tooltip_env.node.hover(below_right_hover_card)
+H.assert_equal(below_right_hover_card.children.h_popup.last_alignment.type, "cr", "below-card slab overlap can move the tooltip to the right side")
+H.assert_equal(below_right_hover_card.extra_embedded_info_popup.last_alignment.type, "cr", "right-side moved tooltip also moves already-created vanilla info queue right")
+H.assert_equal(below_right_hover_card.extra_embedded_info_popup.config.parent, below_right_hover_card.children.h_popup, "already-created vanilla info queue follows the moved tooltip")
+
+whole_tooltip_next_slab_x = 1.2
+whole_tooltip_next_slab_y = 2.15
+local consumed_info_hover_card = {
+    grdl_record = record,
+    children = {},
+    config = {},
+    base_popup_direction = "bm",
+    T = { x = 1.0, y = 1.2, w = 1.0, h = 1.4 },
+    extra_embedded_info_consumed = true,
+    extra_embedded_info_popup = {
+        config = { align = "cl", parent = nil },
+        T = { x = 0, y = 0, w = 1, h = 1 },
+        set_alignment = function(self, args)
+            self.last_alignment = args
+            self.config.align = args.type
+            self.config.offset = args.offset
+            self.config.parent = args.major
+        end,
+        align_to_major = function(self) self.aligned_to_major = true end,
+        move_with_major = function(self) self.moved_with_major = true end
+    }
+}
+setmetatable(consumed_info_hover_card, { __index = hover_card_class })
+consumed_info_hover_card.config.h_popup = whole_tooltip_env.ui_def.card_h_popup(consumed_info_hover_card)
+consumed_info_hover_card.config.h_popup_config = consumed_info_hover_card:align_h_popup()
+whole_tooltip_env.node.hover(consumed_info_hover_card)
+H.assert_equal(consumed_info_hover_card.children.h_popup.last_alignment.type, "cr", "below-card slab overlap moves consumed-info tooltip to the right side")
+H.assert_equal(consumed_info_hover_card.extra_embedded_info_popup.last_alignment.type, "cr", "already-created vanilla info queue stays on the moved tooltip side after ref_table is consumed")
+H.assert_equal(consumed_info_hover_card.extra_embedded_info_popup.config.parent, consumed_info_hover_card.children.h_popup, "consumed vanilla info queue follows the moved tooltip box")
+
+whole_tooltip_next_slab_x = 8.1
 whole_tooltip_next_slab_y = 0.1
 local popup_only_overflow_card = {
     grdl_record = record,
