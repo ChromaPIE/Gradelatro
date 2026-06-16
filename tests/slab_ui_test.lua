@@ -283,6 +283,9 @@ function hover_node.hover(card)
     end
     anchor.UIBox = popup_box
     card.children.h_popup = popup_box
+    if card.extra_info_popup then
+        card.children.info_queue = card.extra_info_popup
+    end
 end
 local whole_tooltip_env = {
     ui_def = {
@@ -381,7 +384,19 @@ local right_side_hover_card = {
     children = {},
     config = {},
     base_popup_direction = "cr",
-    T = { x = 1.0, y = 1.2, w = 1.0, h = 1.4 }
+    T = { x = 1.0, y = 1.2, w = 1.0, h = 1.4 },
+    extra_info_popup = {
+        config = { align = "cl", parent = nil },
+        T = { x = 0, y = 0, w = 1, h = 1 },
+        set_alignment = function(self, args)
+            self.last_alignment = args
+            self.config.align = args.type
+            self.config.offset = args.offset
+            self.config.parent = args.major
+        end,
+        align_to_major = function(self) self.aligned_to_major = true end,
+        move_with_major = function(self) self.moved_with_major = true end
+    }
 }
 setmetatable(right_side_hover_card, { __index = hover_card_class })
 right_side_hover_card.config.h_popup = whole_tooltip_env.ui_def.card_h_popup(right_side_hover_card)
@@ -390,6 +405,8 @@ whole_tooltip_env.node.hover(right_side_hover_card)
 H.assert_equal(right_side_hover_card.children.h_popup.last_alignment, nil, "right-side vanilla tooltip alignment is not changed")
 H.assert_equal(whole_tooltip_slab.config.align, "cr", "right-side tooltip keeps the slab on the right side")
 H.assert_equal(whole_tooltip_slab.config.parent, right_side_hover_card.children.h_popup, "right-side slab follows the tooltip box")
+H.assert_equal(right_side_hover_card.children.info_queue.last_alignment.type, "cr", "right-side tooltip keeps vanilla info queue on the right side")
+H.assert_equal(right_side_hover_card.children.info_queue.config.parent, right_side_hover_card.children.h_popup, "right-side info queue follows the tooltip box")
 
 whole_tooltip_next_slab_y = 2.15
 local below_hover_card = {

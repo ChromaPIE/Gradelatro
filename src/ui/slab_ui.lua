@@ -208,6 +208,25 @@ local function apply_alignment_now(box)
     sync_visual_transform(box)
 end
 
+local function align_side_info_popups(card, popup, align)
+    if align ~= "cl" and align ~= "cr" then return end
+    local children = card and card.children or nil
+    if type(children) ~= "table" then return end
+    local offset = align == "cl" and { x = -SIDE_OFFSET_X, y = 0 } or { x = SIDE_OFFSET_X, y = 0 }
+    for key, child in pairs(children) do
+        local key_text = tostring(key)
+        if child ~= popup
+            and type(child) == "table"
+            and child.config
+            and (key_text:find("info", 1, true) or child.config.grdl_info_queue or child.config.instance_type == "POPUP")
+            and (child.set_alignment or child.align_to_major) then
+            realign_box(child, popup, align, copy_offset(offset), "Strong")
+            apply_alignment_now(child)
+            if child.UIRoot then move_child_tree(child.UIRoot) end
+        end
+    end
+end
+
 local function adapt_if_top_overflow(box, major, opts)
     opts = opts or {}
     local margin = opts.screen_margin or SCREEN_MARGIN
@@ -341,6 +360,7 @@ local function adapt_hover_popup_for_slab(card, funcs)
         realign_box(slab, popup, planned_type, offset, "Strong")
         apply_alignment_now(slab)
         if slab and slab.UIRoot then move_child_tree(slab.UIRoot) end
+        align_side_info_popups(card, popup, planned_type)
         return
     end
     local major = planned_alignment.major
@@ -356,6 +376,7 @@ local function adapt_hover_popup_for_slab(card, funcs)
     realign_box(popup, major, align, offset, "Strong")
     apply_alignment_now(popup)
     if popup.UIRoot then move_child_tree(popup.UIRoot) end
+    align_side_info_popups(card, popup, align)
     apply_alignment_now(slab)
     if slab and slab.UIRoot then move_child_tree(slab.UIRoot) end
 end

@@ -579,33 +579,81 @@ function BinderUI.sell_from_inspect(namespace, card_id, now)
     return result
 end
 
-function BinderUI.fill_card_areas(namespace)
+local function remove_area_card(area, card)
+    if not area or not card then return end
+    local removed = area.remove_card and area:remove_card(card) or nil
+    if removed and removed.remove then removed:remove() end
+end
+
+local function apply_display_record(card, entry)
+    local edition_flag = Catalog.edition_flags(entry.edition)
+    if card.set_edition then pcall(card.set_edition, card, edition_flag, true, true) end
+    card.grdl_record = entry
+    suppress_selection(card)
+end
+
+local function live_center_key(card)
+    local center = card and card.config and card.config.center or card and card.center or nil
+    return center and center.key or card and card.grdl_record and card.grdl_record.center_key or nil
+end
+
+local function morph_display_card(card, center, entry, animate)
+    if not card or type(card.set_ability) ~= "function" then return false end
+    local keep_x, keep_y, keep_r = card.T and card.T.x or nil, card.T and card.T.y or nil, card.T and card.T.r or nil
+    if card.original_T and card.T then
+        card.original_T.x, card.original_T.y, card.original_T.r = keep_x, keep_y, keep_r
+    end
+    pcall(card.set_ability, card, center, true)
+    if card.T then
+        card.T.x, card.T.y, card.T.r = keep_x, keep_y, keep_r
+    end
+    apply_display_record(card, entry)
+    if animate and card.juice_up then pcall(card.juice_up, card, 0.05, 0.03) end
+    return true
+end
+
+local function emplace_display_card(area, entry, center, slot, animate)
+    local card = Card(area.T.x + area.T.w / 2, area.T.y, G.CARD_W, G.CARD_H, (G.P_CARDS and G.P_CARDS.empty or nil), center)
+    apply_display_record(card, entry)
+    area:emplace(card)
+    if animate and card.start_materialize then pcall(card.start_materialize, card, nil, (slot or 1) > 1) end
+end
+
+local function sync_area_slot(area, entry, slot, opts)
+    if not area then return end
+    for i = #area.cards, 2, -1 do
+        remove_area_card(area, area.cards[i])
+    end
+
+    local center = entry and G.P_CENTERS and G.P_CENTERS[entry.center_key] or nil
+    if not center then
+        remove_area_card(area, area.cards[1])
+        return
+    end
+
+    local card = area.cards[1]
+    if not card then
+        emplace_display_card(area, entry, center, slot, opts and opts.animate)
+        return
+    end
+
+    if live_center_key(card) == entry.center_key then
+        apply_display_record(card, entry)
+        return
+    end
+    if morph_display_card(card, center, entry, opts and opts.animate) then return end
+    remove_area_card(area, card)
+    emplace_display_card(area, entry, center, slot, opts and opts.animate)
+end
+
+function BinderUI.fill_card_areas(namespace, opts)
     local state = namespace and namespace.binder_ui_state or nil
     local areas = namespace and namespace.binder_areas or nil
     if not state or not areas then return end
 
-    for j = 1, #areas do
-        local area = areas[j]
-        for i = #area.cards, 1, -1 do
-            local card = area:remove_card(area.cards[i])
-            if card then card:remove() end
-        end
-    end
-
     local items = state.page_view and state.page_view.items or {}
     for slot, area in ipairs(areas) do
-        local entry = items[slot]
-        if entry then
-            local center = G.P_CENTERS and G.P_CENTERS[entry.center_key] or nil
-            if center then
-                local card = Card(area.T.x + area.T.w / 2, area.T.y, G.CARD_W, G.CARD_H, (G.P_CARDS and G.P_CARDS.empty or nil), center)
-                local edition_flag = Catalog.edition_flags(entry.edition)
-                if edition_flag then card:set_edition(edition_flag, true, true) end
-                card.grdl_record = entry
-                suppress_selection(card)
-                area:emplace(card)
-            end
-        end
+        sync_area_slot(area, items[slot], slot, opts)
     end
 end
 
@@ -727,7 +775,7 @@ function BinderUI.refresh_card_grid(namespace, opts)
     for slot, title_slot in ipairs(title_slots) do
         update_title_slot(title_slot, items[slot], opts and opts.animate_titles)
     end
-    BinderUI.fill_card_areas(namespace)
+    BinderUI.fill_card_areas(namespace, { animate = opts and opts.animate_titles })
     return true
 end
 

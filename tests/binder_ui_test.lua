@@ -340,17 +340,32 @@ H.assert_equal(BinderUI.open_inspect(nil, raw_card.id), nil, "missing namespace 
 local previous_fill_g = rawget(_G, "G")
 local previous_fill_card = rawget(_G, "Card")
 _G.G = {
-    P_CENTERS = { j_joker = { key = "j_joker", set = "Joker" } },
+    P_CENTERS = {
+        j_joker = { key = "j_joker", set = "Joker" },
+        j_other = { key = "j_other", set = "Joker" }
+    },
     CARD_W = 1.44,
     CARD_H = 1.9
 }
 _G.Card = function(x, y, w, h, front, center)
     return {
         center = center,
+        config = { center = center },
+        T = { x = x, y = y, r = 0.2 },
+        original_T = { x = -99, y = -99, r = 0 },
         children = {},
+        morphs = {},
+        materializes = 0,
+        set_ability = function(self, next_center, initial)
+            self.morphs[#self.morphs + 1] = { center = next_center, initial = initial }
+            self.center = next_center
+            self.config.center = next_center
+            self.T.x, self.T.y, self.T.r = self.original_T.x, self.original_T.y, self.original_T.r
+        end,
+        start_materialize = function(self) self.materializes = self.materializes + 1 end,
         set_edition = function(self, flag) self.edition_flag = flag end,
         juice_up = function(self) self.juiced = (self.juiced or 0) + 1 end,
-        remove = function() end
+        remove = function(self) self.removed = true end
     }
 end
 local function fake_area()
@@ -388,8 +403,26 @@ H.assert_true(type(filled[1].click) == "function", "grid card click overridden")
 filled[1]:click()
 H.assert_equal(filled[1].juiced, 1, "click keeps juice feedback")
 H.assert_equal(filled[1].highlighted, nil, "click never selects the card")
+local reused_card = filled[1]
 BinderUI.fill_card_areas(fill_namespace)
-H.assert_equal(#fill_namespace.binder_areas[1].cards, 1, "refill replaces cards without stacking")
+H.assert_equal(fill_namespace.binder_areas[1].cards[1], reused_card, "refill reuses matching visible cards")
+H.assert_equal(reused_card.removed, nil, "matching visible card is not removed during refill")
+fill_namespace.binder_ui_state.page_view.items[1] = { id = "f3", center_key = "j_other", edition = "base", status = "graded" }
+reused_card.T.x, reused_card.T.y, reused_card.T.r = 4, 5, 0.4
+BinderUI.fill_card_areas(fill_namespace, { animate = true })
+H.assert_equal(fill_namespace.binder_areas[1].cards[1], reused_card, "refill morphs changed centers in place")
+H.assert_equal(#reused_card.morphs, 1, "changed center uses set_ability instead of hard replacement")
+H.assert_equal(reused_card.morphs[1].center, _G.G.P_CENTERS.j_other, "morph targets the new center")
+H.assert_near(reused_card.T.x, 4, 0.000001, "morph keeps the live x position")
+H.assert_near(reused_card.T.y, 5, 0.000001, "morph keeps the live y position")
+H.assert_near(reused_card.T.r, 0.4, 0.000001, "morph keeps the live rotation")
+H.assert_near(reused_card.original_T.x, 4, 0.000001, "morph re-anchors original_T before set_ability")
+H.assert_equal(reused_card.grdl_record.id, "f3", "morphed card carries the new record")
+H.assert_true((reused_card.juiced or 0) >= 2, "animated morph gives a soft pulse")
+fill_namespace.binder_ui_state.page_view.items = {}
+BinderUI.fill_card_areas(fill_namespace)
+H.assert_equal(#fill_namespace.binder_areas[1].cards, 0, "empty refresh clears stale visible cards")
+H.assert_equal(reused_card.removed, true, "stale visible card is removed only when slot becomes empty")
 _G.G = previous_fill_g
 _G.Card = previous_fill_card
 
