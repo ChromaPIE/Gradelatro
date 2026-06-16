@@ -84,3 +84,16 @@ payload = '''
 '''
 match_indent = false
 overwrite = false
+
+[[patches]]
+[patches.pattern]
+target = "main.lua"
+pattern = '''				if name == 'touchpressed' then'''
+position = "after"
+payload = '''
+					if Gradelatro and Gradelatro.TouchInput then
+						pcall(Gradelatro.TouchInput.touchpressed, Gradelatro, a, b, c, d)
+					end
+'''
+match_indent = false
+overwrite = false

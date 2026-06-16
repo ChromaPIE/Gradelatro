@@ -77,6 +77,9 @@ local MarketUI = load_src("ui/market_ui.lua")
 Bootstrap.attach(Gradelatro, "MarketUI", MarketUI)
 MarketUI.install_runtime(Gradelatro, rawget(_G, "G"))
 
+local TouchInput = load_src("ui/touch_input.lua")
+Bootstrap.attach(Gradelatro, "TouchInput", TouchInput)
+
 SMODS.Keybind({
     key_pressed = "g",
     event = "pressed",
