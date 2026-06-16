@@ -138,6 +138,41 @@ function UICommon.page_cycle(view, callback)
     })
 end
 
+local function attach_preview_tooltip(preview_box, card, runtime)
+    if not preview_box or not card or not runtime or not runtime.UIDEF or type(runtime.UIDEF.card_h_popup) ~= "function" then
+        return false
+    end
+    if not card.ability_UIBox_table and type(card.generate_UIBox_ability_table) == "function" then
+        local ok, ability_table = pcall(card.generate_UIBox_ability_table, card)
+        if ok then card.ability_UIBox_table = ability_table end
+    end
+    if not card.ability_UIBox_table then return false end
+
+    local ability_table = card.ability_UIBox_table
+    local previous_info = ability_table.info
+    ability_table.info = nil
+    local ok, definition = pcall(runtime.UIDEF.card_h_popup, card)
+    ability_table.info = previous_info
+    if not ok or not definition then return false end
+
+    preview_box.children = preview_box.children or {}
+    preview_box.children.grdl_tooltip = UIBox({
+        definition = definition,
+        config = {
+            instance_type = "POPUP",
+            align = "cl",
+            offset = { x = -0.03, y = 0 },
+            major = preview_box,
+            bond = "Strong",
+            parent = preview_box
+        }
+    })
+    if preview_box.children.grdl_tooltip.states and preview_box.children.grdl_tooltip.states.collide then
+        preview_box.children.grdl_tooltip.states.collide.can = false
+    end
+    return true
+end
+
 function UICommon.attach_card_preview(element, info)
     if not rawget(_G, "UIBox") or not rawget(_G, "CardArea") or not rawget(_G, "Card") then return false end
     if not element or not element.children or element.children.grdl_preview then return false end
@@ -176,6 +211,9 @@ function UICommon.attach_card_preview(element, info)
     })
     if element.children.grdl_preview.states and element.children.grdl_preview.states.collide then
         element.children.grdl_preview.states.collide.can = false
+    end
+    if info.tooltip then
+        attach_preview_tooltip(element.children.grdl_preview, card, runtime)
     end
     return true
 end

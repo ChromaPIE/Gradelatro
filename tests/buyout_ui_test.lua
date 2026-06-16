@@ -102,6 +102,15 @@ local function collect_callbacks(node, out)
     for _, child in ipairs(node.contents or {}) do collect_callbacks(child, out) end
 end
 
+local function collect_preview_refs(node, out)
+    if type(node) ~= "table" then return end
+    if node.config and node.config.func == "grdl_row_preview" then
+        out[#out + 1] = node.config.ref_table
+    end
+    for _, child in ipairs(node.nodes or {}) do collect_preview_refs(child, out) end
+    for _, child in ipairs(node.contents or {}) do collect_preview_refs(child, out) end
+end
+
 local paged_offer = { eligible = {}, blocked = {}, max_selection = 2 }
 for index = 1, 7 do
     paged_offer.eligible[#paged_offer.eligible + 1] = candidate("eligible_" .. tostring(index), 10 + index)
@@ -122,6 +131,13 @@ local blocked_definition = captured_tabs[2].tab_definition_function()
 local callbacks = {}
 collect_callbacks(blocked_definition, callbacks)
 H.assert_equal(callbacks[1], "grdl_buyout_blocked_page", "blocked tab has its own page callback")
+local eligible_definition = captured_tabs[1].tab_definition_function()
+local eligible_previews = {}
+collect_preview_refs(eligible_definition, eligible_previews)
+H.assert_equal(eligible_previews[1].tooltip, true, "eligible buyout row requests tooltip preview")
+local blocked_previews = {}
+collect_preview_refs(blocked_definition, blocked_previews)
+H.assert_equal(blocked_previews[1].tooltip, true, "blocked buyout row requests tooltip preview")
 
 local tab_runtime = { FUNCS = {} }
 local tab_adapter = { refreshed = 0 }
@@ -133,6 +149,61 @@ H.assert_true(type(tab_runtime.FUNCS.grdl_buyout_blocked_page) == "function", "b
 tab_runtime.FUNCS.grdl_buyout_blocked_page({ cycle_config = { current_option = 2 } })
 H.assert_equal(ui_namespace.buyout_ui_state.blocked_page, 2, "blocked page callback applies cycle option")
 H.assert_equal(tab_adapter.refreshed, 1, "blocked page callback refreshes overlay headless")
+
+local previous_card = rawget(_G, "Card")
+local previous_area = rawget(_G, "CardArea")
+local previous_uibox = rawget(_G, "UIBox")
+local tooltip_info_count = nil
+local uibox_calls = {}
+_G.G.P_CENTERS = { j_eligible_1 = { key = "j_eligible_1", set = "Joker" } }
+_G.G.P_CARDS = { empty = {} }
+_G.G.CARD_W = 1.44
+_G.G.CARD_H = 1.9
+_G.G.UIDEF = {
+    card_h_popup = function(card)
+        tooltip_info_count = #(card.ability_UIBox_table and card.ability_UIBox_table.info or {})
+        return { n = G.UIT.ROOT, config = { id = "main_tooltip" }, nodes = {} }
+    end
+}
+_G.CardArea = function(x, y, w, h)
+    return {
+        T = { x = x, y = y, w = w, h = h },
+        cards = {},
+        emplace = function(self, card) self.cards[#self.cards + 1] = card end
+    }
+end
+_G.Card = function(x, y, w, h, front, center)
+    return {
+        T = { x = x, y = y, w = w, h = h },
+        children = {},
+        center = center,
+        ability_UIBox_table = { info = { "extra_info_queue" } },
+        states = { collide = { can = true }, hover = { can = true }, click = { can = true } },
+        set_edition = function(self, flags) self.edition_flags = flags end
+    }
+end
+_G.UIBox = function(args)
+    uibox_calls[#uibox_calls + 1] = args
+    return {
+        children = {},
+        states = { collide = { can = true } },
+        remove = function() end
+    }
+end
+local tooltip_element = {
+    config = { ref_table = { center_key = "j_eligible_1", edition = "negative", tooltip = true } },
+    states = { hover = { is = true } },
+    children = {}
+}
+tab_runtime.FUNCS.grdl_row_preview(tooltip_element)
+H.assert_true(tooltip_element.children.grdl_preview ~= nil, "tooltip row hover still attaches card preview")
+H.assert_equal(#uibox_calls, 2, "tooltip preview creates card preview and one tooltip box")
+H.assert_equal(uibox_calls[2].config.align, "cl", "main tooltip is forced to the left of the preview card")
+H.assert_equal(uibox_calls[2].definition.config.id, "main_tooltip", "tooltip preview uses vanilla card_h_popup definition")
+H.assert_equal(tooltip_info_count, 0, "tooltip preview strips info queue extras")
+_G.UIBox = previous_uibox
+_G.CardArea = previous_area
+_G.Card = previous_card
 
 _G.create_UIBox_generic_options = previous_options
 _G.UIBox_button = previous_button

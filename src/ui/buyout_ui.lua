@@ -158,7 +158,7 @@ local function candidate_row(state, candidate)
             minw = 3.2,
             collideable = true,
             func = "grdl_row_preview",
-            ref_table = { center_key = candidate.center_key, edition = candidate.edition }
+            ref_table = { center_key = candidate.center_key, edition = candidate.edition, tooltip = true }
         }),
         col({ ui_text(safe_localize("grdl_k_buyout_price", { candidate.price or 0 }), 0.36) }, { align = "cr", minw = 1.4 }),
         col({ UIBox_button({
@@ -177,7 +177,13 @@ end
 
 local function blocked_row(candidate)
     return row({
-        col({ ui_text(safe_center_name(candidate), 0.34, G.C.UI.TEXT_INACTIVE) }, { align = "cl", minw = 3.2 }),
+        col({ ui_text(safe_center_name(candidate), 0.34, G.C.UI.TEXT_INACTIVE) }, {
+            align = "cl",
+            minw = 3.2,
+            collideable = true,
+            func = "grdl_row_preview",
+            ref_table = { center_key = candidate.center_key, edition = candidate.edition, tooltip = true }
+        }),
         col({ ui_text(safe_localize(reason_key(candidate.reason)), 0.32, G.C.UI.TEXT_INACTIVE) }, { align = "cr", minw = 2.8 })
     }, { align = "cm", padding = 0.03 })
 end
