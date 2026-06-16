@@ -282,23 +282,31 @@ end
 function BuyoutUI.create_overlay_definition(namespace)
     namespace = namespace or rawget(_G, "Gradelatro") or {}
     local state = namespace.buyout_ui_state or BuyoutUI.open(namespace) or BuyoutUI.default_state(namespace.pending_buyout_offer)
+    local offer = state.offer or {}
+    local has_blocked = #((offer and offer.blocked) or {}) > 0
+    if not has_blocked and state.buyout_tab == "blocked" then
+        state.buyout_tab = "eligible"
+    end
+    local tabs = {
+        {
+            label = safe_localize(state.text_keys.tab),
+            chosen = state.buyout_tab ~= "blocked",
+            tab_definition_function = eligible_tab_definition(namespace, state)
+        }
+    }
+    if has_blocked then
+        tabs[#tabs + 1] = {
+            label = safe_localize(state.text_keys.blocked),
+            chosen = state.buyout_tab == "blocked",
+            tab_definition_function = blocked_tab_definition(namespace, state)
+        }
+    end
     local rows = {
         row({ ui_text(safe_localize(state.text_keys.title), 0.55, G.C.WHITE) }),
         row({ ui_text(safe_localize(state.text_keys.subtitle), 0.34, G.C.UI.TEXT_LIGHT) }),
         row({
             create_tabs({
-                tabs = {
-                    {
-                        label = safe_localize(state.text_keys.tab),
-                        chosen = state.buyout_tab ~= "blocked",
-                        tab_definition_function = eligible_tab_definition(namespace, state)
-                    },
-                    {
-                        label = safe_localize(state.text_keys.blocked),
-                        chosen = state.buyout_tab == "blocked",
-                        tab_definition_function = blocked_tab_definition(namespace, state)
-                    }
-                },
+                tabs = tabs,
                 text_scale = 0.4
             })
         }, { padding = 0.05 })

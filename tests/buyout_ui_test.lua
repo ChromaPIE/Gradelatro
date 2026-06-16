@@ -205,6 +205,17 @@ _G.UIBox = previous_uibox
 _G.CardArea = previous_area
 _G.Card = previous_card
 
+local eligible_only_offer = { eligible = { candidate("solo", 25) }, blocked = {}, max_selection = 1 }
+local eligible_only_namespace = {
+    config = config,
+    collection = Storage.normalize({ currency_g = 100 }),
+    pending_buyout_offer = eligible_only_offer
+}
+captured_tabs = nil
+eligible_only_namespace.buyout_ui_state = BuyoutUI.default_state(eligible_only_offer)
+BuyoutUI.create_overlay_definition(eligible_only_namespace)
+H.assert_equal(#captured_tabs, 1, "buyout overlay hides blocked tab when there are no blocked cards")
+
 _G.create_UIBox_generic_options = previous_options
 _G.UIBox_button = previous_button
 _G.create_option_cycle = previous_cycle
