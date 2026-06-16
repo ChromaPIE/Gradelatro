@@ -85,6 +85,21 @@ local function overflows_top(box, margin)
     return (box.T.y or 0) < ((room.y or 0) + (margin or SCREEN_MARGIN))
 end
 
+local function boxes_overlap(a, b, margin)
+    local at = a and a.T or nil
+    local bt = b and b.T or nil
+    if not at or not bt then return false end
+    margin = margin or 0
+    local ax1, ay1 = at.x or 0, at.y or 0
+    local ax2, ay2 = ax1 + (at.w or 0), ay1 + (at.h or 0)
+    local bx1, by1 = bt.x or 0, bt.y or 0
+    local bx2, by2 = bx1 + (bt.w or 0), by1 + (bt.h or 0)
+    return ax1 < bx2 + margin
+        and ax2 > bx1 - margin
+        and ay1 < by2 + margin
+        and ay2 > by1 - margin
+end
+
 local function side_alignment(major, box, margin)
     local room = room_rect()
     local major_t = major and major.T or {}
@@ -315,17 +330,27 @@ local function adapt_hover_popup_for_slab(card, funcs)
         pcall(funcs.grdl_show_slab, anchor)
     end
 
-    local planned_alignment = card and card.config and card.config.h_popup_config or nil
-    if alignment_type(planned_alignment) ~= "tm" then return end
-
     local slab = anchor.children and anchor.children.info or nil
     local margin = SCREEN_MARGIN
-    if not overflows_top(slab, margin) then return end
-
+    local planned_alignment = card and card.config and card.config.h_popup_config or nil
+    local planned_type = alignment_type(planned_alignment)
+    if planned_type ~= "tm" and planned_type ~= "bm" and planned_type ~= "cl" and planned_type ~= "cr" then return end
+    if planned_type == "cl" or planned_type == "cr" then
+        local offset = planned_type == "cl" and { x = -SIDE_OFFSET_X, y = 0 } or { x = SIDE_OFFSET_X, y = 0 }
+        if slab and slab.config then slab.config.parent = popup end
+        realign_box(slab, popup, planned_type, offset, "Strong")
+        apply_alignment_now(slab)
+        if slab and slab.UIRoot then move_child_tree(slab.UIRoot) end
+        return
+    end
     local major = planned_alignment.major
         or planned_alignment.parent
         or (popup.config and (popup.config.major or popup.config.parent))
         or card
+    local needs_side_alignment = planned_type == "tm" and overflows_top(slab, margin)
+        or planned_type == "bm" and boxes_overlap(slab, major, margin)
+    if not needs_side_alignment then return end
+
     local align, offset = side_alignment(major, popup, margin)
     if card then card.grdl_slab_hover_alignment = { type = align, offset = copy_offset(offset) } end
     realign_box(popup, major, align, offset, "Strong")
@@ -341,7 +366,8 @@ local function apply_slab_alignment_override(card, alignment)
         if card then card.grdl_slab_hover_alignment = nil end
         return alignment
     end
-    if alignment_type(alignment) ~= "tm" then
+    local align_type = alignment_type(alignment)
+    if align_type ~= "tm" and align_type ~= "bm" then
         card.grdl_slab_hover_alignment = nil
         return alignment
     end

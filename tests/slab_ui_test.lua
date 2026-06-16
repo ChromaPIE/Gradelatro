@@ -373,6 +373,40 @@ side_hover_card.config.h_popup = whole_tooltip_env.ui_def.card_h_popup(side_hove
 side_hover_card.config.h_popup_config = side_hover_card:align_h_popup()
 whole_tooltip_env.node.hover(side_hover_card)
 H.assert_equal(side_hover_card.children.h_popup.last_alignment, nil, "pre-side vanilla tooltip alignment is not changed")
+H.assert_equal(whole_tooltip_slab.config.align, "cl", "left-side tooltip keeps the slab on the left side")
+H.assert_equal(whole_tooltip_slab.config.parent, side_hover_card.children.h_popup, "left-side slab follows the tooltip box")
+
+local right_side_hover_card = {
+    grdl_record = record,
+    children = {},
+    config = {},
+    base_popup_direction = "cr",
+    T = { x = 1.0, y = 1.2, w = 1.0, h = 1.4 }
+}
+setmetatable(right_side_hover_card, { __index = hover_card_class })
+right_side_hover_card.config.h_popup = whole_tooltip_env.ui_def.card_h_popup(right_side_hover_card)
+right_side_hover_card.config.h_popup_config = right_side_hover_card:align_h_popup()
+whole_tooltip_env.node.hover(right_side_hover_card)
+H.assert_equal(right_side_hover_card.children.h_popup.last_alignment, nil, "right-side vanilla tooltip alignment is not changed")
+H.assert_equal(whole_tooltip_slab.config.align, "cr", "right-side tooltip keeps the slab on the right side")
+H.assert_equal(whole_tooltip_slab.config.parent, right_side_hover_card.children.h_popup, "right-side slab follows the tooltip box")
+
+whole_tooltip_next_slab_y = 2.15
+local below_hover_card = {
+    grdl_record = record,
+    children = {},
+    config = {},
+    base_popup_direction = "bm",
+    T = { x = 8.2, y = 1.2, w = 1.0, h = 1.4 }
+}
+setmetatable(below_hover_card, { __index = hover_card_class })
+below_hover_card.config.h_popup = whole_tooltip_env.ui_def.card_h_popup(below_hover_card)
+below_hover_card.config.h_popup_config = below_hover_card:align_h_popup()
+whole_tooltip_env.node.hover(below_hover_card)
+H.assert_true(below_hover_card.children.h_popup.last_alignment ~= nil, "below-card slab overlap realigns the whole tooltip")
+H.assert_equal(below_hover_card.children.h_popup.last_alignment.type, "cl", "below-card slab overlap moves the tooltip to a side")
+below_hover_card.children.h_popup:set_alignment(below_hover_card:align_h_popup())
+H.assert_equal(below_hover_card.children.h_popup.last_alignment.type, "cl", "below-card slab overlap keeps the side alignment on later movement")
 
 whole_tooltip_next_slab_y = 0.1
 local popup_only_overflow_card = {

@@ -32,6 +32,7 @@ local CARD_INSPECT_SCALE = 2.2
 local BINDER_TILE_W = 2.25
 local BINDER_TILE_H = 2.75
 local BINDER_NAME_BYTES = 22
+local EMPTY_SLOT_NAME = "空"
 local TRANSIENT_FEEDBACK_SECONDS = 2
 
 local TEXT_KEYS = {
@@ -608,12 +609,95 @@ function BinderUI.fill_card_areas(namespace)
     end
 end
 
-local function binder_card_tile(area, entry)
+local function title_slot_values(entry)
     local is_empty = entry == nil
-    local name = is_empty and "空" or center_name(entry)
-    local colour = is_empty and G.C.UI.TEXT_INACTIVE or G.C.WHITE
+    local name = is_empty and EMPTY_SLOT_NAME or center_name(entry)
+    return name, UICommon.fit_scale(name, 0.34, BINDER_NAME_BYTES), is_empty and G.C.UI.TEXT_INACTIVE or G.C.WHITE
+end
+
+local function sync_title_object(slot, fallback_t)
+    local object = slot and slot.object or nil
+    local node_t = (slot and slot.object_node and slot.object_node.T) or fallback_t
+    if not object or not node_t then return end
+    if object.hard_set_T then
+        pcall(object.hard_set_T, object, node_t.x, node_t.y, node_t.w, node_t.h)
+    else
+        if object.T then
+            object.T.x, object.T.y, object.T.w, object.T.h = node_t.x, node_t.y, node_t.w, node_t.h
+        end
+        if object.VT then
+            object.VT.x, object.VT.y, object.VT.w, object.VT.h = node_t.x, node_t.y, node_t.w, node_t.h
+        end
+    end
+    if object.move_with_major then pcall(object.move_with_major, object, 0) end
+    if object.align_to_major then pcall(object.align_to_major, object) end
+end
+
+local function update_title_slot(slot, entry, animate)
+    if not slot then return end
+    local name, scale, colour = title_slot_values(entry)
+    slot.name = name
+    slot.scale = scale
+    slot.colour = colour
+    if slot.config then
+        slot.config.text = name
+        slot.config.scale = scale
+        slot.config.colour = colour
+    end
+    if animate and slot.object_config and rawget(_G, "DynaText") then
+        local previous_t = slot.object and slot.object.T or nil
+        if slot.object and slot.object.remove then pcall(slot.object.remove, slot.object) end
+        local ok, object = pcall(DynaText, {
+            string = { name },
+            colours = { colour },
+            scale = scale,
+            float = true,
+            bump = true,
+            silent = true,
+            pop_in = 0.2,
+            maxw = BINDER_TILE_W - 0.16
+        })
+        if ok and object then
+            slot.object = object
+            slot.object_config.object = object
+            sync_title_object(slot, previous_t)
+        end
+    end
+end
+
+local function title_node(slot)
+    if rawget(_G, "DynaText") then
+        local ok, object = pcall(DynaText, {
+            string = { slot.name },
+            colours = { slot.colour },
+            scale = slot.scale,
+            float = true,
+            bump = true,
+            silent = true,
+            pop_in = 0.2,
+            maxw = BINDER_TILE_W - 0.16
+        })
+        if ok and object then
+            slot.object = object
+            slot.object_config = { object = object }
+            local object_node = { n = G.UIT.O, config = slot.object_config }
+            slot.object_node = object_node
+            return object_node
+        end
+    end
+    slot.config = {
+        text = slot.name,
+        ref_table = slot,
+        ref_value = "name",
+        scale = slot.scale,
+        colour = slot.colour
+    }
+    return { n = G.UIT.T, config = slot.config }
+end
+
+local function binder_card_tile(area, title_slot)
     return col({
-        row({ ui_text(name, UICommon.fit_scale(name, 0.34, BINDER_NAME_BYTES), colour) }, {
+        row({ title_node(title_slot) }, {
             padding = 0.01,
             minh = 0.34,
             minw = BINDER_TILE_W - 0.16,
@@ -633,8 +717,23 @@ local function binder_card_tile(area, entry)
     })
 end
 
+function BinderUI.refresh_card_grid(namespace, opts)
+    local state = namespace and namespace.binder_ui_state or nil
+    local areas = namespace and namespace.binder_areas or nil
+    local title_slots = namespace and namespace.binder_title_slots or nil
+    if not state or not areas or not title_slots then return false end
+
+    local items = state.page_view and state.page_view.items or {}
+    for slot, title_slot in ipairs(title_slots) do
+        update_title_slot(title_slot, items[slot], opts and opts.animate_titles)
+    end
+    BinderUI.fill_card_areas(namespace)
+    return true
+end
+
 local function build_card_grid(namespace)
     local areas = {}
+    local title_slots = {}
     local grid_rows = {}
     local items = (namespace.binder_ui_state and namespace.binder_ui_state.page_view and namespace.binder_ui_state.page_view.items) or {}
     local slot = 0
@@ -648,12 +747,16 @@ local function build_card_grid(namespace)
                 G.CARD_W,
                 0.95 * G.CARD_H,
                 { card_limit = 1, type = "title", highlight_limit = 0, collection = true })
+            local title_slot = {}
+            update_title_slot(title_slot, entry)
             areas[#areas + 1] = area
-            cells[#cells + 1] = binder_card_tile(area, entry)
+            title_slots[#title_slots + 1] = title_slot
+            cells[#cells + 1] = binder_card_tile(area, title_slot)
         end
         grid_rows[#grid_rows + 1] = row(cells, { padding = 0.06 })
     end
     namespace.binder_areas = areas
+    namespace.binder_title_slots = title_slots
     BinderUI.fill_card_areas(namespace)
     return grid_rows
 end
@@ -1210,7 +1313,7 @@ function BinderUI.install_runtime(namespace, runtime, adapter)
     runtime.FUNCS.grdl_binder_page = function(event)
         if not event or not event.cycle_config then return end
         local state = BinderUI.set_page(namespace, event.cycle_config.current_option)
-        if state and adapter.open_binder then adapter.open_binder(namespace, state, event) end
+        if state then BinderUI.refresh_card_grid(namespace, { animate_titles = true }) end
     end
 
     local function reopen_inspect(card_id, opts)

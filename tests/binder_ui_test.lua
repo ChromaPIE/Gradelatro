@@ -88,7 +88,7 @@ H.assert_equal(namespace.binder_ui_state.page, 2, "page clamps to max")
 local binder_opened_before_page = adapter.binder_opened
 runtime.FUNCS.grdl_binder_page({ cycle_config = { current_option = 1 } })
 H.assert_equal(namespace.binder_ui_state.page, 1, "binder page callback switches page")
-H.assert_equal(adapter.binder_opened, binder_opened_before_page + 1, "binder page callback rebuilds overlay")
+H.assert_equal(adapter.binder_opened, binder_opened_before_page, "binder page callback keeps the overlay open")
 
 local previous_grid_g = rawget(_G, "G")
 local previous_grid_card = rawget(_G, "Card")
@@ -96,6 +96,7 @@ local previous_grid_area = rawget(_G, "CardArea")
 local previous_grid_button = rawget(_G, "UIBox_button")
 local previous_grid_cycle = rawget(_G, "create_option_cycle")
 local previous_grid_options = rawget(_G, "create_UIBox_generic_options")
+local previous_grid_dynatext = rawget(_G, "DynaText")
 local grid_areas = {}
 _G.G = {
     ROOM = { T = { x = 0, y = 0, w = 10, h = 10 } },
@@ -201,6 +202,78 @@ H.assert_equal(#grid_namespace.binder_areas[1].cards, 1, "first binder tile rece
 H.assert_equal(#grid_namespace.binder_areas[2].cards, 1, "second binder tile receives a card")
 H.assert_equal(#grid_namespace.binder_areas[3].cards, 0, "empty binder tile receives no card")
 H.assert_equal(grid_namespace.binder_areas[1].T.w, grid_namespace.binder_areas[2].T.w, "binder tile card areas keep fixed width")
+H.assert_equal(#grid_namespace.binder_title_slots, 10, "binder grid tracks one live title per page slot")
+H.assert_equal(grid_namespace.binder_title_slots[1].name, "ExtremelyLongLocalizedJokerName", "first live title follows sorted first card")
+grid_namespace.binder_ui_state.entries = {
+    {
+        id = "later",
+        center_key = "j_short_name",
+        local_key = "short",
+        rarity = "common",
+        edition = "base",
+        condition = mint_condition,
+        acquired_at = 4000
+    }
+}
+BinderUI.set_page(grid_namespace, 1)
+BinderUI.refresh_card_grid(grid_namespace)
+H.assert_equal(grid_namespace.binder_title_slots[1].name, "Short", "binder page refresh updates live slot title text")
+H.assert_equal(grid_namespace.binder_title_slots[2].name, "空", "binder page refresh updates empty slot title text")
+H.assert_equal(grid_namespace.binder_title_slots[2].colour, _G.G.C.UI.TEXT_INACTIVE, "binder page refresh marks empty slot inactive")
+H.assert_equal(#grid_namespace.binder_areas[1].cards, 1, "binder page refresh refills first slot")
+H.assert_equal(#grid_namespace.binder_areas[2].cards, 0, "binder page refresh clears stale second slot")
+
+local dyna_objects = {}
+_G.DynaText = function(args)
+    local object = {
+        args = args,
+        T = {},
+        VT = {},
+        removed = false,
+        remove = function(self) self.removed = true end,
+        hard_set_T = function(self, x, y, w, h)
+            self.synced_to = { x = x, y = y, w = w, h = h }
+            self.T.x, self.T.y, self.T.w, self.T.h = x, y, w, h
+            self.VT.x, self.VT.y, self.VT.w, self.VT.h = x, y, w, h
+        end,
+        move_with_major = function(self) self.moved_with_major = true end,
+        align_to_major = function(self) self.aligned_to_major = true end
+    }
+    dyna_objects[#dyna_objects + 1] = object
+    return object
+end
+local dyna_namespace = {
+    config = config,
+    collection = Storage.normalize({ currency_g = 0 })
+}
+Storage.add_raw_card(dyna_namespace.collection, {
+    center_key = "j_short_name", local_key = "short", rarity = "common",
+    edition = "base", condition = mint_condition, acquired_at = 5001
+})
+BinderUI.open(dyna_namespace, 5002)
+BinderUI.create_overlay_definition(dyna_namespace)
+local dyna_slot = dyna_namespace.binder_title_slots[1]
+local first_object = dyna_slot.object
+dyna_slot.object_node.T = { x = 1.25, y = 2.5, w = 1.75, h = 0.4 }
+dyna_namespace.binder_ui_state.entries = {
+    {
+        id = "later-long",
+        center_key = "j_very_long_name",
+        local_key = "long",
+        rarity = "common",
+        edition = "base",
+        condition = mint_condition,
+        acquired_at = 5003
+    }
+}
+BinderUI.set_page(dyna_namespace, 1)
+BinderUI.refresh_card_grid(dyna_namespace, { animate_titles = true })
+H.assert_true(first_object.removed, "animated binder title refresh removes the old DynaText object")
+H.assert_equal(dyna_slot.object.args.string[1], "ExtremelyLongLocalizedJokerName", "animated binder title refresh creates the new DynaText text")
+H.assert_equal(dyna_slot.object.synced_to.x, 1.25, "animated binder title refresh keeps the title object on its UI node")
+H.assert_true(dyna_slot.object.moved_with_major, "animated binder title refresh runs vanilla movement sync")
+H.assert_true(dyna_slot.object.aligned_to_major, "animated binder title refresh runs vanilla alignment sync")
+_G.DynaText = previous_grid_dynatext
 _G.localize = previous_grid_localize
 _G.create_UIBox_generic_options = previous_grid_options
 _G.create_option_cycle = previous_grid_cycle
