@@ -25,6 +25,7 @@ local TEXT_KEYS = {
     selected = "grdl_k_selected_count",
     total = "grdl_k_buyout_total",
     price = "grdl_k_buyout_price",
+    binder = "grdl_b_binder",
     confirm = "grdl_b_confirm_buyout",
     skip = "grdl_b_skip_buyout",
     empty = "grdl_k_buyout_empty",
@@ -190,29 +191,36 @@ end
 
 local function action_buttons(state, summary)
     return row({
-        UIBox_button({
+        col({ UIBox_button({
+            button = "grdl_open_buyout_binder",
+            label = { safe_localize(state.text_keys.binder) },
+            minw = 2.1,
+            maxw = 2.1,
+            minh = 0.95,
+            scale = 0.42,
+            colour = G.C.ORANGE or G.C.GOLD,
+            focus_args = { nav = "wide" }
+        }) }, { padding = 0.03 }),
+        col({ UIBox_button({
             button = "grdl_confirm_buyout",
-            label = {
-                safe_localize(state.text_keys.confirm),
-                safe_localize(state.text_keys.total, { summary.total_price })
-            },
-            minw = 2.6,
-            maxw = 2.6,
-            minh = 0.9,
-            scale = 0.36,
+            label = { safe_localize(state.text_keys.confirm) },
+            minw = 2.1,
+            maxw = 2.1,
+            minh = 0.95,
+            scale = 0.42,
             colour = G.C.GREEN,
             focus_args = { nav = "wide", snap_to = true }
-        }),
-        UIBox_button({
+        }) }, { padding = 0.03 }),
+        col({ UIBox_button({
             button = "grdl_skip_buyout",
             label = { safe_localize(state.text_keys.skip) },
-            minw = 2.6,
-            maxw = 2.6,
-            minh = 0.9,
-            scale = 0.36,
+            minw = 2.1,
+            maxw = 2.1,
+            minh = 0.95,
+            scale = 0.42,
             colour = G.C.RED,
             focus_args = { nav = "wide" }
-        })
+        }) }, { padding = 0.03 })
     }, { align = "cm", padding = 0.08 })
 end
 
@@ -225,7 +233,7 @@ local function summary_row(state, summary)
 end
 
 local function tab_root(nodes)
-    return { n = G.UIT.ROOT, config = { align = "tm", colour = G.C.CLEAR, minw = 7.0, minh = 5.4, padding = 0.05 }, nodes = nodes }
+    return { n = G.UIT.ROOT, config = { align = "tm", colour = G.C.CLEAR, minw = 7.0, padding = 0.05 }, nodes = nodes }
 end
 
 local function eligible_tab_definition(namespace, state)
@@ -350,6 +358,19 @@ local function default_adapter(runtime)
             elseif runtime and runtime.FUNCS and runtime.FUNCS.exit_overlay_menu then
                 runtime.FUNCS.exit_overlay_menu()
             end
+        end,
+        open_binder = function(namespace)
+            if not runtime or not runtime.FUNCS or not runtime.FUNCS.overlay_menu then return end
+            local binder_ui = namespace and namespace.BinderUI or nil
+            if binder_ui and binder_ui.open and binder_ui.create_overlay_definition then
+                binder_ui.open(namespace, { close_func = "grdl_open_buyout" })
+                runtime.FUNCS.overlay_menu({
+                    definition = binder_ui.create_overlay_definition(namespace),
+                    config = { no_esc = true }
+                })
+            elseif runtime.FUNCS.grdl_open_binder then
+                runtime.FUNCS.grdl_open_binder()
+            end
         end
     }
 end
@@ -370,8 +391,13 @@ function BuyoutUI.install_runtime(namespace, runtime, adapter)
     end
 
     runtime.FUNCS.grdl_open_buyout = function(event)
-        local state = BuyoutUI.open(namespace)
+        local state = namespace.buyout_ui_state or BuyoutUI.open(namespace)
         if state and adapter.open_overlay then adapter.open_overlay(namespace, state, event) end
+    end
+
+    runtime.FUNCS.grdl_open_buyout_binder = function(event)
+        local state = namespace.buyout_ui_state or BuyoutUI.open(namespace)
+        if state and adapter.open_binder then adapter.open_binder(namespace, state, event) end
     end
 
     runtime.FUNCS.grdl_toggle_buyout_card = function(event)

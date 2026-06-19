@@ -75,6 +75,7 @@ _G.G = {
         WHITE = "WHITE",
         BLUE = "BLUE",
         GREEN = "GREEN",
+        ORANGE = "ORANGE",
         RED = "RED",
         CLEAR = "CLEAR",
         L_BLACK = "L_BLACK",
@@ -111,6 +112,15 @@ local function collect_preview_refs(node, out)
     for _, child in ipairs(node.contents or {}) do collect_preview_refs(child, out) end
 end
 
+local function collect_buttons(node, out)
+    if type(node) ~= "table" then return end
+    if node.config and node.config.button then
+        out[#out + 1] = node.config
+    end
+    for _, child in ipairs(node.nodes or {}) do collect_buttons(child, out) end
+    for _, child in ipairs(node.contents or {}) do collect_buttons(child, out) end
+end
+
 local paged_offer = { eligible = {}, blocked = {}, max_selection = 2 }
 for index = 1, 7 do
     paged_offer.eligible[#paged_offer.eligible + 1] = candidate("eligible_" .. tostring(index), 10 + index)
@@ -132,9 +142,29 @@ local callbacks = {}
 collect_callbacks(blocked_definition, callbacks)
 H.assert_equal(callbacks[1], "grdl_buyout_blocked_page", "blocked tab has its own page callback")
 local eligible_definition = captured_tabs[1].tab_definition_function()
+H.assert_equal(eligible_definition.config.minh, nil, "buyout tab height follows content instead of reserving empty space")
 local eligible_previews = {}
 collect_preview_refs(eligible_definition, eligible_previews)
 H.assert_equal(eligible_previews[1].tooltip, true, "eligible buyout row requests tooltip preview")
+local action_row = eligible_definition.nodes[#eligible_definition.nodes]
+H.assert_equal(#action_row.nodes, 3, "buyout footer renders three direct columns")
+H.assert_equal(action_row.nodes[1].n, "C", "binder footer button is in a horizontal column")
+H.assert_equal(action_row.nodes[2].n, "C", "confirm footer button is in a horizontal column")
+H.assert_equal(action_row.nodes[3].n, "C", "skip footer button is in a horizontal column")
+local eligible_buttons = {}
+collect_buttons(eligible_definition, eligible_buttons)
+local binder_button = eligible_buttons[#eligible_buttons - 2]
+local confirm_button = eligible_buttons[#eligible_buttons - 1]
+local skip_button = eligible_buttons[#eligible_buttons]
+H.assert_equal(binder_button.button, "grdl_open_buyout_binder", "buyout footer starts with binder button")
+H.assert_equal(confirm_button.button, "grdl_confirm_buyout", "buyout footer keeps confirm in the middle")
+H.assert_equal(skip_button.button, "grdl_skip_buyout", "buyout footer ends with skip")
+H.assert_equal(binder_button.colour, "ORANGE", "buyout binder button is orange")
+H.assert_equal(confirm_button.colour, "GREEN", "buyout confirm button stays green")
+H.assert_equal(skip_button.colour, "RED", "buyout skip button stays red")
+H.assert_equal(#confirm_button.label, 1, "buyout confirm button omits duplicate total line")
+H.assert_true((confirm_button.scale or 0) > 0.36, "buyout confirm text scale increased")
+H.assert_true((skip_button.scale or 0) > 0.36, "buyout skip text scale increased")
 local blocked_previews = {}
 collect_preview_refs(blocked_definition, blocked_previews)
 H.assert_equal(blocked_previews[1].tooltip, true, "blocked buyout row requests tooltip preview")
@@ -295,7 +325,8 @@ local runtime = { FUNCS = {} }
 local adapter = {
     opened = 0,
     refreshed = 0,
-    closed = 0
+    closed = 0,
+    binder_opened = 0
 }
 function adapter.open_overlay()
     adapter.opened = adapter.opened + 1
@@ -306,6 +337,10 @@ end
 function adapter.close_overlay()
     adapter.closed = adapter.closed + 1
 end
+function adapter.open_binder(_, state)
+    adapter.binder_opened = adapter.binder_opened + 1
+    H.assert_true(state ~= nil, "buyout binder callback receives current buyout state")
+end
 
 H.assert_true(BuyoutUI.install_runtime(runtime_namespace, runtime, adapter), "runtime callbacks installed")
 runtime.FUNCS.grdl_open_buyout()
@@ -315,6 +350,14 @@ H.assert_equal(adapter.opened, 1, "open adapter called")
 runtime.FUNCS.grdl_toggle_buyout_card({ config = { ref_table = { id = "one" } } })
 H.assert_true(BuyoutUI.is_selected(runtime_namespace.buyout_ui_state, "one"), "callback toggles selection")
 H.assert_equal(adapter.refreshed, 1, "toggle falls back to overlay refresh headless")
+
+H.assert_true(type(runtime.FUNCS.grdl_open_buyout_binder) == "function", "buyout binder callback registered")
+runtime.FUNCS.grdl_open_buyout_binder()
+H.assert_equal(adapter.binder_opened, 1, "buyout binder callback opens binder")
+H.assert_true(BuyoutUI.is_selected(runtime_namespace.buyout_ui_state, "one"), "buyout binder callback preserves selection state")
+runtime.FUNCS.grdl_open_buyout()
+H.assert_true(BuyoutUI.is_selected(runtime_namespace.buyout_ui_state, "one"), "returning from binder keeps the existing buyout state")
+H.assert_equal(adapter.opened, 2, "returning from binder reopens buyout overlay")
 
 H.assert_true(type(runtime.FUNCS.grdl_buyout_page) == "function", "page callback registered")
 runtime.FUNCS.grdl_buyout_page({ cycle_config = { current_option = 1 } })

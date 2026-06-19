@@ -89,6 +89,9 @@ local binder_opened_before_page = adapter.binder_opened
 runtime.FUNCS.grdl_binder_page({ cycle_config = { current_option = 1 } })
 H.assert_equal(namespace.binder_ui_state.page, 1, "binder page callback switches page")
 H.assert_equal(adapter.binder_opened, binder_opened_before_page, "binder page callback keeps the overlay open")
+BinderUI.open(namespace, { close_func = "grdl_open_buyout" })
+runtime.FUNCS.grdl_open_binder()
+H.assert_equal(namespace.binder_ui_state.close_func, "grdl_open_buyout", "reopening binder from inspect keeps buyout return context")
 
 local previous_grid_g = rawget(_G, "G")
 local previous_grid_card = rawget(_G, "Card")
@@ -170,8 +173,12 @@ Storage.add_raw_card(grid_namespace.collection, {
     center_key = "j_very_long_name", local_key = "long", rarity = "common",
     edition = "base", condition = mint_condition, acquired_at = 3002
 })
+BinderUI.open(grid_namespace, 3003, { close_func = "grdl_open_buyout" })
+local buyout_back_definition = BinderUI.create_overlay_definition(grid_namespace)
+H.assert_equal(buyout_back_definition.back_func, "grdl_open_buyout", "binder overlay can return to buyout context")
 BinderUI.open(grid_namespace, 3003)
 local grid_definition = BinderUI.create_overlay_definition(grid_namespace)
+H.assert_equal(grid_definition.back_func, "options", "regular binder overlay returns to options")
 local function collect_text_nodes(node, out)
     if type(node) ~= "table" then return end
     if node.n == _G.G.UIT.T and node.config and type(node.config.text) == "string" then
@@ -182,6 +189,19 @@ local function collect_text_nodes(node, out)
 end
 local grid_texts = {}
 collect_text_nodes(grid_definition, grid_texts)
+local function collect_button_configs(node, out)
+    if type(node) ~= "table" then return end
+    if node.config and node.config.button then out[#out + 1] = node.config end
+    for _, child in ipairs(node.nodes or {}) do collect_button_configs(child, out) end
+    for _, child in ipairs(node.contents or {}) do collect_button_configs(child, out) end
+end
+local buyout_back_buttons = {}
+collect_button_configs(buyout_back_definition, buyout_back_buttons)
+for _, button in ipairs(buyout_back_buttons) do
+    H.assert_true(button.button ~= "grdl_open_desk", "buyout binder hides grading desk button")
+    H.assert_true(button.button ~= "grdl_open_market", "buyout binder hides market button")
+    H.assert_true(button.button ~= "grdl_open_loadout", "buyout binder hides loadout button")
+end
 local short_text, long_text = nil, nil
 local empty_texts = 0
 for _, text in ipairs(grid_texts) do

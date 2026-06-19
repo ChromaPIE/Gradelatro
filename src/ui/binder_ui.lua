@@ -157,8 +157,12 @@ local function refresh_hover_index(namespace)
     namespace.binder_hover_index = index
 end
 
-function BinderUI.open(namespace, now)
+function BinderUI.open(namespace, now, opts)
     if not namespace or not namespace.collection then return nil end
+    if type(now) == "table" and opts == nil then
+        opts = now
+        now = nil
+    end
     now = now or os.time()
 
     local revealed_count = process_due(namespace, now)
@@ -173,7 +177,8 @@ function BinderUI.open(namespace, now)
         hidden = view.hidden,
         page = 1,
         page_view = Binder.page(view.entries, 1, per_page()),
-        revealed_count = revealed_count
+        revealed_count = revealed_count,
+        close_func = opts and opts.close_func or "options"
     }
     return namespace.binder_ui_state
 end
@@ -847,46 +852,48 @@ function BinderUI.create_overlay_definition(namespace)
     if grid_cycle then
         controls[#controls + 1] = col({ grid_cycle })
     end
-    controls[#controls + 1] = col({
-        UIBox_button({
-            button = "grdl_open_desk",
-            label = { safe_localize(state.text_keys.desk) },
-            minw = 2.8,
-            maxw = 2.8,
-            minh = 0.7,
-            scale = 0.34,
-            colour = G.C.BLUE,
-            focus_args = { nav = "wide" }
+    if state.close_func ~= "grdl_open_buyout" then
+        controls[#controls + 1] = col({
+            UIBox_button({
+                button = "grdl_open_desk",
+                label = { safe_localize(state.text_keys.desk) },
+                minw = 2.8,
+                maxw = 2.8,
+                minh = 0.7,
+                scale = 0.34,
+                colour = G.C.BLUE,
+                focus_args = { nav = "wide" }
+            })
         })
-    })
-    controls[#controls + 1] = col({
-        UIBox_button({
-            button = "grdl_open_market",
-            label = { safe_localize("grdl_b_market") },
-            minw = 2.2,
-            maxw = 2.2,
-            minh = 0.7,
-            scale = 0.34,
-            colour = G.C.GREEN,
-            focus_args = { nav = "wide" }
+        controls[#controls + 1] = col({
+            UIBox_button({
+                button = "grdl_open_market",
+                label = { safe_localize("grdl_b_market") },
+                minw = 2.2,
+                maxw = 2.2,
+                minh = 0.7,
+                scale = 0.34,
+                colour = G.C.GREEN,
+                focus_args = { nav = "wide" }
+            })
         })
-    })
-    controls[#controls + 1] = col({
-        UIBox_button({
-            button = "grdl_open_loadout",
-            label = { safe_localize("grdl_b_loadout") },
-            minw = 2.2,
-            maxw = 2.2,
-            minh = 0.7,
-            scale = 0.34,
-            colour = G.C.PURPLE,
-            focus_args = { nav = "wide" }
+        controls[#controls + 1] = col({
+            UIBox_button({
+                button = "grdl_open_loadout",
+                label = { safe_localize("grdl_b_loadout") },
+                minw = 2.2,
+                maxw = 2.2,
+                minh = 0.7,
+                scale = 0.34,
+                colour = G.C.PURPLE,
+                focus_args = { nav = "wide" }
+            })
         })
-    })
-    rows[#rows + 1] = row(controls, { padding = 0.08 })
+    end
+    if #controls > 0 then rows[#rows + 1] = row(controls, { padding = 0.08 }) end
 
     return create_UIBox_generic_options({
-        back_func = "options",
+        back_func = state.close_func or "options",
         minw = 7.2,
         padding = 0.12,
         colour = G.C.L_BLACK,
@@ -1350,7 +1357,9 @@ function BinderUI.install_runtime(namespace, runtime, adapter)
     UICommon.install_preview(runtime.FUNCS)
 
     runtime.FUNCS.grdl_open_binder = function(event)
-        local state = BinderUI.open(namespace)
+        local previous_close = namespace.binder_ui_state and namespace.binder_ui_state.close_func or nil
+        local opts = previous_close and previous_close ~= "options" and { close_func = previous_close } or nil
+        local state = BinderUI.open(namespace, opts)
         if state and adapter.open_binder then adapter.open_binder(namespace, state, event) end
     end
 
