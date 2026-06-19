@@ -559,6 +559,36 @@ H.assert_equal(setup_reselect_calls, 1, "paid reselect reruns setup after refund
 base_events[3].func()
 H.assert_equal(table.concat(reselect_order, ","), "setup,inner", "paid reselect setup precedes deferred start-run events")
 
+-- restoring an already-paid run from vanilla savetext must not replay the entry fee dialog
+queued_entry_events = {}
+overlay_calls = {}
+base_events = { { kind = "preexisting_start_run_event" } }
+local restored_entry = {
+    run_key = "RESTORELOAD:1767225515",
+    run_id = "RESTORELOAD",
+    run_started_at = 1767225515,
+    stake_index = 8,
+    stake_level = 8,
+    fee = 83,
+    balance = 200,
+    paid = true,
+    enabled = true,
+    charged = true
+}
+run_ns.collection.currency_g = 117
+run_ns.collection.entry_fees[restored_entry.run_key] = {
+    run_key = restored_entry.run_key,
+    fee = restored_entry.fee
+}
+run_ns.entry_fee_warning = nil
+run_ns.entry_fee_warning_ui = nil
+run_ns.entry_fee_warning_run_key = nil
+set_entry_fee_runtime("RESTORELOAD", 1767225515, restored_entry)
+game_class.start_run({}, { savetext = { GAME = {} } })
+H.assert_equal(run_ns.collection.currency_g, 117, "restored paid entry is not charged again")
+H.assert_equal(base_events[2].kind, "inner_start_run_popup", "restored paid entry skips entry fee warning")
+H.assert_equal(#overlay_calls, 0, "restored paid entry does not open entry fee overlay")
+
 -- legacy warned flags on the run state must not suppress a fresh dialog
 queued_entry_events = {}
 overlay_calls = {}

@@ -691,7 +691,7 @@ function LoadoutUI.queue_entry_fee_warning(namespace, state, queue_index)
     return true
 end
 
-function LoadoutUI.on_run_start(namespace, warning_queue_index)
+function LoadoutUI.on_run_start(namespace, warning_queue_index, restored_from_save)
     local runtime = rawget(_G, "G")
     if not namespace or not namespace.collection or not runtime or not runtime.GAME then return end
     local entry_state = StakeEconomy.ensure_entry_state(namespace.config, namespace.collection, runtime, os.time())
@@ -706,7 +706,7 @@ function LoadoutUI.on_run_start(namespace, warning_queue_index)
     if not existing or existing.run_id ~= run_id then
         runtime.GAME.grdl_loadout = Loadout.begin_run(namespace.collection, run_id)
     end
-    if entry_state then
+    if entry_state and not (restored_from_save and entry_state.enabled) then
         LoadoutUI.queue_entry_fee_warning(namespace, entry_state, warning_queue_index)
     end
 end
@@ -974,7 +974,8 @@ function LoadoutUI.install(namespace, env)
             local base_queue = game and game.E_MANAGER and game.E_MANAGER.queues and game.E_MANAGER.queues.base
             local warning_queue_index = type(base_queue) == "table" and (#base_queue + 1) or 1
             local result = original_start(self, args)
-            pcall(LoadoutUI.on_run_start, namespace, warning_queue_index)
+            local restored_from_save = type(args) == "table" and args.savetext ~= nil
+            pcall(LoadoutUI.on_run_start, namespace, warning_queue_index, restored_from_save)
             return result
         end
     end
