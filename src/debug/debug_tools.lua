@@ -277,15 +277,30 @@ function DebugTools.dispatch(namespace, args)
         return HELP_TEXT
     end
 
+    local function snapshot()
+        return Persistence.snapshot(namespace)
+    end
+
+    local function save_or_restore(before)
+        if Persistence.save(namespace) then return true end
+        Persistence.restore(namespace, before)
+        return false
+    end
+
+    local function save_failed()
+        return "Save failed; changes were not applied.", "ERROR"
+    end
+
     if sub == "g" then
         if not args[2] then
             return "G balance: " .. tostring(collection.currency_g or 0)
         end
+        local before = snapshot()
         local result = DebugTools.adjust_currency(collection, args[2], args[3])
         if not result.ok then
             return "Usage: grdl g set|add|sub <amount> (" .. tostring(result.reason) .. ")", "ERROR"
         end
-        Persistence.save(namespace)
+        if not save_or_restore(before) then return save_failed() end
         return "G balance: " .. tostring(result.currency_g)
     end
 
@@ -298,58 +313,66 @@ function DebugTools.dispatch(namespace, args)
         end
         local smods = rawget(_G, "SMODS")
         local catalog = Catalog.discover(config, runtime.P_CENTERS, smods and smods.Mods or nil)
+        local before = snapshot()
         local result = DebugTools.seed_cards(collection, catalog, { count = parsed.count, graded = parsed.graded, config = config })
         if not result.ok then
             return "Seeding failed: " .. tostring(result.reason), "ERROR"
         end
-        Persistence.save(namespace)
+        if not save_or_restore(before) then return save_failed() end
         return "Seeded " .. tostring(#result.cards) .. (parsed.graded and " graded" or " ungraded") .. " cards into the binder."
     end
 
     if sub == "clear" then
+        local before = snapshot()
         local result = DebugTools.clear_collection(collection)
         if not result.ok then return "Clear failed: " .. tostring(result.reason), "ERROR" end
-        Persistence.save(namespace)
+        if not save_or_restore(before) then return save_failed() end
         return "Cleared " .. tostring(result.cards_removed) .. " cards and " .. tostring(result.queue_removed) .. " queue entries."
     end
 
     if sub == "license" then
+        local before = snapshot()
         local result = DebugTools.set_license(collection, args[2])
         if not result.ok then return "Usage: grdl license <0-12> (" .. tostring(result.reason) .. ")", "ERROR" end
-        Persistence.save(namespace)
+        if not save_or_restore(before) then return save_failed() end
         return "Loadout license level: " .. tostring(result.level)
     end
 
     if sub == "transport" then
         if args[2] == "reset" then
+            local before = snapshot()
             local result = DebugTools.reset_transports(collection)
             if not result.ok then return "Transport reset failed: " .. tostring(result.reason), "ERROR" end
-            Persistence.save(namespace)
+            if not save_or_restore(before) then return save_failed() end
             return "Reset transports; removed " .. tostring(result.removed) .. " purchases."
         end
+        local before = snapshot()
         local result = DebugTools.grant_transports(config, collection, args[2] or "all")
         if not result.ok then return "Usage: grdl transport all|blue|green|red|purple|gold|reset (" .. tostring(result.reason) .. ")", "ERROR" end
-        Persistence.save(namespace)
+        if not save_or_restore(before) then return save_failed() end
         return "Granted transports: " .. table.concat(result.granted, ", ")
     end
 
     if sub == "prof" then
+        local before = snapshot()
         local result = DebugTools.set_proficiency(collection, args[2])
         if not result.ok then return "Usage: grdl prof <antes> (" .. tostring(result.reason) .. ")", "ERROR" end
-        Persistence.save(namespace)
+        if not save_or_restore(before) then return save_failed() end
         return "Set " .. tostring(result.antes) .. " antes on " .. tostring(result.updated) .. " graded cards."
     end
 
     if sub == "queue" then
+        local before = snapshot()
         local result = DebugTools.finish_queue(collection)
-        Persistence.save(namespace)
+        if not save_or_restore(before) then return save_failed() end
         return "Fast-forwarded " .. tostring(result.finished) .. " grading entries; open the binder to reveal."
     end
 
     if sub == "bm" then
+        local before = snapshot()
         local result = DebugTools.regen_black_market(namespace)
         if not result.ok then return "Black market regen failed: " .. tostring(result.reason), "ERROR" end
-        Persistence.save(namespace)
+        if not save_or_restore(before) then return save_failed() end
         return "Black market regenerated (" .. tostring(#(result.black_market.offers or {})) .. " offers)."
     end
 

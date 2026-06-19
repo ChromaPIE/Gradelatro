@@ -280,7 +280,7 @@ H.assert_equal(#poor_namespace.collection.cards, 0, "failed confirmation adds no
 
 local success_namespace = {
     config = config,
-    collection = Storage.normalize({ currency_g = 100 }),
+    collection = Storage.normalize({ currency_g = 100, pending_buyout_offer = offer }),
     pending_buyout_offer = offer,
     mod = { id = "Gradelatro", config = {} }
 }
@@ -305,21 +305,62 @@ H.assert_equal(#success_namespace.collection.cards, 2, "success adds selected ca
 H.assert_equal(success_namespace.collection.cards[1].acquired_year, 2026, "success preserves acquired year")
 H.assert_equal(success_namespace.collection.cards[1].source_run_id, "RUNSEED", "success preserves run id")
 H.assert_equal(success_namespace.pending_buyout_offer, nil, "success clears pending offer")
+H.assert_equal(success_namespace.collection.pending_buyout_offer, nil, "success clears persisted pending offer")
 H.assert_equal(success_namespace.last_buyout_result, success_result, "success stores last result")
 H.assert_equal(save_count, 1, "success saves collection")
 H.assert_true(rng.has_call("pseudorandom", "grdl_condition_"), "buyout ui condition uses native pseudorandom")
 _G.SMODS = previous_smods_global
 
 success_namespace.pending_buyout_offer = offer
+success_namespace.collection.pending_buyout_offer = offer
 success_namespace.buyout_ui_state = success_state
-BuyoutUI.skip(success_namespace)
+_G.SMODS = {
+    load_file = previous_smods_global.load_file,
+    save_mod_config = function()
+        save_count = save_count + 1
+        return true
+    end
+}
+local skip_result = BuyoutUI.skip(success_namespace)
+H.assert_equal(skip_result.ok, true, "skip succeeds")
 H.assert_equal(success_namespace.pending_buyout_offer, nil, "skip clears pending offer")
+H.assert_equal(success_namespace.collection.pending_buyout_offer, nil, "skip clears persisted pending offer")
 H.assert_equal(success_namespace.buyout_ui_state, nil, "skip clears ui state")
+H.assert_equal(save_count, 2, "skip saves cleared offer")
+_G.SMODS = previous_smods_global
+
+local failing_namespace = {
+    config = config,
+    collection = Storage.normalize({ currency_g = 100, pending_buyout_offer = offer }),
+    pending_buyout_offer = offer,
+    mod = { id = "Gradelatro", config = {} }
+}
+local failing_state = BuyoutUI.default_state(offer)
+BuyoutUI.toggle_selection(failing_state, "one")
+_G.SMODS = {
+    load_file = previous_smods_global.load_file,
+    save_mod_config = function() return false end
+}
+local failing_result = BuyoutUI.confirm(failing_namespace, failing_state, 1800000000)
+H.assert_equal(failing_result.ok, false, "save failure rejects buyout confirmation")
+H.assert_equal(failing_result.reason, "save_failed", "save failure reason returned")
+H.assert_equal(failing_namespace.collection.currency_g, 100, "save failure rolls back currency")
+H.assert_equal(#failing_namespace.collection.cards, 0, "save failure rolls back cards")
+H.assert_equal(failing_namespace.pending_buyout_offer.run_id, offer.run_id, "save failure restores pending offer")
+_G.SMODS = previous_smods_global
 
 local runtime_namespace = {
     config = config,
-    collection = Storage.normalize({ currency_g = 100 }),
-    pending_buyout_offer = offer
+    collection = Storage.normalize({ currency_g = 100, pending_buyout_offer = offer }),
+    pending_buyout_offer = offer,
+    mod = { id = "Gradelatro", config = {} }
+}
+_G.SMODS = {
+    load_file = previous_smods_global.load_file,
+    save_mod_config = function(mod)
+        H.assert_equal(mod, runtime_namespace.mod, "runtime buyout saves namespace mod")
+        return true
+    end
 }
 local runtime = { FUNCS = {} }
 local adapter = {
@@ -370,10 +411,12 @@ H.assert_equal(runtime_namespace.pending_buyout_offer, nil, "callback success cl
 H.assert_equal(adapter.closed, 1, "callback success closes overlay")
 
 runtime_namespace.pending_buyout_offer = offer
+runtime_namespace.collection.pending_buyout_offer = offer
 runtime_namespace.buyout_ui_state = BuyoutUI.default_state(offer)
 runtime.FUNCS.grdl_skip_buyout()
 H.assert_equal(runtime_namespace.pending_buyout_offer, nil, "runtime skip clears offer")
 H.assert_equal(adapter.closed, 2, "runtime skip closes overlay")
+_G.SMODS = previous_smods_global
 
 rng.restore()
 print("buyout ui tests ok")

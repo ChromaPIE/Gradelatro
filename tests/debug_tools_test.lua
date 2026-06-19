@@ -230,5 +230,15 @@ DebugTools.dispatch(ns, { "clear" })
 H.assert_equal(#ns.collection.cards, 0, "clear dispatch wipes")
 _G.SMODS = previous_dispatch_smods
 
+local failing_ns = { config = seed_config, mod = { id = "Gradelatro", config = {} }, collection = Storage.normalize({ currency_g = 5 }) }
+_G.SMODS = {
+    load_file = previous_dispatch_smods.load_file,
+    save_mod_config = function() return false end
+}
+local _, save_err = DebugTools.dispatch(failing_ns, { "g", "set", "500" })
+H.assert_equal(save_err, "ERROR", "save failure errors debug command")
+H.assert_equal(failing_ns.collection.currency_g, 5, "save failure rolls back debug mutation")
+_G.SMODS = previous_dispatch_smods
+
 rng.restore()
 print("debug tools tests ok")

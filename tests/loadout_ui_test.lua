@@ -46,9 +46,9 @@ namespace.collection.loadout.license = 3
 Loadout.add_card(namespace.collection, card.id)
 card.status = "sold"
 LoadoutUI.open(namespace)
-H.assert_equal(#namespace.loadout_ui_state.entries, 0, "open reconciles dead members")
+H.assert_equal(#namespace.loadout_ui_state.entries, 0, "open hides dead members")
+H.assert_equal(#namespace.collection.loadout.card_ids, 1, "open does not rewrite loadout membership")
 card.status = "raw"
-Loadout.add_card(namespace.collection, card.id)
 LoadoutUI.open(namespace)
 H.assert_equal(namespace.loadout_ui_state.entries[1].id, card.id, "member entry carries record")
 H.assert_equal(namespace.loadout_ui_state.capacity, 3, "capacity follows license")
@@ -66,6 +66,21 @@ H.assert_equal(namespace.collection.loadout.license, 4, "license purchase advanc
 H.assert_equal(before - namespace.collection.currency_g, config.loadout.license_prices[4], "license price charged")
 H.assert_equal(save_count, 1, "license purchase saves")
 H.assert_true(namespace.loadout_ui_state.feedback ~= "", "purchase feedback bound")
+
+_G.SMODS = {
+    load_file = previous_smods.load_file,
+    save_mod_config = function() return false end
+}
+namespace.collection.currency_g = 5000
+namespace.collection.loadout.license = 4
+runtime.FUNCS.grdl_license_buy()
+H.assert_equal(namespace.collection.loadout.license, 4, "save failure rolls back license purchase")
+H.assert_equal(namespace.collection.currency_g, 5000, "save failure rolls back license cost")
+H.assert_equal(namespace.loadout_ui_state.feedback, "grdl_k_reason_save_failed", "save failure feedback bound")
+_G.SMODS = {
+    load_file = previous_smods.load_file,
+    save_mod_config = function() save_count = save_count + 1 return true end
+}
 
 -- transport purchase + activation handlers
 runtime.FUNCS.grdl_transport_buy({ config = { ref_table = { key = "blue" } } })

@@ -95,8 +95,14 @@ function RunEnd.capture_win_buyout_offer(namespace, runtime, smods, now)
     local config = namespace.config or {}
     local collection = namespace.collection
     if not collection then return nil end
+    local before = Persistence.snapshot(namespace)
     if not StakeEconomy.run_enabled(runtime) then
         namespace.pending_buyout_offer = nil
+        if collection.pending_buyout_offer ~= nil then
+            collection.pending_buyout_offer = nil
+            namespace.last_save_ok = Persistence.save(namespace)
+            if not namespace.last_save_ok then Persistence.restore(namespace, before) end
+        end
         return nil
     end
 
@@ -139,7 +145,6 @@ function RunEnd.capture_win_buyout_offer(namespace, runtime, smods, now)
             boss_key = boss_key,
             now = now or os.time()
         })
-        namespace.last_save_ok = Persistence.save(namespace)
     end
 
     local offer = Buyout.prepare_offer(config, collection, {
@@ -154,6 +159,13 @@ function RunEnd.capture_win_buyout_offer(namespace, runtime, smods, now)
     offer.run_started_at = run_started_at
     offer.acquired_year = RunEnd.year_from_timestamp(run_started_at)
     namespace.pending_buyout_offer = offer
+    collection.pending_buyout_offer = offer
+    namespace.last_save_ok = Persistence.save(namespace)
+    if not namespace.last_save_ok then
+        Persistence.restore(namespace, before)
+        namespace.last_settlement_result = { ok = false, reason = "save_failed" }
+        return nil
+    end
     return offer
 end
 

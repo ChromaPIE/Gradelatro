@@ -102,6 +102,7 @@ local smods = {
 local offer = RunEnd.capture_win_buyout_offer(namespace, runtime, smods, 1800000000)
 
 H.assert_equal(namespace.pending_buyout_offer, offer, "offer stored on namespace")
+H.assert_equal(namespace.collection.pending_buyout_offer, offer, "offer persisted on collection")
 H.assert_equal(namespace.collection.currency_g, 1050, "win settlement added before buyout")
 H.assert_equal(namespace.last_settlement_result.amount, 50, "settlement result stored")
 H.assert_equal(namespace.last_settlement_result.duplicate, false, "first settlement not duplicate")
@@ -126,7 +127,8 @@ local duplicate_offer = RunEnd.capture_win_buyout_offer(namespace, runtime, smod
 H.assert_equal(namespace.collection.currency_g, 1050, "duplicate capture does not add currency")
 H.assert_equal(namespace.last_settlement_result.duplicate, true, "duplicate settlement flagged")
 H.assert_equal(duplicate_offer.run_id, "RUNSEED", "duplicate capture still refreshes offer")
-H.assert_equal(save_count, 1, "duplicate settlement not saved")
+H.assert_equal(namespace.collection.pending_buyout_offer, duplicate_offer, "duplicate capture persists refreshed offer")
+H.assert_equal(save_count, 2, "duplicate offer refresh is saved")
 
 local disabled_namespace = {
     config = config,
@@ -148,6 +150,7 @@ local disabled_runtime = {
 local disabled_offer = RunEnd.capture_win_buyout_offer(disabled_namespace, disabled_runtime, smods, 1800000002)
 H.assert_equal(disabled_offer, nil, "unpaid entry disables buyout offer")
 H.assert_equal(disabled_namespace.pending_buyout_offer, nil, "unpaid entry stores no offer")
+H.assert_equal(disabled_namespace.collection.pending_buyout_offer, nil, "unpaid entry clears persisted offer")
 H.assert_equal(disabled_namespace.last_settlement_result, nil, "unpaid entry skips settlement")
 H.assert_equal(disabled_namespace.collection.currency_g, 1, "unpaid entry grants no currency")
 H.assert_equal(disabled_namespace.collection.market.black_market, nil, "unpaid entry skips black market")

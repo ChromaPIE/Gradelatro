@@ -109,12 +109,20 @@ function MarketUI.buy(namespace, slot, now)
         return { ok = false, reason = "missing_config" }
     end
 
+    local before = Persistence.snapshot(namespace)
     local result = BlackMarket.purchase(namespace.config, namespace.collection, { slot = slot, now = now or os.time() })
     namespace.last_bm_result = result
     local state = namespace.market_ui_state
     if result.ok then
         namespace.last_save_ok = Persistence.save(namespace)
-        if state then state.bm_text = safe_localize("grdl_k_bm_bought") end
+        if namespace.last_save_ok then
+            if state then state.bm_text = safe_localize("grdl_k_bm_bought") end
+        else
+            Persistence.restore(namespace, before)
+            result = { ok = false, reason = "save_failed" }
+            namespace.last_bm_result = result
+            if state then state.bm_text = safe_localize("grdl_k_reason_save_failed") end
+        end
     elseif state then
         state.bm_text = safe_localize("grdl_k_reason_" .. tostring(result.reason))
     end

@@ -140,11 +140,23 @@ end
 
 local function process_due(namespace, now)
     if not namespace.config then return 0 end
+    local before = Persistence.snapshot(namespace)
     local processed = Grading.process_due(namespace.config, namespace.collection, now)
     if #processed.revealed > 0 then
         namespace.last_save_ok = Persistence.save(namespace)
+        if not namespace.last_save_ok then
+            Persistence.restore(namespace, before)
+            return 0
+        end
     end
     return #processed.revealed
+end
+
+local function save_or_restore(namespace, before, result)
+    namespace.last_save_ok = Persistence.save(namespace)
+    if namespace.last_save_ok then return result end
+    Persistence.restore(namespace, before)
+    return { ok = false, reason = "save_failed" }
 end
 
 local function refresh_hover_index(namespace)
@@ -308,17 +320,18 @@ function BinderUI.submit_grading(namespace, card_id, now)
     end
     now = now or os.time()
 
+    local before = Persistence.snapshot(namespace)
     local result = Grading.submit(namespace.config, namespace.collection, {
         card_id = card_id,
         now = now
     })
-    namespace.last_grading_result = result
 
     if result.ok then
         Loadout.reconcile(namespace.collection)
-        namespace.last_save_ok = Persistence.save(namespace)
-        BinderUI.open_desk(namespace, now)
+        result = save_or_restore(namespace, before, result)
+        if result.ok then BinderUI.open_desk(namespace, now) end
     end
+    namespace.last_grading_result = result
     return result
 end
 
@@ -330,8 +343,9 @@ function BinderUI.toggle_loadout(namespace, card_id)
     end
     local collection = namespace.collection
     if Loadout.contains(collection, card_id) then
+        local before = Persistence.snapshot(namespace)
         local removed = Loadout.remove_card(collection, card_id)
-        if removed.ok then namespace.last_save_ok = Persistence.save(namespace) end
+        if removed.ok then removed = save_or_restore(namespace, before, removed) end
         return removed
     end
     local card = Storage.find_card(collection, card_id)
@@ -343,8 +357,9 @@ function BinderUI.toggle_loadout(namespace, card_id)
         return { ok = true, pending = true }
     end
     if inspect_state then inspect_state.pending_loadout_add = nil end
+    local before = Persistence.snapshot(namespace)
     local added = Loadout.add_card(collection, card_id)
-    if added.ok then namespace.last_save_ok = Persistence.save(namespace) end
+    if added.ok then added = save_or_restore(namespace, before, added) end
     return added
 end
 
@@ -352,6 +367,7 @@ function BinderUI.commit_prof_text(namespace, card_id, kind, text)
     if not namespace or not namespace.collection then return { ok = false, reason = "missing_collection" } end
     local card = Storage.find_card(namespace.collection, card_id)
     if not card then return { ok = false, reason = "unknown_card" } end
+    local before = Persistence.snapshot(namespace)
     local result
     if kind == "note" then
         result = Proficiency.set_note(card, text)
@@ -364,7 +380,7 @@ function BinderUI.commit_prof_text(namespace, card_id, kind, text)
     else
         return { ok = false, reason = "unknown_kind" }
     end
-    if result.ok then namespace.last_save_ok = Persistence.save(namespace) end
+    if result.ok then result = save_or_restore(namespace, before, result) end
     return result
 end
 
@@ -569,18 +585,19 @@ function BinderUI.sell_from_inspect(namespace, card_id, now)
         return { ok = true, pending = true }
     end
 
+    local before = Persistence.snapshot(namespace)
     local result = Market.sell(namespace.config, namespace.collection, {
         card_id = card_id,
         now = now or os.time()
     })
-    namespace.last_market_result = result
     if result.ok then
         Loadout.reconcile(namespace.collection)
-        namespace.last_save_ok = Persistence.save(namespace)
+        result = save_or_restore(namespace, before, result)
     else
         state.pending_sell = false
         state.last_reason_text = safe_localize(reason_key(result.reason))
     end
+    namespace.last_market_result = result
     return result
 end
 
@@ -1486,13 +1503,18 @@ function BinderUI.install_runtime(namespace, runtime, adapter)
         local card = Storage.find_card(namespace.collection or {}, card_id)
         if not card then return end
         local enabled = not (card.proficiency and card.proficiency.eternal)
+        local before = Persistence.snapshot(namespace)
         local result = Proficiency.set_eternal(card, enabled)
         local state = namespace.inspect_ui_state
         if not result.ok then
             if state then state.last_reason_text = safe_localize(reason_key(result.reason)) end
             return
         end
-        namespace.last_save_ok = Persistence.save(namespace)
+        local saved = save_or_restore(namespace, before, result)
+        if not saved.ok then
+            if state then state.last_reason_text = safe_localize(reason_key(saved.reason)) end
+            return
+        end
         local game = rawget(_G, "G")
         for _, joker in ipairs((game and game.jokers and game.jokers.cards) or {}) do
             if joker.ability and joker.ability.grdl_loadout_id == card_id then

@@ -92,6 +92,9 @@ function BuyoutUI.set_blocked_page(state, page)
 end
 
 function BuyoutUI.open(namespace)
+    if namespace and not namespace.pending_buyout_offer and namespace.collection then
+        namespace.pending_buyout_offer = namespace.collection.pending_buyout_offer
+    end
     if not namespace or not BuyoutUI.has_offer(namespace.pending_buyout_offer) then return nil end
     namespace.buyout_ui_state = BuyoutUI.default_state(namespace.pending_buyout_offer)
     return namespace.buyout_ui_state
@@ -456,6 +459,7 @@ function BuyoutUI.confirm(namespace, state, now)
     end
 
     local offer = state.offer or namespace.pending_buyout_offer or {}
+    local before = Persistence.snapshot(namespace)
     local result = Buyout.purchase(namespace.config or {}, namespace.collection, {
         candidates = offer.eligible or {},
         selected_ids = state.selected_ids,
@@ -470,7 +474,15 @@ function BuyoutUI.confirm(namespace, state, now)
     if result.ok then
         namespace.pending_buyout_offer = nil
         namespace.buyout_ui_state = nil
+        namespace.collection.pending_buyout_offer = nil
         namespace.last_save_ok = Persistence.save(namespace)
+        if not namespace.last_save_ok then
+            Persistence.restore(namespace, before)
+            result = { ok = false, reason = "save_failed" }
+            namespace.last_buyout_result = result
+            state.last_reason = result.reason
+            return result
+        end
         state.confirmed = true
         state.last_reason = nil
     else
@@ -481,8 +493,14 @@ end
 
 function BuyoutUI.skip(namespace)
     if not namespace then return { ok = false, reason = "missing_namespace" } end
+    local before = Persistence.snapshot(namespace)
     namespace.pending_buyout_offer = nil
     namespace.buyout_ui_state = nil
+    if namespace.collection then namespace.collection.pending_buyout_offer = nil end
+    if not Persistence.save(namespace) then
+        Persistence.restore(namespace, before)
+        return { ok = false, reason = "save_failed" }
+    end
     return { ok = true, skipped = true }
 end
 

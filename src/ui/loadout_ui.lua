@@ -37,11 +37,12 @@ end
 
 local function build_state_fields(namespace)
     local collection = namespace.collection
-    Loadout.reconcile(collection)
     local entries = {}
     for _, card_id in ipairs(collection.loadout.card_ids) do
         local card = Storage.find_card(collection, card_id)
-        if card then entries[#entries + 1] = card end
+        if card and (card.status == "raw" or card.status == "graded") then
+            entries[#entries + 1] = card
+        end
     end
     return {
         license = collection.loadout.license,
@@ -509,9 +510,18 @@ function LoadoutUI.install_runtime(namespace, runtime, adapter)
     local function purchase_handler(action, ok_key, tab_def_factory)
         return function(event)
             if not namespace.loadout_ui_state then LoadoutUI.open(namespace) end
+            local before = Persistence.snapshot(namespace)
             local result = action(event)
             if result.ok then
                 namespace.last_save_ok = Persistence.save(namespace)
+                if not namespace.last_save_ok then
+                    Persistence.restore(namespace, before)
+                    result = { ok = false, reason = "save_failed" }
+                    LoadoutUI.refresh(namespace)
+                    feedback(namespace, result, ok_key)
+                    if rawget(_G, "play_sound") then pcall(play_sound, "tarot2", 0.76, 0.4) end
+                    return
+                end
                 LoadoutUI.refresh(namespace)
                 feedback(namespace, result, ok_key)
                 -- swap the live tab contents in place: reopening the overlay
@@ -694,8 +704,18 @@ end
 function LoadoutUI.on_run_start(namespace, warning_queue_index, restored_from_save)
     local runtime = rawget(_G, "G")
     if not namespace or not namespace.collection or not runtime or not runtime.GAME then return end
+    local before = Persistence.snapshot(namespace)
     local entry_state = StakeEconomy.ensure_entry_state(namespace.config, namespace.collection, runtime, os.time())
-    if entry_state and entry_state.charged then namespace.last_save_ok = Persistence.save(namespace) end
+    if entry_state and entry_state.charged then
+        namespace.last_save_ok = Persistence.save(namespace)
+        if not namespace.last_save_ok then
+            Persistence.restore(namespace, before)
+            entry_state.paid = false
+            entry_state.enabled = false
+            entry_state.charged = false
+            entry_state.save_failed = true
+        end
+    end
     if entry_state and not entry_state.enabled then
         runtime.GAME.grdl_loadout = nil
         LoadoutUI.queue_entry_fee_warning(namespace, entry_state, warning_queue_index)
