@@ -569,11 +569,19 @@ function LoadoutUI.install_runtime(namespace, runtime, adapter)
     runtime.FUNCS.grdl_entry_fee_reselect = function(event)
         local ui = namespace.entry_fee_warning_ui
         if ui and ui.buttons_disabled then return end
+        local current_runtime = rawget(_G, "G")
+        local entry_runtime = (runtime and runtime.GAME) and runtime
+            or (current_runtime and current_runtime.GAME and current_runtime)
+            or runtime
+        local reselect_runtime = (entry_runtime and entry_runtime.FUNCS) and entry_runtime or runtime
+        if StakeEconomy.refund_entry_fee(namespace.collection, entry_runtime) then
+            namespace.last_save_ok = Persistence.save(namespace)
+        end
         namespace.entry_fee_warning = nil
         namespace.entry_fee_reselect_pending = true
         if runtime.FUNCS.exit_overlay_menu then runtime.FUNCS.exit_overlay_menu() end
         if not namespace.entry_fee_warning_event_active then
-            LoadoutUI.perform_entry_fee_reselect(namespace, runtime, event)
+            LoadoutUI.perform_entry_fee_reselect(namespace, reselect_runtime, event)
         end
     end
 

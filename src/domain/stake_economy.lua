@@ -150,6 +150,28 @@ function StakeEconomy.ensure_entry_state(config, collection, runtime, now)
     return state
 end
 
+function StakeEconomy.refund_entry_fee(collection, runtime)
+    runtime = runtime or rawget(_G, "G")
+    local game = runtime and runtime.GAME or nil
+    local state = game and game.grdl_entry or nil
+    if not collection or not state or state.charged ~= true then return false end
+
+    local run_key = state.run_key
+    local fee = math.max(0, math.floor(tonumber(state.fee) or 0))
+    if not run_key or fee <= 0 then return false end
+
+    collection.entry_fees = type(collection.entry_fees) == "table" and collection.entry_fees or {}
+    if collection.entry_fees[run_key] == nil then return false end
+
+    collection.entry_fees[run_key] = nil
+    Storage.add_currency(collection, fee)
+    state.paid = false
+    state.enabled = false
+    state.charged = false
+    state.refunded = true
+    return true
+end
+
 function StakeEconomy.run_enabled(runtime)
     runtime = runtime or rawget(_G, "G")
     local state = runtime and runtime.GAME and runtime.GAME.grdl_entry or nil

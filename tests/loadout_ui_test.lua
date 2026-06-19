@@ -535,6 +535,30 @@ H.assert_equal(base_events[2].func(), false, "paid entry warning remains active 
 H.assert_equal(#overlay_calls, 1, "scheduled paid entry warning opens overlay")
 H.assert_equal(run_ns.entry_fee_warning_ui.lines[1].text, "grdl_k_entry_fee_title", "paid run-start warning uses entry fee title")
 
+-- paid reselect refunds the already-charged entry fee before rerolling the run
+queued_entry_events = {}
+overlay_calls = {}
+base_events = { { kind = "preexisting_start_run_event" } }
+reselect_order = {}
+setup_reselect_calls = 0
+run_ns.collection.currency_g = 200
+run_ns.entry_fee_warning = nil
+run_ns.entry_fee_warning_ui = nil
+set_entry_fee_runtime("REFUNDLOAD", 1767225525)
+game_class.start_run({}, {})
+local refund_run_key = _G.G.GAME.grdl_entry.run_key
+H.assert_equal(run_ns.collection.currency_g, 117, "refund scenario starts charged")
+H.assert_true(run_ns.collection.entry_fees[refund_run_key] ~= nil, "refund scenario records entry fee ledger")
+H.assert_equal(base_events[2].func(), false, "refund warning opens before reselect")
+funcs.grdl_entry_fee_reselect({ config = {} })
+H.assert_equal(run_ns.collection.currency_g, 200, "paid entry reselect refunds the charged fee")
+H.assert_equal(run_ns.collection.entry_fees[refund_run_key], nil, "paid entry reselect removes the fee ledger")
+H.assert_equal(setup_reselect_calls, 0, "paid reselect still waits for the blocking warning event to release")
+H.assert_equal(base_events[2].func(), true, "paid entry warning releases after reselect")
+H.assert_equal(setup_reselect_calls, 1, "paid reselect reruns setup after refund")
+base_events[3].func()
+H.assert_equal(table.concat(reselect_order, ","), "setup,inner", "paid reselect setup precedes deferred start-run events")
+
 -- legacy warned flags on the run state must not suppress a fresh dialog
 queued_entry_events = {}
 overlay_calls = {}
@@ -563,6 +587,8 @@ H.assert_equal(base_events[2].grdl_entry_fee_warning, true, "legacy warned flag 
 queued_entry_events = {}
 overlay_calls = {}
 reselect_events = {}
+reselect_order = {}
+setup_reselect_calls = 0
 base_events = { { kind = "preexisting_start_run_event" } }
 set_entry_fee_runtime("POORLOAD", 1767225600)
 run_ns.collection.currency_g = 0
