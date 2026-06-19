@@ -1,4 +1,5 @@
 dofile("tests/config_test.lua")
+dofile("tests/stake_economy_test.lua")
 dofile("tests/economy_test.lua")
 dofile("tests/stakes_test.lua")
 dofile("tests/condition_test.lua")

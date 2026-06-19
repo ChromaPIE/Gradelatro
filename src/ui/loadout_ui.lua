@@ -9,6 +9,7 @@ local Condition = load_src("domain/condition.lua")
 local Loadout = load_src("domain/loadout.lua")
 local Persistence = load_src("core/persistence.lua")
 local Proficiency = load_src("domain/proficiency.lua")
+local StakeEconomy = load_src("domain/stake_economy.lua")
 local Storage = load_src("core/storage.lua")
 local UICommon = load_src("ui/ui_common.lua")
 
@@ -19,6 +20,13 @@ local col = UICommon.col
 
 local TRANSPORT_ORDER = { "blue", "green", "red", "purple", "gold" }
 local TIER_KEYS = { "grdl_k_tier_1", "grdl_k_tier_2", "grdl_k_tier_3", "grdl_k_tier_4" }
+local ENTRY_FEE_INNER_W = 5.65
+local ENTRY_FEE_TIME_SCALE = 2.5
+local ENTRY_FEE_ROLL_DURATION = 1.5
+local ENTRY_FEE_FINAL_HOLD = 0.35 * ENTRY_FEE_TIME_SCALE
+local ENTRY_FEE_GLHF_HOLD = 0.65 * ENTRY_FEE_TIME_SCALE
+local ENTRY_FEE_AMOUNT_SCALE = 0.74
+local ENTRY_FEE_GLHF_SCALE = 0.58
 
 function LoadoutUI.license_label(level)
     if not level or level <= 0 then return safe_localize("grdl_k_license_none") end
@@ -71,6 +79,185 @@ local function feedback(namespace, result, ok_key)
     else
         state.feedback = safe_localize("grdl_k_reason_" .. tostring(result.reason))
     end
+end
+
+local function now_seconds(runtime)
+    local timers = runtime and runtime.TIMERS or nil
+    if timers and type(timers.REAL) == "number" then return timers.REAL end
+    return os.clock()
+end
+
+local function set_entry_fee_line(line, text, scale, colour, effect)
+    if not line then return end
+    local next_text = (text ~= nil and text ~= "") and tostring(text) or " "
+    local next_effect = effect == true
+    if line.scale ~= scale or line.colour ~= colour or line.effect ~= next_effect then
+        line.object_dirty = true
+    end
+    line.text = next_text
+    line.scale = scale
+    line.colour = colour
+    line.effect = next_effect
+end
+
+local function entry_fee_text_object_args(line)
+    return {
+        string = { { ref_table = line, ref_value = "text" } },
+        colours = { line.colour },
+        scale = line.scale,
+        maxw = ENTRY_FEE_INNER_W - 0.3,
+        shadow = true,
+        silent = true,
+        float = line.effect and true or nil,
+        pop_in = line.effect and 0 or nil,
+        pop_in_rate = line.effect and 6 or nil
+    }
+end
+
+local function sync_entry_fee_text_object(line, element)
+    local object = line and line.object or nil
+    local node_t = element and (element.T or element.VT) or nil
+    if not object or not node_t then return end
+    if object.T then
+        object.T.x, object.T.y, object.T.w, object.T.h = node_t.x, node_t.y, node_t.w, node_t.h
+    end
+    if object.VT then
+        object.VT.x, object.VT.y, object.VT.w, object.VT.h = node_t.x, node_t.y, node_t.w, node_t.h
+    end
+    if object.move_with_major then pcall(object.move_with_major, object, 0) end
+    if object.align_to_major then pcall(object.align_to_major, object) end
+end
+
+local function rebuild_entry_fee_text_object(line, element)
+    if not line or not line.object_config or not rawget(_G, "DynaText") then return false end
+    if line.object and line.object.remove then pcall(line.object.remove, line.object) end
+    local ok, object = pcall(DynaText, entry_fee_text_object_args(line))
+    if not ok or not object then return false end
+    line.object = object
+    line.object_config.object = object
+    line.object_dirty = false
+    sync_entry_fee_text_object(line, element)
+    return true
+end
+
+function LoadoutUI.entry_fee_balance_text(value)
+    return "Ⓖ " .. tostring(math.max(0, math.floor(tonumber(value) or 0)))
+end
+
+function LoadoutUI.entry_fee_final_balance(state)
+    state = state or {}
+    local balance = math.max(0, math.floor(tonumber(state.balance) or 0))
+    local fee = math.max(0, math.floor(tonumber(state.fee) or 0))
+    if state.paid and state.charged == false then return balance end
+    return math.max(0, balance - fee)
+end
+
+function LoadoutUI.set_entry_fee_warning_view(ui, state)
+    if not ui then return end
+    state = state or {}
+    local title_key = state.enabled and "grdl_k_entry_fee_title" or "grdl_k_entry_fee_insufficient_title"
+    set_entry_fee_line(ui.lines[1], safe_localize(title_key), 0.5, G.C.WHITE)
+    set_entry_fee_line(ui.lines[2], safe_localize("grdl_k_entry_fee_balance", { state.balance or 0 }), 0.34, G.C.UI.TEXT_LIGHT)
+    set_entry_fee_line(ui.lines[3], safe_localize("grdl_k_entry_fee_required", { state.fee or 0 }), 0.34, G.C.UI.TEXT_LIGHT)
+    set_entry_fee_line(ui.lines[4], state.enabled and " " or safe_localize("grdl_k_entry_fee_blocked"), 0.3, G.C.UI.TEXT_INACTIVE)
+end
+
+function LoadoutUI.set_entry_fee_balance_view(ui, value)
+    if not ui then return end
+    set_entry_fee_line(ui.lines[1], " ", 0.44, G.C.WHITE)
+    set_entry_fee_line(ui.lines[2], LoadoutUI.entry_fee_balance_text(value), ENTRY_FEE_AMOUNT_SCALE, G.C.GOLD)
+    set_entry_fee_line(ui.lines[3], " ", 0.34, G.C.WHITE)
+    set_entry_fee_line(ui.lines[4], " ", 0.3, G.C.WHITE)
+end
+
+function LoadoutUI.set_entry_fee_glhf_view(ui)
+    if not ui then return end
+    local text = safe_localize("grdl_k_entry_fee_glhf")
+    set_entry_fee_line(ui.lines[1], " ", 0.44, G.C.WHITE)
+    set_entry_fee_line(ui.lines[2], text, ENTRY_FEE_GLHF_SCALE, G.C.ORANGE, true)
+    set_entry_fee_line(ui.lines[3], " ", 0.34, G.C.WHITE)
+    set_entry_fee_line(ui.lines[4], " ", 0.3, G.C.WHITE)
+end
+
+function LoadoutUI.entry_fee_ui_state(namespace)
+    namespace = namespace or {}
+    local runtime = rawget(_G, "G")
+    local state = namespace.entry_fee_warning or (runtime and runtime.GAME and runtime.GAME.grdl_entry) or {}
+    local ui = namespace.entry_fee_warning_ui
+    if not ui or ui.source_state ~= state then
+        ui = {
+            source_state = state,
+            lines = { {}, {}, {}, {} },
+            buttons_disabled = false
+        }
+        namespace.entry_fee_warning_ui = ui
+    end
+    if not ui.animating then
+        ui.buttons_disabled = false
+        LoadoutUI.set_entry_fee_warning_view(ui, state)
+    end
+    return ui
+end
+
+function LoadoutUI.begin_entry_fee_continue(namespace, runtime)
+    namespace = namespace or {}
+    runtime = runtime or rawget(_G, "G")
+    local state = namespace.entry_fee_warning or (runtime and runtime.GAME and runtime.GAME.grdl_entry) or nil
+    if not state then return false end
+    if not state.enabled then
+        namespace.entry_fee_warning = nil
+        namespace.entry_fee_warning_ui = nil
+        if runtime and runtime.FUNCS and runtime.FUNCS.exit_overlay_menu then
+            runtime.FUNCS.exit_overlay_menu()
+        end
+        return true
+    end
+    local ui = LoadoutUI.entry_fee_ui_state(namespace)
+    if ui.animating then return false end
+    ui.animating = true
+    ui.buttons_disabled = true
+    ui.started_at = now_seconds(runtime)
+    ui.start_balance = math.max(0, math.floor(tonumber(state.balance) or 0))
+    ui.final_balance = LoadoutUI.entry_fee_final_balance(state)
+    ui.roll_duration = ENTRY_FEE_ROLL_DURATION
+    ui.final_hold = ENTRY_FEE_FINAL_HOLD
+    ui.greeting_hold = ENTRY_FEE_GLHF_HOLD
+    ui.completed = false
+    LoadoutUI.set_entry_fee_balance_view(ui, ui.start_balance)
+    if rawget(_G, "play_sound") then pcall(play_sound, "chips1", 0.8, 0.45) end
+    return true
+end
+
+function LoadoutUI.update_entry_fee_continue(namespace, runtime)
+    namespace = namespace or {}
+    local ui = namespace.entry_fee_warning_ui
+    if not ui or not ui.animating or ui.completed then return false end
+    runtime = runtime or rawget(_G, "G")
+    local elapsed = math.max(0, now_seconds(runtime) - (ui.started_at or 0))
+    local roll_duration = math.max(0.01, ui.roll_duration or ENTRY_FEE_ROLL_DURATION)
+    local final_hold = math.max(0, ui.final_hold or ENTRY_FEE_FINAL_HOLD)
+    local greeting_hold = math.max(0, ui.greeting_hold or ENTRY_FEE_GLHF_HOLD)
+    if elapsed < roll_duration then
+        local progress = math.max(0, math.min(1, elapsed / roll_duration))
+        local value = math.floor((ui.start_balance or 0) + ((ui.final_balance or 0) - (ui.start_balance or 0)) * progress + 0.5)
+        LoadoutUI.set_entry_fee_balance_view(ui, value)
+        return true
+    end
+    if elapsed < roll_duration + final_hold then
+        LoadoutUI.set_entry_fee_balance_view(ui, ui.final_balance or 0)
+        return true
+    end
+    if elapsed < roll_duration + final_hold + greeting_hold then
+        LoadoutUI.set_entry_fee_glhf_view(ui)
+        return true
+    end
+    ui.completed = true
+    namespace.entry_fee_warning = nil
+    namespace.entry_fee_warning_ui = nil
+    if runtime and runtime.FUNCS and runtime.FUNCS.exit_overlay_menu then
+        runtime.FUNCS.exit_overlay_menu()
+    end
+    return true
 end
 
 -- ===== overlay definitions =====
@@ -371,18 +558,148 @@ function LoadoutUI.install_runtime(namespace, runtime, adapter)
         if runtime.FUNCS.exit_overlay_menu then runtime.FUNCS.exit_overlay_menu() end
     end
 
+    runtime.FUNCS.grdl_open_entry_fee_warning = function(event)
+        LoadoutUI.open_entry_fee(namespace)
+    end
+
+    runtime.FUNCS.grdl_entry_fee_continue = function(event)
+        LoadoutUI.begin_entry_fee_continue(namespace, runtime)
+    end
+
+    runtime.FUNCS.grdl_entry_fee_reselect = function(event)
+        local ui = namespace.entry_fee_warning_ui
+        if ui and ui.buttons_disabled then return end
+        namespace.entry_fee_warning = nil
+        namespace.entry_fee_reselect_pending = true
+        if runtime.FUNCS.exit_overlay_menu then runtime.FUNCS.exit_overlay_menu() end
+        if not namespace.entry_fee_warning_event_active then
+            LoadoutUI.perform_entry_fee_reselect(namespace, runtime, event)
+        end
+    end
+
+    runtime.FUNCS.grdl_entry_fee_text_tick = function(element)
+        LoadoutUI.update_entry_fee_continue(namespace, runtime)
+        local line = element and element.config and element.config.ref_table or nil
+        if not line or not element.config then return end
+        if element.config.object then
+            line.object_config = element.config
+            if line.object_dirty then
+                rebuild_entry_fee_text_object(line, element)
+            end
+            return
+        end
+        element.config.text = line.text
+        element.config.scale = line.scale
+        element.config.colour = line.colour
+    end
+
+    runtime.FUNCS.grdl_entry_fee_button_tick = function(element)
+        local ref = element and element.config and element.config.ref_table or nil
+        local ui = ref and ref.ui or nil
+        if not ref or not element.config then return end
+        local disabled = ui and ui.buttons_disabled
+        element.config.button = disabled and nil or ref.button
+        element.config.hover = not disabled
+        element.config.colour = disabled
+            and G.C.GREY
+            or ref.colour
+    end
+
     return true
 end
 
 -- ===== run integration =====
 
-function LoadoutUI.on_run_start(namespace)
+function LoadoutUI.perform_entry_fee_reselect(namespace, runtime, event)
+    if not namespace or not namespace.entry_fee_reselect_pending then return false end
+    runtime = runtime or rawget(_G, "G")
+    if not runtime or not runtime.FUNCS then return false end
+    namespace.entry_fee_reselect_pending = nil
+    local setup_event = { config = {} }
+    if runtime.FUNCS.setup_run then
+        runtime.FUNCS.setup_run(setup_event)
+        return true
+    end
+    if runtime.FUNCS.notify_then_setup_run and runtime.OVERLAY_MENU then
+        runtime.FUNCS.notify_then_setup_run(event or setup_event)
+        return true
+    end
+    return false
+end
+
+function LoadoutUI.open_entry_fee(namespace)
+    local runtime = rawget(_G, "G")
+    if not namespace or not namespace.entry_fee_warning then return end
+    if not runtime or not runtime.FUNCS or not runtime.FUNCS.overlay_menu then return end
+    if runtime.SETTINGS then runtime.SETTINGS.paused = true end
+    runtime.FUNCS.overlay_menu({
+        definition = LoadoutUI.create_entry_fee_definition(namespace),
+        config = { no_esc = true }
+    })
+end
+
+function LoadoutUI.queue_entry_fee_warning(namespace, state, queue_index)
+    if not namespace or not state then return false end
+    if math.max(0, math.floor(tonumber(state.fee) or 0)) <= 0 then return false end
+    local warning_key = state.run_key or (tostring(state.run_id or "unknown") .. ":" .. tostring(state.run_started_at or "unknown"))
+    if namespace.entry_fee_warning_run_key == warning_key then return false end
+    namespace.entry_fee_warning = state
+    local runtime = rawget(_G, "G")
+    if runtime and runtime.E_MANAGER and rawget(_G, "Event") then
+        local opened = false
+        local event = Event({
+            grdl_entry_fee_warning = true,
+            blocking = true,
+            func = function()
+                namespace.entry_fee_warning_event_active = true
+                if not opened then
+                    opened = true
+                    if runtime.FUNCS and runtime.FUNCS.grdl_open_entry_fee_warning then
+                        runtime.FUNCS.grdl_open_entry_fee_warning()
+                    else
+                        pcall(LoadoutUI.open_entry_fee, namespace)
+                    end
+                end
+                if namespace.entry_fee_warning == nil then
+                    LoadoutUI.perform_entry_fee_reselect(namespace, runtime)
+                    namespace.entry_fee_warning_event_active = nil
+                    return true
+                end
+                return namespace.entry_fee_warning == nil
+            end
+        })
+        local base_queue = runtime.E_MANAGER.queues and runtime.E_MANAGER.queues.base or nil
+        if type(base_queue) == "table" then
+            local index = tonumber(queue_index) or (#base_queue + 1)
+            index = math.max(1, math.min(index, #base_queue + 1))
+            table.insert(base_queue, index, event)
+        else
+            runtime.E_MANAGER:add_event(event)
+        end
+    else
+        pcall(LoadoutUI.open_entry_fee, namespace)
+    end
+    namespace.entry_fee_warning_run_key = warning_key
+    return true
+end
+
+function LoadoutUI.on_run_start(namespace, warning_queue_index)
     local runtime = rawget(_G, "G")
     if not namespace or not namespace.collection or not runtime or not runtime.GAME then return end
+    local entry_state = StakeEconomy.ensure_entry_state(namespace.config, namespace.collection, runtime, os.time())
+    if entry_state and entry_state.charged then namespace.last_save_ok = Persistence.save(namespace) end
+    if entry_state and not entry_state.enabled then
+        runtime.GAME.grdl_loadout = nil
+        LoadoutUI.queue_entry_fee_warning(namespace, entry_state, warning_queue_index)
+        return
+    end
     local run_id = Loadout.run_identity(runtime.GAME)
     local existing = runtime.GAME.grdl_loadout
     if not existing or existing.run_id ~= run_id then
         runtime.GAME.grdl_loadout = Loadout.begin_run(namespace.collection, run_id)
+    end
+    if entry_state then
+        LoadoutUI.queue_entry_fee_warning(namespace, entry_state, warning_queue_index)
     end
 end
 
@@ -407,6 +724,7 @@ end
 function LoadoutUI.on_boss_cash_out(namespace, defeated_ante)
     local runtime = rawget(_G, "G")
     if not namespace or not namespace.collection or not runtime or not runtime.GAME then return end
+    if not StakeEconomy.run_enabled(runtime) then return end
     local run_state = runtime.GAME.grdl_loadout
     if not run_state then return end
     if not defeated_ante then return end
@@ -433,6 +751,9 @@ end
 
 function LoadoutUI.spawn_entries(namespace, card_ids, now)
     local runtime = rawget(_G, "G")
+    if not StakeEconomy.run_enabled(runtime) then
+        return { ok = false, reason = "entry_fee_unpaid" }
+    end
     if not runtime or not runtime.GAME or not runtime.GAME.grdl_loadout then
         return { ok = false, reason = "no_run" }
     end
@@ -481,6 +802,70 @@ function LoadoutUI.spawn_entries(namespace, card_ids, now)
 end
 
 -- ===== entry popup =====
+
+function LoadoutUI.create_entry_fee_definition(namespace)
+    namespace = namespace or rawget(_G, "Gradelatro") or {}
+    local ui = LoadoutUI.entry_fee_ui_state(namespace)
+    local function live_line_object_node(line)
+        local object_config = {
+            align = "cm",
+            ref_table = line,
+            func = "grdl_entry_fee_text_tick"
+        }
+        local node = { n = G.UIT.O, config = object_config }
+        line.object_config = object_config
+        rebuild_entry_fee_text_object(line)
+        return node
+    end
+    local function live_line_node(line)
+        return { n = G.UIT.T, config = {
+            align = "cm",
+            text = line.text,
+            ref_table = line,
+            ref_value = "text",
+            scale = line.scale,
+            colour = line.colour,
+            func = "grdl_entry_fee_text_tick"
+        } }
+    end
+    local function line_row(line, config)
+        config = config or {}
+        local object_text = config.object_text
+        config.object_text = nil
+        config.align = config.align or "cm"
+        config.minw = config.minw or ENTRY_FEE_INNER_W
+        local node = object_text and live_line_object_node(line) or live_line_node(line)
+        return { n = G.UIT.R, config = config, nodes = { node } }
+    end
+    local line_rows = {
+        line_row(ui.lines[1], { minh = 0.42 }),
+        line_row(ui.lines[2], { padding = 0.04, minh = 0.62, object_text = true }),
+        line_row(ui.lines[3], { minh = 0.38 })
+    }
+    if not (ui.source_state and ui.source_state.enabled == true) then
+        line_rows[#line_rows + 1] = line_row(ui.lines[4], { minh = 0.32 })
+    end
+    local reselect_ref = { ui = ui, button = "grdl_entry_fee_reselect", colour = G.C.GREEN }
+    local continue_ref = { ui = ui, button = "grdl_entry_fee_continue", colour = G.C.RED }
+    return create_UIBox_generic_options({ no_back = true, contents = {
+        { n = G.UIT.R, config = { align = "cm", minw = 2.5, padding = 0.15, r = 0.1, colour = G.C.L_BLACK }, nodes = {
+            { n = G.UIT.C, config = { align = "tm", minw = ENTRY_FEE_INNER_W, minh = 1, r = 0.1, colour = G.C.BLACK, padding = 0.15, emboss = 0.05 }, nodes = line_rows }
+        } },
+        { n = G.UIT.R, config = { align = "cm", padding = 0 }, nodes = {
+            { n = G.UIT.C, config = { minw = 2.72, minh = 0.8, r = 0.1, hover = true, button = "grdl_entry_fee_reselect", colour = G.C.GREEN, align = "cm", emboss = 0.1, func = "grdl_entry_fee_button_tick", ref_table = reselect_ref }, nodes = {
+                { n = G.UIT.R, config = { align = "cm" }, nodes = {
+                    ui_text(safe_localize("grdl_b_entry_fee_reselect"), 0.5, G.C.WHITE)
+                } }
+            } },
+            { n = G.UIT.C, config = { align = "cm", minw = 0.2 }, nodes = {} },
+            { n = G.UIT.C, config = { minw = 2.72, minh = 0.8, r = 0.1, hover = true, button = "grdl_entry_fee_continue", colour = G.C.RED, align = "cm", emboss = 0.1, func = "grdl_entry_fee_button_tick", ref_table = continue_ref }, nodes = {
+                { n = G.UIT.R, config = { align = "cm" }, nodes = {
+                    ui_text(safe_localize("grdl_b_entry_fee_continue"), 0.5, G.C.WHITE)
+                } }
+            } }
+        } }
+    } })
+end
 
 function LoadoutUI.create_entry_definition(namespace)
     local window = namespace.loadout_entry_window
@@ -577,8 +962,11 @@ function LoadoutUI.install(namespace, env)
     if game_class and type(game_class.start_run) == "function" then
         local original_start = game_class.start_run
         game_class.start_run = function(self, args)
+            local game = rawget(_G, "G")
+            local base_queue = game and game.E_MANAGER and game.E_MANAGER.queues and game.E_MANAGER.queues.base
+            local warning_queue_index = type(base_queue) == "table" and (#base_queue + 1) or 1
             local result = original_start(self, args)
-            pcall(LoadoutUI.on_run_start, namespace)
+            pcall(LoadoutUI.on_run_start, namespace, warning_queue_index)
             return result
         end
     end

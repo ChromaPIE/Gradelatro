@@ -102,8 +102,8 @@ local smods = {
 local offer = RunEnd.capture_win_buyout_offer(namespace, runtime, smods, 1800000000)
 
 H.assert_equal(namespace.pending_buyout_offer, offer, "offer stored on namespace")
-H.assert_equal(namespace.collection.currency_g, 1045, "win settlement added before buyout")
-H.assert_equal(namespace.last_settlement_result.amount, 45, "settlement result stored")
+H.assert_equal(namespace.collection.currency_g, 1050, "win settlement added before buyout")
+H.assert_equal(namespace.last_settlement_result.amount, 50, "settlement result stored")
 H.assert_equal(namespace.last_settlement_result.duplicate, false, "first settlement not duplicate")
 H.assert_equal(save_count, 1, "first settlement saved")
 H.assert_equal(offer.run_id, "RUNSEED", "run id from seed")
@@ -123,10 +123,34 @@ H.assert_equal(#offer.blocked, 1, "rare blocked")
 H.assert_equal(offer.blocked[1].reason, "rarity_locked", "blocked reason code")
 
 local duplicate_offer = RunEnd.capture_win_buyout_offer(namespace, runtime, smods, 1800000001)
-H.assert_equal(namespace.collection.currency_g, 1045, "duplicate capture does not add currency")
+H.assert_equal(namespace.collection.currency_g, 1050, "duplicate capture does not add currency")
 H.assert_equal(namespace.last_settlement_result.duplicate, true, "duplicate settlement flagged")
 H.assert_equal(duplicate_offer.run_id, "RUNSEED", "duplicate capture still refreshes offer")
 H.assert_equal(save_count, 1, "duplicate settlement not saved")
+
+local disabled_namespace = {
+    config = config,
+    collection = Storage.normalize({ currency_g = 1 }),
+    mod = { id = "Gradelatro", config = {} }
+}
+local disabled_runtime = {
+    GAME = {
+        stake = 8,
+        dollars = 1000,
+        pseudorandom = { seed = "DISABLED" },
+        grdl_run_started_at = 1767225600,
+        grdl_entry = { enabled = false, paid = false, fee = 83, balance = 1 }
+    },
+    P_STAKES = runtime.P_STAKES,
+    P_CENTERS = runtime.P_CENTERS,
+    jokers = runtime.jokers
+}
+local disabled_offer = RunEnd.capture_win_buyout_offer(disabled_namespace, disabled_runtime, smods, 1800000002)
+H.assert_equal(disabled_offer, nil, "unpaid entry disables buyout offer")
+H.assert_equal(disabled_namespace.pending_buyout_offer, nil, "unpaid entry stores no offer")
+H.assert_equal(disabled_namespace.last_settlement_result, nil, "unpaid entry skips settlement")
+H.assert_equal(disabled_namespace.collection.currency_g, 1, "unpaid entry grants no currency")
+H.assert_equal(disabled_namespace.collection.market.black_market, nil, "unpaid entry skips black market")
 _G.SMODS = previous_smods_global
 
 rng.restore()

@@ -199,6 +199,136 @@ _G.Card = previous_entry_card
 _G.CardArea = previous_entry_card_area
 _G.G = previous_entry_g
 
+local previous_fee_g = rawget(_G, "G")
+local previous_fee_options = rawget(_G, "create_UIBox_generic_options")
+local previous_attention_text = rawget(_G, "attention_text")
+local previous_fee_dynatext = rawget(_G, "DynaText")
+local attention_calls = {}
+_G.attention_text = function(args)
+    attention_calls[#attention_calls + 1] = args
+end
+local dynatext_objects = {}
+_G.DynaText = function(args)
+    local object = {
+        args = args,
+        T = { x = 0, y = 0, w = 0, h = 0 },
+        VT = { x = 0, y = 0, w = 0, h = 0 }
+    }
+    function object:remove() self.removed = true end
+    function object:move_with_major() self.moved = true end
+    function object:align_to_major() self.aligned = true end
+    dynatext_objects[#dynatext_objects + 1] = object
+    return object
+end
+_G.create_UIBox_generic_options = function(args) return args end
+_G.G = {
+    UIT = { R = "R", C = "C", T = "T", O = "O" },
+    C = {
+        WHITE = { 1, 1, 1, 1 },
+        RED = { 1, 0, 0, 1 },
+        GREEN = { 0, 1, 0, 1 },
+        BLUE = { 0, 0, 1, 1 },
+        GREY = { 0.5, 0.5, 0.5, 1 },
+        GOLD = { 1, 0.8, 0, 1 },
+        ORANGE = { 1, 0.5, 0, 1 },
+        BLACK = { 0, 0, 0, 1 },
+        L_BLACK = { 0.2, 0.2, 0.2, 1 },
+        UI = {
+            TEXT_LIGHT = { 1, 1, 1, 1 },
+            TEXT_INACTIVE = { 0.5, 0.5, 0.5, 1 }
+        }
+    }
+}
+namespace.entry_fee_warning = { balance = 7, fee = 83, enabled = false }
+local fee_definition = LoadoutUI.create_entry_fee_definition(namespace)
+H.assert_equal(fee_definition.no_back, true, "entry fee dialog has no back action")
+H.assert_equal(fee_definition.contents[1].config.colour, _G.G.C.L_BLACK, "entry fee dialog uses modal outer panel")
+H.assert_equal(fee_definition.contents[1].nodes[1].config.colour, _G.G.C.BLACK, "entry fee dialog uses modal inner panel")
+H.assert_equal(fee_definition.contents[2].nodes[1].config.button, "grdl_entry_fee_reselect", "entry fee dialog has direct reselect button")
+H.assert_equal(fee_definition.contents[2].nodes[3].config.button, "grdl_entry_fee_continue", "entry fee dialog has direct continue button")
+H.assert_equal(fee_definition.contents[2].nodes[1].config.colour, _G.G.C.GREEN, "entry fee reselect button is green")
+H.assert_equal(fee_definition.contents[2].nodes[3].config.colour, _G.G.C.RED, "entry fee continue button is red")
+local fee_ui = namespace.entry_fee_warning_ui
+H.assert_equal(#fee_definition.contents[1].nodes[1].nodes, 4, "insufficient entry fee keeps disabled notice row")
+H.assert_equal(fee_ui.lines[1].text, "grdl_k_entry_fee_insufficient_title", "insufficient entry fee title")
+H.assert_equal(fee_ui.lines[2].text, "grdl_k_entry_fee_balance", "entry fee balance uses its own line")
+H.assert_equal(fee_ui.lines[3].text, "grdl_k_entry_fee_required", "entry fee threshold uses its own line")
+H.assert_equal(fee_ui.lines[4].text, "grdl_k_entry_fee_blocked", "insufficient entry fee shows disabled feature notice")
+H.assert_equal(fee_definition.contents[1].nodes[1].nodes[1].nodes[1].config.ref_table, fee_ui.lines[1], "entry fee title line is live-bound")
+H.assert_equal(fee_definition.contents[1].nodes[1].nodes[2].nodes[1].config.ref_table, fee_ui.lines[2], "entry fee body line is live-bound")
+H.assert_equal(fee_definition.contents[1].nodes[1].nodes[3].nodes[1].config.ref_table, fee_ui.lines[3], "entry fee footer line is live-bound")
+H.assert_equal(fee_definition.contents[1].nodes[1].nodes[4].nodes[1].config.ref_table, fee_ui.lines[4], "entry fee disabled line is live-bound")
+H.assert_equal(fee_definition.contents[2].nodes[1].config.func, "grdl_entry_fee_button_tick", "reselect button can grey out during animation")
+H.assert_equal(fee_definition.contents[2].nodes[3].config.func, "grdl_entry_fee_button_tick", "continue button can grey out during animation")
+H.assert_equal(LoadoutUI.begin_entry_fee_continue(namespace, { TIMERS = { REAL = 10 }, FUNCS = { exit_overlay_menu = function() fee_ui.closed = true end } }), true, "insufficient continue exits immediately")
+H.assert_equal(namespace.entry_fee_warning, nil, "insufficient continue clears warning immediately")
+H.assert_equal(namespace.entry_fee_warning_ui, nil, "insufficient continue does not keep animation state")
+H.assert_equal(fee_ui.closed, true, "insufficient continue closes overlay immediately")
+
+namespace.entry_fee_warning = { balance = 100, fee = 30, enabled = true, paid = true, charged = true }
+local paid_definition = LoadoutUI.create_entry_fee_definition(namespace)
+local paid_ui = namespace.entry_fee_warning_ui
+H.assert_equal(#paid_definition.contents[1].nodes[1].nodes, 3, "paid entry fee has no empty disabled notice row")
+H.assert_equal(paid_ui.lines[1].text, "grdl_k_entry_fee_title", "paid entry fee title")
+H.assert_equal(paid_ui.lines[2].text, "grdl_k_entry_fee_balance", "paid entry fee balance line")
+H.assert_equal(paid_ui.lines[3].text, "grdl_k_entry_fee_required", "paid entry fee threshold line")
+H.assert_equal(paid_ui.lines[4].text, " ", "paid entry fee omits disabled feature notice")
+H.assert_equal(paid_definition.contents[1].nodes[1].nodes[2].config.minw, 5.65, "paid amount row spans the inner panel")
+H.assert_equal(#paid_definition.contents[1].nodes[1].nodes[2].nodes, 1, "paid amount row has one centered object node")
+local paid_amount_node = paid_definition.contents[1].nodes[1].nodes[2].nodes[1]
+H.assert_equal(paid_amount_node.n, _G.G.UIT.O, "paid amount row uses an embedded text object")
+H.assert_equal(paid_amount_node.config.ref_table, paid_ui.lines[2], "paid amount object is live-bound")
+H.assert_equal(paid_amount_node.config.object.args.float, nil, "paid amount object does not float before GLHF")
+H.assert_equal(paid_amount_node.config.object.args.string[1].ref_table, paid_ui.lines[2], "paid amount object reads live text")
+H.assert_equal(paid_amount_node.config.object.args.string[1].ref_value, "text", "paid amount object reads the line text key")
+H.assert_equal(LoadoutUI.entry_fee_final_balance(namespace.entry_fee_warning), 70, "paid entry visual deducts fee from starting balance")
+H.assert_equal(LoadoutUI.entry_fee_balance_text(7), "Ⓖ 7", "entry fee balance text")
+H.assert_equal(LoadoutUI.begin_entry_fee_continue(namespace, { TIMERS = { REAL = 10 } }), true, "continue starts entry fee visual")
+H.assert_equal(paid_ui.buttons_disabled, true, "continue visual disables buttons")
+H.assert_equal(paid_ui.roll_duration, 1.5, "continue visual roll duration is fixed")
+H.assert_equal(paid_ui.final_hold, 0.875, "continue visual final balance hold is extended")
+H.assert_equal(paid_ui.greeting_hold, 1.625, "continue visual greeting hold is extended")
+H.assert_equal(paid_ui.lines[1].text, " ", "continue visual clears top warning line")
+H.assert_equal(paid_ui.lines[2].text, "Ⓖ 100", "continue visual starts at current balance")
+H.assert_equal(paid_ui.lines[2].scale, 0.74, "continue visual amount text is larger")
+H.assert_equal(paid_ui.lines[3].text, " ", "continue visual clears threshold line")
+H.assert_equal(paid_ui.lines[4].text, " ", "continue visual clears disabled line")
+local amount_element = { config = paid_amount_node.config, T = { x = 1, y = 2, w = 3, h = 4 } }
+runtime.TIMERS = { REAL = 10 }
+runtime.FUNCS.grdl_entry_fee_text_tick(amount_element)
+runtime.TIMERS = nil
+local amount_object = paid_amount_node.config.object
+H.assert_equal(amount_object.args.scale, 0.74, "paid amount object scale follows the running amount view")
+H.assert_equal(amount_object.args.colours[1], _G.G.C.GOLD, "paid amount object uses gold")
+H.assert_equal(amount_object.args.float, nil, "paid amount object still does not float while rolling")
+LoadoutUI.update_entry_fee_continue(namespace, { TIMERS = { REAL = 10.75 } })
+H.assert_true(paid_ui.lines[2].text ~= "Ⓖ 100", "continue visual rolls balance before completion")
+LoadoutUI.update_entry_fee_continue(namespace, { TIMERS = { REAL = 11.5 } })
+H.assert_equal(paid_ui.lines[2].text, "Ⓖ 70", "continue visual reaches final balance")
+LoadoutUI.update_entry_fee_continue(namespace, { TIMERS = { REAL = 12.4 } })
+H.assert_equal(paid_ui.lines[2].text, "grdl_k_entry_fee_glhf", "continue visual switches to GLHF text")
+H.assert_equal(paid_ui.lines[2].scale, 0.58, "continue visual greeting text is larger")
+H.assert_equal(paid_ui.lines[2].colour, _G.G.C.ORANGE, "continue visual greeting is orange")
+runtime.TIMERS = { REAL = 12.4 }
+runtime.FUNCS.grdl_entry_fee_text_tick(amount_element)
+runtime.TIMERS = nil
+local glhf_object = paid_amount_node.config.object
+H.assert_true(glhf_object ~= amount_object, "GLHF replaces the embedded object to start pop-in")
+H.assert_equal(glhf_object.args.float, true, "GLHF object uses vanilla float effect")
+H.assert_equal(glhf_object.args.pop_in, 0, "GLHF object uses vanilla pop-in entry")
+H.assert_equal(glhf_object.args.colours[1], _G.G.C.ORANGE, "GLHF embedded object is orange")
+H.assert_equal(glhf_object.args.string[1].ref_table, paid_ui.lines[2], "GLHF object stays bound to the dialog line")
+H.assert_equal(#attention_calls, 0, "GLHF does not use a detached attention text overlay")
+LoadoutUI.update_entry_fee_continue(namespace, { TIMERS = { REAL = 14.1 }, FUNCS = { exit_overlay_menu = function() paid_ui.closed = true end } })
+H.assert_equal(namespace.entry_fee_warning, nil, "continue visual clears warning only after exit timing")
+H.assert_equal(paid_ui.closed, true, "continue visual exits overlay after GLHF hold")
+namespace.entry_fee_warning = nil
+namespace.entry_fee_warning_ui = nil
+_G.G = previous_fee_g
+_G.create_UIBox_generic_options = previous_fee_options
+_G.attention_text = previous_attention_text
+_G.DynaText = previous_fee_dynatext
+
 -- ===== run integration =====
 local previous_run_g = rawget(_G, "G")
 local Proficiency = dofile("src/domain/proficiency.lua")
@@ -249,11 +379,34 @@ local funcs = { cash_out = function(e)
     if resets and resets.blind_states then resets.blind_states.Boss = "Upcoming" end
     return "paid"
 end }
+local notify_reselect_calls = 0
+local setup_reselect_calls = 0
+local reselect_order = {}
+funcs.notify_then_setup_run = function(event)
+    notify_reselect_calls = notify_reselect_calls + 1
+    if not (_G.G and _G.G.OVERLAY_MENU) then error("notify requires overlay") end
+end
+funcs.setup_run = function(event)
+    reselect_order[#reselect_order + 1] = "setup"
+    setup_reselect_calls = setup_reselect_calls + 1
+    return "setup"
+end
 local game_class = {}
-function game_class.start_run(self, args) return "started" end
+function game_class.start_run(self, args)
+    local game = rawget(_G, "G")
+    local base_queue = game and game.E_MANAGER and game.E_MANAGER.queues and game.E_MANAGER.queues.base
+    if type(base_queue) == "table" then
+        table.insert(base_queue, { kind = "inner_start_run_popup", func = function()
+            reselect_order[#reselect_order + 1] = "inner"
+            return true
+        end })
+    end
+    return "started"
+end
 local env = { funcs = funcs, game_class = game_class }
 H.assert_equal(LoadoutUI.install(run_ns, env), true, "run hooks installed")
 H.assert_equal(LoadoutUI.install(run_ns, env), true, "second install is a no-op")
+H.assert_equal(LoadoutUI.install_runtime(run_ns, { FUNCS = funcs }), true, "run fee callbacks installed")
 
 _G.G = {
     GAME = {
@@ -318,6 +471,131 @@ run_ns.loadout_entry_window = nil
 _G.G.GAME.round_resets.blind_states.Boss = "Upcoming"
 funcs.cash_out({ config = {} })
 H.assert_equal(run_ns.loadout_entry_window, nil, "small blind opens no window")
+
+local queued_entry_events = {}
+local overlay_calls = {}
+local reselect_events = {}
+local base_events = { { kind = "preexisting_start_run_event" } }
+local previous_run_event = rawget(_G, "Event")
+local previous_run_options = rawget(_G, "create_UIBox_generic_options")
+_G.Event = function(args) return args end
+_G.create_UIBox_generic_options = function(args) return args end
+funcs.overlay_menu = function(args) overlay_calls[#overlay_calls + 1] = args end
+local function set_entry_fee_runtime(seed, started_at, existing_entry)
+    _G.G = {
+        GAME = {
+            stake = 8,
+            pseudorandom = { seed = seed },
+            grdl_run_started_at = started_at,
+            grdl_entry = existing_entry,
+            round_resets = { ante = 2, blind_states = { Boss = "Defeated" } }
+        },
+        P_STAKES = { stake_gold = { stake_level = 8 } },
+        FUNCS = funcs,
+        SETTINGS = {},
+        E_MANAGER = {
+            queues = { base = base_events },
+            add_event = function(self, event)
+                if event and event.grdl_reselect then
+                    reselect_events[#reselect_events + 1] = event
+                else
+                    queued_entry_events[#queued_entry_events + 1] = event
+                end
+            end
+        },
+        UIT = { R = "R", C = "C", T = "T" },
+        C = {
+            WHITE = { 1, 1, 1, 1 },
+            RED = { 1, 0, 0, 1 },
+            GREEN = { 0, 1, 0, 1 },
+            BLUE = { 0, 0, 1, 1 },
+            BLACK = { 0, 0, 0, 1 },
+            L_BLACK = { 0.2, 0.2, 0.2, 1 },
+            UI = {
+                TEXT_LIGHT = { 1, 1, 1, 1 },
+                TEXT_INACTIVE = { 0.5, 0.5, 0.5, 1 }
+            }
+        },
+        jokers = { cards = {} },
+        STATE = 1
+    }
+end
+
+-- paid entry fee still shows the run-start entry fee dialog
+run_ns.collection.currency_g = 200
+run_ns.loadout_entry_window = nil
+set_entry_fee_runtime("PAIDLOAD", 1767225500)
+game_class.start_run({}, {})
+H.assert_equal(_G.G.GAME.grdl_entry.enabled, true, "paid entry state keeps run enabled")
+H.assert_true(_G.G.GAME.grdl_loadout ~= nil, "paid entry still seeds loadout")
+H.assert_equal(run_ns.collection.currency_g, 117, "paid entry fee is charged")
+H.assert_equal(base_events[2].grdl_entry_fee_warning, true, "paid entry warning is inserted before start-run post events")
+H.assert_equal(base_events[3].kind, "inner_start_run_popup", "paid entry warning precedes later start-run events")
+H.assert_equal(base_events[2].func(), false, "paid entry warning remains active until player continues")
+H.assert_equal(#overlay_calls, 1, "scheduled paid entry warning opens overlay")
+H.assert_equal(run_ns.entry_fee_warning_ui.lines[1].text, "grdl_k_entry_fee_title", "paid run-start warning uses entry fee title")
+
+-- legacy warned flags on the run state must not suppress a fresh dialog
+queued_entry_events = {}
+overlay_calls = {}
+base_events = { { kind = "preexisting_start_run_event" } }
+local legacy_warned_entry = {
+    run_key = "LEGACYPAID:1767225550",
+    run_id = "LEGACYPAID",
+    run_started_at = 1767225550,
+    stake_index = 8,
+    stake_level = 8,
+    fee = 83,
+    balance = 200,
+    paid = true,
+    enabled = true,
+    charged = true,
+    warned = true
+}
+run_ns.collection.currency_g = 200
+run_ns.entry_fee_warning = nil
+run_ns.entry_fee_warning_ui = nil
+set_entry_fee_runtime("LEGACYPAID", 1767225550, legacy_warned_entry)
+game_class.start_run({}, {})
+H.assert_equal(base_events[2].grdl_entry_fee_warning, true, "legacy warned flag does not block paid entry warning")
+
+-- unpaid entry fee disables all loadout run features
+queued_entry_events = {}
+overlay_calls = {}
+reselect_events = {}
+base_events = { { kind = "preexisting_start_run_event" } }
+set_entry_fee_runtime("POORLOAD", 1767225600)
+run_ns.collection.currency_g = 0
+run_ns.loadout_entry_window = nil
+game_class.start_run({}, {})
+H.assert_equal(_G.G.GAME.grdl_entry.enabled, false, "unpaid entry state disables run")
+H.assert_equal(_G.G.GAME.grdl_loadout, nil, "unpaid entry does not seed loadout")
+H.assert_equal(#overlay_calls, 0, "unpaid entry warning waits for scheduled overlay")
+H.assert_equal(#queued_entry_events, 0, "unpaid entry warning uses base queue when available")
+H.assert_equal(base_events[2].grdl_entry_fee_warning, true, "unpaid entry warning is inserted before start-run post events")
+H.assert_equal(base_events[3].kind, "inner_start_run_popup", "existing start-run post events remain queued after warning")
+H.assert_equal(base_events[2].delay, nil, "unpaid entry warning follows one-frame event with no fixed delay")
+H.assert_equal(base_events[2].trigger, nil, "unpaid entry warning follows one-frame event")
+H.assert_equal(base_events[2].blocking, true, "unpaid entry warning blocks later start-run events while open")
+H.assert_equal(base_events[2].func(), false, "unpaid entry warning remains active until the player chooses")
+H.assert_equal(#overlay_calls, 1, "scheduled unpaid entry warning opens overlay")
+H.assert_equal(overlay_calls[1].config.no_esc, true, "unpaid entry overlay uses modal config")
+_G.G.OVERLAY_MENU = nil
+funcs.grdl_entry_fee_reselect({ config = {} })
+H.assert_equal(notify_reselect_calls, 0, "reselect avoids notify callback without overlay")
+H.assert_equal(setup_reselect_calls, 0, "reselect waits for the blocking warning event to release")
+H.assert_equal(#reselect_events, 0, "reselect does not append setup behind deferred start-run events")
+H.assert_equal(base_events[2].func(), true, "unpaid entry warning releases later events after player choice")
+H.assert_equal(setup_reselect_calls, 1, "reselect runs setup before releasing deferred start-run events")
+base_events[3].func()
+H.assert_equal(table.concat(reselect_order, ","), "setup,inner", "reselect setup precedes deferred start-run events")
+funcs.cash_out({ config = {} })
+H.assert_equal(run_ns.loadout_entry_window, nil, "unpaid entry opens no loadout window")
+local blocked_spawn = LoadoutUI.spawn_entries(run_ns, { graded_novice.id }, 9999)
+H.assert_equal(blocked_spawn.ok, false, "unpaid entry blocks spawn")
+H.assert_equal(blocked_spawn.reason, "entry_fee_unpaid", "spawn reports entry fee gate")
+_G.create_UIBox_generic_options = previous_run_options
+_G.Event = previous_run_event
 
 _G.G = previous_run_g
 

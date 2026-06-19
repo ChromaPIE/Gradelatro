@@ -92,6 +92,7 @@ function Storage.normalize(input)
     state.cards = type(state.cards) == "table" and state.cards or {}
     state.grading_queue = type(state.grading_queue) == "table" and state.grading_queue or {}
     state.settlements = type(state.settlements) == "table" and state.settlements or {}
+    state.entry_fees = type(state.entry_fees) == "table" and state.entry_fees or {}
     state.market = type(state.market) == "table" and state.market or { series_heat = {} }
     state.market.series_heat = type(state.market.series_heat) == "table" and state.market.series_heat or {}
     for index, card in ipairs(state.cards) do

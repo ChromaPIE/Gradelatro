@@ -1,5 +1,11 @@
 local Economy = {}
 
+local function load_src(path)
+    return assert(SMODS.load_file("src/" .. path))()
+end
+
+local StakeEconomy = load_src("domain/stake_economy.lua")
+
 local function ceil(value)
     return math.ceil(value - 0.0000001)
 end
@@ -43,10 +49,7 @@ function Economy.settlement_g(config, args)
         return math.min(math.floor(dollars * config.settlement.cash_rate_loss), config.settlement.loss_cap)
     end
 
-    local gate = args.gate or "red"
-    local gate_config = config.settlement.gates[gate] or config.settlement.gates.red
-    local cash_g = math.min(math.floor(dollars * config.settlement.cash_rate_win), gate_config.cash_cap)
-    return gate_config.bonus + cash_g
+    return StakeEconomy.win_quote(args.stake_level or args.stake or 1, dollars).gross
 end
 
 function Economy.graded_value(rav, grade, grade_mult)

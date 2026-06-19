@@ -11,6 +11,7 @@ local Loadout = load_src("domain/loadout.lua")
 local Market = load_src("domain/market.lua")
 local Persistence = load_src("core/persistence.lua")
 local Settlement = load_src("domain/settlement.lua")
+local StakeEconomy = load_src("domain/stake_economy.lua")
 local Stakes = load_src("domain/stakes.lua")
 
 local function copy_shallow_table(value)
@@ -94,17 +95,23 @@ function RunEnd.capture_win_buyout_offer(namespace, runtime, smods, now)
     local config = namespace.config or {}
     local collection = namespace.collection
     if not collection then return nil end
+    if not StakeEconomy.run_enabled(runtime) then
+        namespace.pending_buyout_offer = nil
+        return nil
+    end
 
     local run_started_at = RunEnd.ensure_run_started_at(runtime.GAME, now)
     local current_run_id = run_id(runtime.GAME)
     local catalog = Catalog.discover(config, runtime.P_CENTERS, smods and smods.Mods or nil)
     local snapshots = RunEnd.collect_joker_snapshots(runtime.jokers)
     local stake_anchors = RunEnd.stake_anchors(runtime.P_STAKES)
-    local gate = Stakes.gate_for_level(stake_anchors, runtime.GAME.stake or 1)
+    local stake_level = StakeEconomy.stake_level_for_run(runtime)
+    local gate = Stakes.gate_for_level(stake_anchors, stake_level)
     namespace.last_settlement_result = Settlement.apply(config, collection, {
         run_id = current_run_id,
         run_started_at = run_started_at,
         gate = gate,
+        stake_level = stake_level,
         won = true,
         dollars = runtime.GAME.dollars,
         settled_at = now or os.time()
@@ -138,7 +145,7 @@ function RunEnd.capture_win_buyout_offer(namespace, runtime, smods, now)
     local offer = Buyout.prepare_offer(config, collection, {
         catalog = catalog,
         jokers = snapshots,
-        stake_level = runtime.GAME.stake or 1,
+        stake_level = stake_level,
         stake_anchors = stake_anchors,
         series_heat = Market.heat_map(collection)
     })
