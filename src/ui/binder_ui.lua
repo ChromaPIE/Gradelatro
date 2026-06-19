@@ -589,6 +589,7 @@ local function apply_display_record(card, entry)
     local edition_flag = Catalog.edition_flags(entry.edition)
     if card.set_edition then pcall(card.set_edition, card, edition_flag, true, true) end
     card.grdl_record = entry
+    card.grdl_inspect_close_func = "grdl_open_binder"
     suppress_selection(card)
 end
 
