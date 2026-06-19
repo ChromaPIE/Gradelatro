@@ -371,6 +371,10 @@ local function align_vanilla_info_queue_side(popup, card)
     local ok, planned = pcall(card.align_h_popup, card)
     if not ok then return end
     local planned_type = alignment_type(planned)
+    if planned_type == "tm" or planned_type == "bm" then
+        local major = planned.major or planned.parent or card
+        planned_type = side_alignment(major, popup, SCREEN_MARGIN)
+    end
     if planned_type ~= "cl" and planned_type ~= "cr" then return end
     local trigger = find_infotip_trigger(popup)
     local info_root = trigger and trigger.config and trigger.config.ref_table and trigger.config.ref_table[1] or nil
@@ -401,7 +405,7 @@ local function adapt_hover_popup_for_slab(card, funcs)
     if planned_type == "cl" or planned_type == "cr" then
         local offset = planned_type == "cl" and { x = -SIDE_OFFSET_X, y = 0 } or { x = SIDE_OFFSET_X, y = 0 }
         if slab and slab.config then slab.config.parent = popup end
-        realign_box(slab, popup, planned_type, offset, "Strong")
+        realign_box(slab, popup, "tm", { x = 0, y = -0.04 }, "Strong")
         apply_alignment_now(slab)
         if slab and slab.UIRoot then move_child_tree(slab.UIRoot) end
         align_side_info_popups(card, popup, planned_type)

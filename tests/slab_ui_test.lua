@@ -386,7 +386,7 @@ side_hover_card.config.h_popup = whole_tooltip_env.ui_def.card_h_popup(side_hove
 side_hover_card.config.h_popup_config = side_hover_card:align_h_popup()
 whole_tooltip_env.node.hover(side_hover_card)
 H.assert_equal(side_hover_card.children.h_popup.last_alignment, nil, "pre-side vanilla tooltip alignment is not changed")
-H.assert_equal(whole_tooltip_slab.config.align, "cl", "left-side tooltip keeps the slab on the left side")
+H.assert_equal(whole_tooltip_slab.config.align, "tm", "left-side tooltip keeps the slab above the main tooltip")
 H.assert_equal(whole_tooltip_slab.config.parent, side_hover_card.children.h_popup, "left-side slab follows the tooltip box")
 
 local right_side_hover_card = {
@@ -413,7 +413,7 @@ right_side_hover_card.config.h_popup = whole_tooltip_env.ui_def.card_h_popup(rig
 right_side_hover_card.config.h_popup_config = right_side_hover_card:align_h_popup()
 whole_tooltip_env.node.hover(right_side_hover_card)
 H.assert_equal(right_side_hover_card.children.h_popup.last_alignment, nil, "right-side vanilla tooltip alignment is not changed")
-H.assert_equal(whole_tooltip_slab.config.align, "cr", "right-side tooltip keeps the slab on the right side")
+H.assert_equal(whole_tooltip_slab.config.align, "tm", "right-side tooltip keeps the slab above the main tooltip")
 H.assert_equal(whole_tooltip_slab.config.parent, right_side_hover_card.children.h_popup, "right-side slab follows the tooltip box")
 H.assert_equal(right_side_hover_card.children.info_queue.last_alignment.type, "cr", "right-side tooltip keeps vanilla info queue on the right side")
 H.assert_equal(right_side_hover_card.children.info_queue.config.parent, right_side_hover_card.children.h_popup, "right-side info queue follows the tooltip box")
@@ -447,6 +447,35 @@ local vanilla_info_card = {
 }
 vanilla_info_env.ui_def.card_h_popup(vanilla_info_card)
 H.assert_equal(vanilla_info_popup.nodes[1].nodes[2].config.ref_table[1].config.card_pos, 0, "right-side card popup forces vanilla info queue to the right of the tooltip")
+
+local middle_info_popup = {
+    nodes = { {
+        nodes = { {
+            config = {
+                func = "show_infotip",
+                ref_table = { { config = { card_pos = 8.0 }, nodes = {} } }
+            },
+            nodes = { { name = "main_box" } }
+        } }
+    } }
+}
+local middle_info_env = {
+    ui_def = { card_h_popup = function() return middle_info_popup end },
+    funcs = {},
+    card = {}
+}
+H.assert_equal(SlabUI.install({ binder_hover_index = { kino_air_freshener = catalog_entry } }, middle_info_env), true, "middle-card info queue side test installs wrapper")
+local middle_info_card = {
+    grdl_record = record,
+    children = {},
+    config = {},
+    T = { x = 1.0, y = 1.2, w = 1.0, h = 1.4 },
+    align_h_popup = function()
+        return { type = "bm", align = "bm", parent = middle_info_card, major = middle_info_card }
+    end
+}
+middle_info_env.ui_def.card_h_popup(middle_info_card)
+H.assert_equal(middle_info_popup.nodes[1].nodes[2].config.ref_table[1].config.card_pos, 0, "middle-card popup prepositions vanilla info queue on the chosen side")
 
 whole_tooltip_next_slab_x = 8.1
 whole_tooltip_next_slab_y = 2.15
