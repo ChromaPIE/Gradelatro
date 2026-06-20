@@ -1,13 +1,10 @@
 local Catalog = {}
 
-local function rarity_name(raw)
-    if raw == 1 or raw == "common" or raw == "Common" then return "common" end
-    if raw == 2 or raw == "uncommon" or raw == "Uncommon" then return "uncommon" end
-    if raw == 3 or raw == "rare" or raw == "Rare" then return "rare" end
-    if raw == 4 or raw == "legendary" or raw == "Legendary" then return "legendary" end
-    if raw == "exotic" or raw == "Exotic" then return "exotic" end
-    return "unknown_high"
+local function load_src(path)
+    return assert(SMODS.load_file("src/" .. path))()
 end
+
+local Rarity = load_src("domain/rarity.lua")
 
 local function mod_id_for_center(center)
     if center.mod and center.mod.id then return center.mod.id end
@@ -106,7 +103,8 @@ function Catalog.discover(config, centers, mods, text)
                 mod_name = mod_name,
                 series_id = mod_id,
                 series_key = format_series_name(config, mod_name, text),
-                rarity = rarity_name(center.rarity),
+                rarity = Rarity.key(center.rarity),
+                raw_rarity = center.rarity,
                 order = center.order or 0
             }
         end

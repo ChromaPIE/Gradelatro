@@ -13,6 +13,7 @@ local UICommon = load_src("ui/ui_common.lua")
 
 local safe_localize = UICommon.localize_text
 local center_name = UICommon.center_name
+local rarity_label = UICommon.rarity_label
 local ui_text = UICommon.text_node
 local row = UICommon.row
 local col = UICommon.col
@@ -259,9 +260,7 @@ function MarketUI.intel_rows(offer)
     local intel = offer.intel or {}
     local rarity_value = unknown
     if intel.rarity then
-        local rarity_key = "grdl_k_rarity_" .. tostring(offer.rarity)
-        rarity_value = safe_localize(rarity_key)
-        if rarity_value == rarity_key then rarity_value = tostring(offer.rarity) end
+        rarity_value = rarity_label(offer.rarity)
     end
     return {
         { label = safe_localize("grdl_k_intel_mod"), value = intel.mod and tostring(offer.mod_name) or unknown },

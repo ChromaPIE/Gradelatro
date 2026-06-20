@@ -5,6 +5,7 @@ local function load_src(path)
 end
 
 local StakeEconomy = load_src("domain/stake_economy.lua")
+local Rarity = load_src("domain/rarity.lua")
 
 local function ceil(value)
     return math.ceil(value - 0.0000001)
@@ -14,7 +15,7 @@ function Economy.raw_anchor_value(config, args)
     args = args or {}
     local rarity = args.rarity or "common"
     local edition = args.edition or "base"
-    local rarity_base = config.economy.rarity_base[rarity] or config.economy.rarity_base.unknown_high
+    local rarity_base = Rarity.base_value(config, rarity)
     local edition_mult = config.economy.edition_mult[edition] or config.economy.edition_mult.base
     local series_heat = args.series_heat or 1.0
     local availability_mult = args.availability_mult or 1.0

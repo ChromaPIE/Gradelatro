@@ -13,7 +13,13 @@ Config.DEFAULTS = {
             rare = 220,
             legendary = 750,
             exotic = 1000,
-            unknown_high = 1000
+            unknown_high = 1500,
+            cry_exotic = 3000,
+            cry_epic = 1500,
+            soe_basic = 60,
+            soe_unusual = 150,
+            soe_unique = 485,
+            soe_fabled = 1250
         },
         edition_mult = {
             base = 1.00,

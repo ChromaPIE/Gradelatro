@@ -9,6 +9,10 @@ local centers = {
     j_legendary = { key = "j_legendary", set = "Joker", rarity = 4, name = "Legendary Joker", order = 4 },
     c_fool = { key = "c_fool", set = "Tarot", rarity = 1, name = "The Fool" },
     j_modded = { key = "cry_modded", original_key = "modded", set = "Joker", rarity = "exotic", name = "Modded Joker", order = 1, mod = { id = "Cryptid" } },
+    j_cry_exotic = { key = "j_cry_exotic", original_key = "cry_exotic", set = "Joker", rarity = "cry_exotic", name = "Cryptid Exotic", order = 2, mod_id = "Cryptid" },
+    j_cry_epic = { key = "j_cry_epic", original_key = "cry_epic", set = "Joker", rarity = "cry_epic", name = "Cryptid Epic", order = 3, mod_id = "Cryptid" },
+    j_soe_basic = { key = "soe_basic_joker", original_key = "basic", set = "Joker", rarity = "soe_basic", name = "SOE Basic", order = 1, mod_id = "SealsOnEverything" },
+    j_worm = { key = "worm_otherworldly_joker", original_key = "otherworldly", set = "Joker", rarity = "worm_otherworldly", name = "Wormhole Otherworldly", order = 1, mod_id = "Wormhole" },
     j_direct_mod = { key = "kino_air_freshener", original_key = "air_freshener", set = "Joker", rarity = "Mythic", name = "Direct Mod Joker", order = 12, mod_id = "Kino" },
     j_direct_mod_second = { key = "kino_after", original_key = "after", set = "Joker", rarity = 1, name = "After", order = 13, mod_id = "Kino" }
 }
@@ -16,6 +20,8 @@ local mods = {
     Balatro = { id = "Balatro", name = "BALATRO" },
     Cryptid = { id = "Cryptid", name = "Cryptid" },
     Kino = { id = "Kino", name = "Kino" },
+    SealsOnEverything = { id = "SealsOnEverything", name = "Seals On Everything" },
+    Wormhole = { id = "Wormhole", name = "Wormhole" },
     NoJokers = { id = "NoJokers", name = "No Jokers" }
 }
 
@@ -28,7 +34,7 @@ local function find(center_key)
     return nil
 end
 
-H.assert_equal(#catalog, 6, "only Jokers are cataloged")
+H.assert_equal(#catalog, 10, "only Jokers are cataloged")
 H.assert_equal(catalog[1].center_key, "cry_modded", "sorted first key")
 H.assert_equal(find("kino_air_freshener").series_key, "Kino Series", "direct mod series")
 H.assert_equal(find("kino_air_freshener").mod_name, "Kino", "raw mod name kept for labels")
@@ -36,17 +42,25 @@ H.assert_equal(find("j_joker").mod_name, "BALATRO", "vanilla mod name kept for l
 H.assert_equal(find("kino_air_freshener").local_key, "air_freshener", "original key kept")
 H.assert_equal(find("kino_air_freshener").series_index, 1, "series index by order")
 H.assert_equal(find("kino_air_freshener").rarity, "unknown_high", "unknown rarity maps high")
+H.assert_equal(find("kino_air_freshener").raw_rarity, "Mythic", "unknown raw rarity retained")
 H.assert_equal(find("j_joker").series_key, "BALATRO Series", "vanilla series")
 H.assert_equal(find("j_joker").rarity, "common", "common rarity")
 H.assert_equal(find("j_legendary").rarity, "legendary", "legendary rarity")
 H.assert_equal(find("cry_modded").series_key, "Cryptid Series", "mod series")
 H.assert_equal(find("cry_modded").rarity, "exotic", "exotic rarity")
+H.assert_equal(find("j_cry_exotic").rarity, "cry_exotic", "cryptid exotic rarity")
+H.assert_equal(find("j_cry_epic").rarity, "cry_epic", "cryptid epic rarity")
+H.assert_equal(find("soe_basic_joker").rarity, "soe_basic", "soe basic rarity")
+H.assert_equal(find("worm_otherworldly_joker").rarity, "unknown_high", "unspecialized external rarity maps high")
+H.assert_equal(find("worm_otherworldly_joker").raw_rarity, "worm_otherworldly", "unspecialized raw rarity retained")
 
 local series = Catalog.series(catalog)
-H.assert_equal(#series, 3, "only series with jokers are listed")
+H.assert_equal(#series, 5, "only series with jokers are listed")
 H.assert_equal(series[1].series_key, "BALATRO Series", "vanilla series listed")
 H.assert_equal(series[2].series_key, "Cryptid Series", "cryptid series listed")
 H.assert_equal(series[3].series_key, "Kino Series", "kino series listed")
+H.assert_equal(series[4].series_key, "Seals On Everything Series", "soe series listed")
+H.assert_equal(series[5].series_key, "Wormhole Series", "wormhole series listed")
 
 local localized_catalog = Catalog.discover(config, {
     j_joker = { key = "j_joker", set = "Joker", rarity = 1 }

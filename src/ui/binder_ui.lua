@@ -19,6 +19,7 @@ local UICommon = load_src("ui/ui_common.lua")
 
 local safe_localize = UICommon.localize_text
 local center_name = UICommon.center_name
+local rarity_label = UICommon.rarity_label
 local ui_text = UICommon.text_node
 local row = UICommon.row
 local col = UICommon.col
@@ -1278,7 +1279,7 @@ function BinderUI.create_inspect_definition(namespace)
         row({ inspect_text(center_name(entry), 0.8, G.C.WHITE, bold_font) }, { align = "cl", padding = 0.05 }),
         row({}, { minh = 0.4 }),
         inspect_detail_row("grdl_k_detail_source", mod_display, regular_font),
-        inspect_detail_row("grdl_k_detail_rarity", safe_localize("grdl_k_rarity_" .. tostring(entry.rarity or "common")), regular_font),
+        inspect_detail_row("grdl_k_detail_rarity", rarity_label(entry.rarity or "common"), regular_font),
         inspect_detail_row("grdl_k_detail_edition", inspect_edition_text(entry), regular_font)
     }
     if not state.offer_mode then

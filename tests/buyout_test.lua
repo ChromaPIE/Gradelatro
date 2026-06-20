@@ -10,11 +10,16 @@ local centers = {
     j_common = { key = "j_common", original_key = "common_joker", set = "Joker", rarity = 1, name = "Common", order = 1 },
     j_uncommon = { key = "j_uncommon", original_key = "uncommon_joker", set = "Joker", rarity = 2, name = "Uncommon", order = 2 },
     j_rare = { key = "j_rare", original_key = "rare_joker", set = "Joker", rarity = 3, name = "Rare", order = 3 },
-    j_exotic = { key = "j_exotic", original_key = "exotic_joker", set = "Joker", rarity = "exotic", name = "Exotic", order = 4, mod_id = "Cryptid" }
+    j_exotic = { key = "j_exotic", original_key = "exotic_joker", set = "Joker", rarity = "exotic", name = "Exotic", order = 4, mod_id = "Cryptid" },
+    j_cry_exotic = { key = "j_cry_exotic", original_key = "cry_exotic", set = "Joker", rarity = "cry_exotic", name = "Cryptid Exotic", order = 5, mod_id = "Cryptid" },
+    j_soe_basic = { key = "j_soe_basic", original_key = "soe_basic", set = "Joker", rarity = "soe_basic", name = "SOE Basic", order = 1, mod_id = "SealsOnEverything" },
+    j_worm = { key = "j_worm", original_key = "worm", set = "Joker", rarity = "worm_otherworldly", name = "Wormhole Joker", order = 1, mod_id = "Wormhole" }
 }
 local mods = {
     Balatro = { id = "Balatro", name = "BALATRO" },
-    Cryptid = { id = "Cryptid", name = "Cryptid" }
+    Cryptid = { id = "Cryptid", name = "Cryptid" },
+    SealsOnEverything = { id = "SealsOnEverything", name = "Seals On Everything" },
+    Wormhole = { id = "Wormhole", name = "Wormhole" }
 }
 local catalog = Catalog.discover(config, centers, mods)
 
@@ -137,6 +142,29 @@ local gold_offer = Buyout.prepare_offer(config, Storage.normalize({ currency_g =
     stake_anchors = { stake_red = 2, stake_blue = 5, stake_gold = 8 }
 })
 H.assert_equal(#gold_offer.eligible, 1, "gold plus allows exotic")
+
+local red_external_offer = Buyout.prepare_offer(config, Storage.normalize({ currency_g = 1000 }), {
+    catalog = catalog,
+    jokers = { card("j_soe_basic") },
+    stake_level = 2,
+    stake_anchors = { stake_red = 2, stake_blue = 5, stake_gold = 8 }
+})
+H.assert_equal(#red_external_offer.eligible, 0, "red blocks external rarity bucket")
+H.assert_equal(red_external_offer.blocked[1].reason, "rarity_locked", "external block reason")
+
+local gold_external_offer = Buyout.prepare_offer(config, Storage.normalize({ currency_g = 10000 }), {
+    catalog = catalog,
+    jokers = { card("j_cry_exotic"), card("j_soe_basic"), card("j_worm") },
+    stake_level = 8,
+    stake_anchors = { stake_red = 2, stake_blue = 5, stake_gold = 8 }
+})
+H.assert_equal(#gold_external_offer.eligible, 3, "gold plus allows high external bucket")
+H.assert_equal(gold_external_offer.eligible[1].rarity, "cry_exotic", "cryptid exotic key kept")
+H.assert_equal(gold_external_offer.eligible[1].price, 2550, "cryptid exotic explicit price")
+H.assert_equal(gold_external_offer.eligible[2].rarity, "soe_basic", "soe basic key kept")
+H.assert_equal(gold_external_offer.eligible[2].price, 51, "soe basic explicit price")
+H.assert_equal(gold_external_offer.eligible[3].rarity, "unknown_high", "unspecialized external rarity collapses high")
+H.assert_equal(gold_external_offer.eligible[3].price, 1275, "unspecialized external fallback price")
 
 rng.restore()
 print("buyout tests ok")

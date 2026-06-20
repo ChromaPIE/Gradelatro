@@ -1,5 +1,11 @@
 local Stakes = {}
 
+local function load_src(path)
+    return assert(SMODS.load_file("src/" .. path))()
+end
+
+local Rarity = load_src("domain/rarity.lua")
+
 local ALLOWED = {
     red = { common = true },
     blue = { common = true, uncommon = true },
@@ -28,7 +34,7 @@ end
 
 function Stakes.can_buyout(gate, rarity)
     local allowed = ALLOWED[gate] or ALLOWED.red
-    return allowed[rarity] == true
+    return allowed[Rarity.buyout_key(rarity)] == true
 end
 
 return Stakes

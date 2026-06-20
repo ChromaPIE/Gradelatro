@@ -1,6 +1,7 @@
 local H = dofile("tests/test_helper.lua")
 local Storage = dofile("src/core/storage.lua")
 local Condition = dofile("src/domain/condition.lua")
+local Economy = dofile("src/domain/economy.lua")
 local DebugTools = dofile("src/debug/debug_tools.lua")
 local rng = H.install_pseudorandom_stub()
 
@@ -58,7 +59,10 @@ for _, card in ipairs(seeded.cards) do
     H.assert_equal(card.acquired_day, 1, "seeded acquired day")
     H.assert_equal(card.source, "debug_seed", "seeded source marker")
     H.assert_true(card.condition ~= nil and card.condition.surface ~= nil, "seeded condition stored")
-    local expected_price = math.floor(seed_config.economy.rarity_base[card.rarity] * seed_config.economy.edition_mult[card.edition])
+    local expected_price = math.floor(Economy.raw_anchor_value(seed_config, {
+        rarity = card.rarity,
+        edition = card.edition
+    }))
     H.assert_equal(card.acquired_price, expected_price, "seeded price follows anchor value")
     distinct_grades[card.grade] = true
     distinct_editions[card.edition] = true

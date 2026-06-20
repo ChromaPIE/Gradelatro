@@ -5,6 +5,7 @@ local function load_src(path)
 end
 
 local Catalog = load_src("domain/catalog.lua")
+local Rarity = load_src("domain/rarity.lua")
 
 local ERROR_TEXT = "ERROR"
 
@@ -41,6 +42,14 @@ function UICommon.center_name(entry)
         if ok and value and value ~= ERROR_TEXT then return value end
     end
     return tostring(entry.name_key or entry.local_key or entry.center_key or entry.id)
+end
+
+function UICommon.rarity_label(rarity)
+    local label_key = Rarity.label_key(rarity)
+    local label = UICommon.localize_text(label_key)
+    if label ~= label_key then return label end
+    if Rarity.is_external(rarity) then return Rarity.key(rarity) end
+    return label
 end
 
 function UICommon.text_node(text, scale, colour)

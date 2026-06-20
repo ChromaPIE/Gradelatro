@@ -9,6 +9,13 @@ local normalized = Config.normalize({
 H.assert_equal(normalized.schema_version, 1, "schema version")
 H.assert_near(normalized.economy.buyout_mult, 1.25, 0.000001, "override buyout mult")
 H.assert_near(normalized.economy.rarity_base.common, 35, 0.000001, "default common base")
+H.assert_near(normalized.economy.rarity_base.unknown_high, 1500, 0.000001, "unknown high base")
+H.assert_near(normalized.economy.rarity_base.cry_exotic, 3000, 0.000001, "cryptid exotic base")
+H.assert_near(normalized.economy.rarity_base.cry_epic, 1500, 0.000001, "cryptid epic base")
+H.assert_near(normalized.economy.rarity_base.soe_basic, 60, 0.000001, "soe basic base")
+H.assert_near(normalized.economy.rarity_base.soe_unusual, 150, 0.000001, "soe unusual base")
+H.assert_near(normalized.economy.rarity_base.soe_unique, 485, 0.000001, "soe unique base")
+H.assert_near(normalized.economy.rarity_base.soe_fabled, 1250, 0.000001, "soe fabled base")
 H.assert_equal(normalized.grading.default_service, "priority", "override grading service")
 H.assert_near(normalized.market.heat_min, 0.75, 0.000001, "market heat min")
 
