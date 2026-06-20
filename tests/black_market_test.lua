@@ -19,6 +19,34 @@ local catalog = {
 
 H.assert_equal(BlackMarket.generate(config, Storage.normalize({}), { catalog = {}, run_id = "R1", now = 1000 }).reason, "empty_catalog", "empty catalog rejected")
 
+local restricted_catalog = {
+    { center_key = "j_worm", local_key = "worm", series_id = "Wormhole", mod_id = "Wormhole", mod_name = "Wormhole", series_key = "Wormhole Series", rarity = "unknown_high", raw_rarity = "worm_otherworldly" },
+    { center_key = "j_mythic", local_key = "mythic", series_id = "MythicMod", mod_id = "MythicMod", mod_name = "Mythic Mod", series_key = "Mythic Series", rarity = "unknown_high", raw_rarity = "Mythic" },
+    { center_key = "j_cry_exotic", local_key = "cry_exotic", series_id = "Cryptid", mod_id = "Cryptid", mod_name = "Cryptid", series_key = "Cryptid Series", rarity = "cry_exotic", raw_rarity = "cry_exotic" },
+    { center_key = "j_soe_basic", local_key = "soe_basic", series_id = "SealsOnEverything", mod_id = "SealsOnEverything", mod_name = "Seals On Everything", series_key = "SOE Series", rarity = "soe_basic", raw_rarity = "soe_basic" }
+}
+local restricted_state = Storage.normalize({ currency_g = 100000 })
+local restricted = BlackMarket.generate(config, restricted_state, { catalog = restricted_catalog, run_id = "R1", now = 1767225600, rng_seed = 11 })
+H.assert_equal(restricted.ok, true, "restricted catalog generation succeeds")
+local allowed_centers = { j_cry_exotic = true, j_soe_basic = true }
+for slot, offer in ipairs(restricted_state.market.black_market.offers) do
+    H.assert_true(allowed_centers[offer.center_key] == true, "slot " .. tostring(slot) .. " uses a specific-base rarity")
+    H.assert_true(offer.rarity ~= "unknown_high", "slot " .. tostring(slot) .. " does not use fallback rarity")
+end
+
+local unpriced_state = Storage.normalize({})
+local unpriced = BlackMarket.generate(config, unpriced_state, {
+    catalog = {
+        { center_key = "j_worm", local_key = "worm", series_id = "Wormhole", mod_id = "Wormhole", series_key = "Wormhole Series", rarity = "unknown_high", raw_rarity = "worm_otherworldly" }
+    },
+    run_id = "R1",
+    now = 1767225600,
+    rng_seed = 12
+})
+H.assert_equal(unpriced.ok, false, "all fallback rarity catalog rejected")
+H.assert_equal(unpriced.reason, "empty_catalog", "all fallback rarity reports empty catalog")
+H.assert_equal(unpriced_state.market.black_market, nil, "all fallback rarity does not create offers")
+
 local state = Storage.normalize({ currency_g = 100000 })
 local generated = BlackMarket.generate(config, state, { catalog = catalog, run_id = "R1", boss_key = "bl_hook", now = 1767225600, rng_seed = 42 })
 H.assert_equal(generated.ok, true, "generation succeeds")

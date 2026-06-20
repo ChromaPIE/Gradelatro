@@ -7,6 +7,7 @@ end
 local Condition = load_src("domain/condition.lua")
 local Economy = load_src("domain/economy.lua")
 local Market = load_src("domain/market.lua")
+local Rarity = load_src("domain/rarity.lua")
 local Storage = load_src("core/storage.lua")
 
 local EDITION_ORDER = { "base", "foil", "holographic", "polychrome", "negative" }
@@ -27,6 +28,21 @@ local function roll_edition(config, rand)
     return "base"
 end
 
+local function entry_rarity_key(entry)
+    return Rarity.key(entry and (entry.raw_rarity or entry.rarity) or nil)
+end
+
+local function filter_priced_catalog(config, catalog)
+    local out = {}
+    for _, entry in ipairs(catalog or {}) do
+        local key = entry_rarity_key(entry)
+        if Rarity.has_specific_base_value(config, key) then
+            out[#out + 1] = entry
+        end
+    end
+    return out
+end
+
 function BlackMarket.offer_value(config, state, offer)
     local heat = Market.heat_for(state, offer.mod_id)
     local rav = Economy.raw_anchor_value(config, {
@@ -43,14 +59,15 @@ end
 function BlackMarket.generate(config, state, args)
     args = args or {}
     if not state then return { ok = false, reason = "missing_collection" } end
-    local catalog = args.catalog or {}
-    if #catalog == 0 then return { ok = false, reason = "empty_catalog" } end
 
     local market = ensure_market(state)
     local run_id = tostring(args.run_id or "unknown")
     if market.black_market and market.black_market.run_id == run_id then
         return { ok = true, regenerated = false, black_market = market.black_market }
     end
+
+    local catalog = filter_priced_catalog(config, args.catalog)
+    if #catalog == 0 then return { ok = false, reason = "empty_catalog" } end
 
     local now = args.now or os.time()
     local rand_key = "grdl_black_market_" .. run_id .. "_" .. tostring(args.rng_seed or now)
