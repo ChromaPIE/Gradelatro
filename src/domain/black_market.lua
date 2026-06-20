@@ -12,6 +12,15 @@ local Storage = load_src("core/storage.lua")
 
 local EDITION_ORDER = { "base", "foil", "holographic", "polychrome", "negative" }
 
+BlackMarket.PUBLIC_RARITY_KEYS = {
+    "common",
+    "uncommon",
+    "rare",
+    "soe_basic",
+    "soe_unusual",
+    "soe_unique"
+}
+
 local function ensure_market(state)
     state.market = type(state.market) == "table" and state.market or {}
     return state.market
@@ -28,15 +37,24 @@ local function roll_edition(config, rand)
     return "base"
 end
 
+local function key_set(keys)
+    local out = {}
+    for _, key in ipairs(keys or {}) do
+        out[key] = true
+    end
+    return out
+end
+
 local function entry_rarity_key(entry)
     return Rarity.key(entry and (entry.raw_rarity or entry.rarity) or nil)
 end
 
-local function filter_priced_catalog(config, catalog)
+local function filter_priced_catalog(config, catalog, allowed_keys)
+    local allowed = allowed_keys and key_set(allowed_keys) or nil
     local out = {}
     for _, entry in ipairs(catalog or {}) do
         local key = entry_rarity_key(entry)
-        if Rarity.has_specific_base_value(config, key) then
+        if Rarity.has_specific_base_value(config, key) and (not allowed or allowed[key]) then
             out[#out + 1] = entry
         end
     end
@@ -67,7 +85,8 @@ function BlackMarket.generate(config, state, args)
     end
 
     local catalog = filter_priced_catalog(config, args.catalog)
-    if #catalog == 0 then return { ok = false, reason = "empty_catalog" } end
+    local public_catalog = filter_priced_catalog(config, args.catalog, BlackMarket.PUBLIC_RARITY_KEYS)
+    if #catalog == 0 or #public_catalog == 0 then return { ok = false, reason = "empty_catalog" } end
 
     local now = args.now or os.time()
     local rand_key = "grdl_black_market_" .. run_id .. "_" .. tostring(args.rng_seed or now)
@@ -78,7 +97,8 @@ function BlackMarket.generate(config, state, args)
 
     local offers = {}
     for slot = 1, 3 do
-        local entry = catalog[math.floor(rand() * #catalog) + 1]
+        local pool = slot == 3 and catalog or public_catalog
+        local entry = pool[math.floor(rand() * #pool) + 1]
         local edition = roll_edition(config, rand)
         local condition = Condition.generate(rand_key .. "_condition_" .. tostring(slot), edition)
         local graded = rand() < settings.graded_chance

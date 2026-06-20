@@ -33,6 +33,36 @@ for slot, offer in ipairs(restricted_state.market.black_market.offers) do
     H.assert_true(allowed_centers[offer.center_key] == true, "slot " .. tostring(slot) .. " uses a specific-base rarity")
     H.assert_true(offer.rarity ~= "unknown_high", "slot " .. tostring(slot) .. " does not use fallback rarity")
 end
+H.assert_equal(restricted_state.market.black_market.offers[1].center_key, "j_soe_basic", "public slot one uses public allowlist")
+H.assert_equal(restricted_state.market.black_market.offers[2].center_key, "j_soe_basic", "public slot two uses public allowlist")
+
+local public_restricted_catalog = {
+    { center_key = "j_common", local_key = "common", series_id = "Balatro", mod_id = "Balatro", mod_name = "Balatro", series_key = "Balatro Series", rarity = "common", raw_rarity = 1 },
+    { center_key = "j_rare", local_key = "rare", series_id = "Balatro", mod_id = "Balatro", mod_name = "Balatro", series_key = "Balatro Series", rarity = "rare", raw_rarity = 3 },
+    { center_key = "j_legendary", local_key = "legendary", series_id = "Balatro", mod_id = "Balatro", mod_name = "Balatro", series_key = "Balatro Series", rarity = "legendary", raw_rarity = 4 },
+    { center_key = "j_cry_epic", local_key = "cry_epic", series_id = "Cryptid", mod_id = "Cryptid", mod_name = "Cryptid", series_key = "Cryptid Series", rarity = "cry_epic", raw_rarity = "cry_epic" },
+    { center_key = "j_soe_unique", local_key = "soe_unique", series_id = "SealsOnEverything", mod_id = "SealsOnEverything", mod_name = "Seals On Everything", series_key = "SOE Series", rarity = "soe_unique", raw_rarity = "soe_unique" },
+    { center_key = "j_soe_fabled", local_key = "soe_fabled", series_id = "SealsOnEverything", mod_id = "SealsOnEverything", mod_name = "Seals On Everything", series_key = "SOE Series", rarity = "soe_fabled", raw_rarity = "soe_fabled" }
+}
+local public_restricted_state = Storage.normalize({ currency_g = 100000 })
+local public_restricted = BlackMarket.generate(config, public_restricted_state, {
+    catalog = public_restricted_catalog,
+    run_id = "R1",
+    now = 1767225600,
+    rng_seed = 21
+})
+H.assert_equal(public_restricted.ok, true, "public restricted generation succeeds")
+local public_allowed = {
+    common = true,
+    uncommon = true,
+    rare = true,
+    soe_basic = true,
+    soe_unusual = true,
+    soe_unique = true
+}
+H.assert_true(public_allowed[public_restricted_state.market.black_market.offers[1].rarity] == true, "slot one uses public rarity allowlist")
+H.assert_true(public_allowed[public_restricted_state.market.black_market.offers[2].rarity] == true, "slot two uses public rarity allowlist")
+H.assert_equal(public_restricted_state.market.black_market.offers[3].mystery, true, "slot three remains mystery")
 
 local unpriced_state = Storage.normalize({})
 local unpriced = BlackMarket.generate(config, unpriced_state, {
