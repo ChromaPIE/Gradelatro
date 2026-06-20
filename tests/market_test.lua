@@ -7,6 +7,14 @@ local rng = H.install_pseudorandom_stub()
 local config = Config.normalize({})
 
 H.assert_equal(config.market.refresh_cooldown, 90 * 60, "default refresh cooldown is ninety minutes")
+H.assert_equal(config.market.trend_step, 0.04, "default trend step fits ninety minute market ticks")
+H.assert_equal(config.market.cycle_amplitude, 0.05, "default cycle amplitude is tuned for visible daily play")
+H.assert_equal(config.market.cycle_days, 48, "default market cycle spans forty eight market ticks")
+H.assert_near(config.market.event_chance, 0.12, 0.000001, "default event chance is occasional per tick")
+H.assert_near(config.market.event_min, 0.10, 0.000001, "default event floor is visible")
+H.assert_near(config.market.event_max, 0.16, 0.000001, "default event ceiling avoids constant clamps")
+H.assert_equal(config.market.event_min_days, 16, "default event minimum spans overnight play gaps")
+H.assert_equal(config.market.event_max_days, 24, "default event maximum spans overnight play gaps")
 H.assert_true(config.market.raw_sell_factor > 0 and config.market.raw_sell_factor < 1, "raw sell factor is a discount")
 
 local state = Storage.normalize({})
@@ -37,6 +45,18 @@ H.assert_equal(after_cooldown.refreshed, true, "refresh runs at the ninety minut
 
 local forced = Market.refresh(config, state, { series_ids = { "Balatro" }, now = 1767225600 + 7200, rng_seed = 7, force = true })
 H.assert_equal(forced.refreshed, true, "forced refresh runs inside cooldown")
+
+local tick_config = Config.normalize({ market = { refresh_cooldown = 90 * 60, cycle_days = 4, cycle_amplitude = 0.1, trend_step = 0, event_chance = 0 } })
+local tick_state = Storage.normalize({})
+Market.refresh(tick_config, tick_state, { series_ids = { "" }, now = 0, rng_seed = 11 })
+H.assert_near(Market.heat_for(tick_state, ""), 1.0, 0.000001, "cycle starts neutral at tick zero")
+Market.refresh(tick_config, tick_state, { series_ids = { "" }, now = 90 * 60, rng_seed = 11 })
+H.assert_near(Market.heat_for(tick_state, ""), 1.1, 0.000001, "cycle advances by market tick, not real day")
+
+local event_config = Config.normalize({ market = { refresh_cooldown = 90 * 60, trend_step = 0, cycle_amplitude = 0, event_chance = 1.0, event_min = 0.1, event_max = 0.1, event_min_days = 2, event_max_days = 2 } })
+local event_state = Storage.normalize({})
+Market.refresh(event_config, event_state, { series_ids = { "Balatro" }, now = 1000, rng_seed = 5 })
+H.assert_equal(event_state.market.series_heat.Balatro.event.expires_at, 1000 + 2 * event_config.market.refresh_cooldown, "event duration uses market ticks")
 
 local extreme_config = Config.normalize({ market = { event_chance = 1.0, event_min = 5, event_max = 9 } })
 local extreme_state = Storage.normalize({})

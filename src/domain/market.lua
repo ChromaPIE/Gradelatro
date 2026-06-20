@@ -29,6 +29,12 @@ local function ensure_market(state)
     return state.market
 end
 
+local function market_time_unit(settings)
+    local unit = tonumber(settings.time_unit or settings.refresh_cooldown) or 86400
+    if unit <= 0 then return 86400 end
+    return unit
+end
+
 function Market.heat_for(state, series_id)
     local market = state and state.market or nil
     local entry = market and market.series_heat and market.series_heat[series_id] or nil
@@ -65,7 +71,7 @@ function Market.refresh(config, state, args)
         return { ok = true, refreshed = false }
     end
 
-    local day = math.floor(now / 86400)
+    local tick = math.floor(now / market_time_unit(settings))
     local rand_key = "grdl_market_" .. tostring(args.rng_seed or now)
     local function rand() return pseudorandom(rand_key) end
 
@@ -77,7 +83,7 @@ function Market.refresh(config, state, args)
         end
 
         entry.trend = clamp((entry.trend or 0) + (rand() * 2 - 1) * settings.trend_step, -settings.trend_max, settings.trend_max)
-        local cycle = settings.cycle_amplitude * math.sin(2 * math.pi * (day / settings.cycle_days + series_phase(series_id)))
+        local cycle = settings.cycle_amplitude * math.sin(2 * math.pi * (tick / settings.cycle_days + series_phase(series_id)))
 
         if entry.event and (entry.event.expires_at or 0) <= now then
             entry.event = nil
@@ -86,7 +92,7 @@ function Market.refresh(config, state, args)
             local magnitude = settings.event_min + rand() * (settings.event_max - settings.event_min)
             local sign = rand() < 0.5 and -1 or 1
             local days = settings.event_min_days + math.floor(rand() * (settings.event_max_days - settings.event_min_days + 1))
-            entry.event = { bump = sign * magnitude, expires_at = now + days * 86400 }
+            entry.event = { bump = sign * magnitude, expires_at = now + days * market_time_unit(settings) }
         end
 
         local bump = entry.event and entry.event.bump or 0
